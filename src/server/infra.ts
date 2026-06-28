@@ -268,6 +268,64 @@ function buildRotationJson(profileJson: unknown, shifts: unknown[]) {
   };
 }
 
+function countRoomsByKind(layout: BaseBlueprint, kind: string) {
+  return Array.isArray(layout.rooms) ? layout.rooms.filter((room) => room.kind === kind).length : 0;
+}
+
+function serveErrorMessage(response: JsonRecord) {
+  const error = response.error;
+  if (isObject(error) && typeof error.message === "string") return error.message;
+  return "unknown error";
+}
+
+function formatPlanFailure({
+  layout,
+  maaJson,
+  profileJson,
+  response,
+  stderr,
+}: {
+  layout: BaseBlueprint;
+  maaJson: unknown;
+  profileJson: unknown;
+  response: JsonRecord;
+  stderr: string;
+}) {
+  const message = serveErrorMessage(response);
+  const powerAssignmentsMatch = message.match(/power: expected (\d+) assignments, got (\d+)/);
+  const stderrPowerMatch = stderr.match(/发电站:\s*过滤\s*\d+\s*(?:→|->|=>|>)\s*(\d+)/);
+
+  if (powerAssignmentsMatch) {
+    const expected = Number(powerAssignmentsMatch[1]);
+    const got = Number(powerAssignmentsMatch[2]);
+    const layoutPowerRooms = countRoomsByKind(layout, "power_plant") || expected;
+    const filteredPowerCount = stderrPowerMatch ? Number(stderrPowerMatch[1]) : got;
+
+    return [
+      `发电站候选不足：当前布局有 ${layoutPowerRooms} 个发电站，但 infra-cli 只生成了 ${got} 组发电站排班。`,
+      Number.isFinite(filteredPowerCount)
+        ? `CLI 日志显示当前 box 筛选后只有 ${filteredPowerCount} 名可用于发电站的候选干员。`
+        : undefined,
+      layoutPowerRooms > got ? "处理方式：切换到 252/342 等 2 发电站布局，或补足可用于发电站的干员后重新导出 box。" : undefined,
+      `原始错误：${message}`,
+      !profileJson && "profile.json 未生成",
+      !maaJson && "maa.json 未生成",
+      stderr?.slice(0, 1200),
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return [
+    !response.ok && `infra-cli serve error: ${message}`,
+    !profileJson && "profile.json 未生成",
+    !maaJson && "maa.json 未生成",
+    stderr?.slice(0, 1200),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 class InfraCliServeClient {
   private child: ReturnType<typeof spawn> | null = null;
   private cliPath: string | null = null;
@@ -744,17 +802,13 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
       relativeResultPath: path.relative(repoRoot, resultPath),
       error: success
         ? undefined
-        : [
-            !serveResult.response?.ok &&
-              `infra-cli serve error: ${
-                isObject(serveResult.response?.error) ? serveResult.response.error.message ?? "unknown error" : "unknown error"
-              }`,
-            !profileJson && "profile.json 未生成",
-            !maaJson && "maa.json 未生成",
-            serveResult.stderr?.slice(0, 1200),
-          ]
-            .filter(Boolean)
-            .join("\n"),
+        : formatPlanFailure({
+            layout: body.layout,
+            maaJson,
+            profileJson,
+            response: serveResult.response,
+            stderr: serveResult.stderr,
+          }),
     };
     await writeJson(resultPath, resultPayload);
 
