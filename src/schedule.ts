@@ -95,10 +95,12 @@ function plainOperatorName(value: unknown): string {
 }
 
 function roomOperators(room: MaaRoom): string[] {
+  if (!Array.isArray(room.operators)) return [];
   return room.operators.map(operatorName).filter(Boolean);
 }
 
 function plainRoomOperators(room: MaaRoom): string[] {
+  if (!Array.isArray(room.operators)) return [];
   return room.operators.map(plainOperatorName).filter(Boolean);
 }
 
@@ -172,7 +174,8 @@ function efficiencyLabel(group: RoomGroup, efficiency: RoomEfficiency | undefine
 
 function efficiencyMapFor(shift: RotationShift | undefined): Map<string, RoomEfficiency> {
   const map = new Map<string, RoomEfficiency>();
-  for (const line of shift?.scores.room_lines ?? []) {
+  const roomLines = Array.isArray(shift?.scores?.room_lines) ? shift.scores.room_lines : [];
+  for (const line of roomLines) {
     map.set(line.room_id, line);
   }
   return map;
@@ -232,8 +235,9 @@ export function planToRows(plan: MaaPlan | undefined, shift?: RotationShift, lay
   const rows: RoomRow[] = [];
   const efficiencyMap = efficiencyMapFor(shift);
   const levelMap = levelMapFor(layout);
+  const roomsByGroup = plan.rooms && typeof plan.rooms === "object" ? plan.rooms : {};
   for (const group of GROUP_ORDER) {
-    const rooms = plan.rooms[group] ?? [];
+    const rooms = Array.isArray(roomsByGroup[group]) ? roomsByGroup[group] : [];
     rooms.forEach((room, index) => {
       const operators = roomOperators(room);
       const roomId = roomIdFor(group, index);

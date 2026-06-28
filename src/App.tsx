@@ -172,8 +172,9 @@ function WorkbenchApp() {
   const [feedbackResult, setFeedbackResult] = useState<FeedbackApiResponse | null>(initialSession?.feedback ?? null);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
-  const activePlan = result?.maaJson?.plans?.[activeShift];
-  const activeRotationShift = result?.rotationJson?.shifts?.[activeShift];
+  const scheduleResult = result?.success ? result : null;
+  const activePlan = scheduleResult?.maaJson?.plans?.[activeShift];
+  const activeRotationShift = scheduleResult?.rotationJson?.shifts?.[activeShift];
   const rows = useMemo(() => planToRows(activePlan, activeRotationShift, layout), [activePlan, activeRotationShift, layout]);
   const canRun = Boolean(operbox && operbox.length > 0 && cliReady);
 
@@ -184,7 +185,7 @@ function WorkbenchApp() {
       layout,
       operbox,
       fileName,
-      result,
+      result: result?.success ? result : null,
       activeShift,
       issueOpen,
       issueDraftRow,
@@ -192,7 +193,11 @@ function WorkbenchApp() {
       issue: savedIssue,
       feedback: feedbackResult,
     };
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    try {
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch (error) {
+      console.warn("Failed to persist workbench session", error);
+    }
   }, [preset, layout, operbox, fileName, result, activeShift, issueOpen, issueDraftRow, issueDraftNote, savedIssue, feedbackResult]);
 
   useEffect(() => {
