@@ -232,7 +232,7 @@ export function StatusBar({
     return (
       <div className="status running">
         <Loader2 className="spin" size={18} />
-        <span>正在调用 team-rotation 排班</span>
+        <span>正在通过 infra-cli serve 排班</span>
       </div>
     );
   }

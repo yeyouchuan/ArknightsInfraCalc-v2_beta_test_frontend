@@ -210,18 +210,24 @@ export interface DebugBundle {
   profileJson?: UserProfile;
   maaJson?: MaaJson;
   rotationJson?: RotationJson;
+  serveRequest?: unknown;
+  serveResponse?: unknown;
   stdout: string;
   stderr: string;
   savedFiles?: {
     runDir?: string;
     layout?: string;
     operbox?: string;
+    profile?: string;
     maa?: string;
     rotation?: string;
+    shifts?: string;
     debugBundle?: string;
     stdout?: string;
     stderr?: string;
     command?: string;
+    serveRequest?: string;
+    serveResponse?: string;
     result?: string;
   };
 }
