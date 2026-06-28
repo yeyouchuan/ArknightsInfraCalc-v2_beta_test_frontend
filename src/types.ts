@@ -133,10 +133,42 @@ export interface RotationShift {
 export interface RotationJson {
   shifts: RotationShift[];
   daily: {
-    trade: number;
-    manu: number;
-    power: number;
+    trade: number | null;
+    manu: number | null;
+    power: number | null;
   };
+}
+
+export interface CliCandidate {
+  path: string;
+  exists: boolean;
+  compatible: boolean;
+  reason: string | null;
+}
+
+export interface HealthApiResponse {
+  ok: boolean;
+  apiReady?: boolean;
+  cliReady?: boolean;
+  cliPath?: string | null;
+  serve?: {
+    cliPath?: string | null;
+    pid?: number | null;
+    running: boolean;
+    restartCount: number;
+  };
+  serveError?: string | null;
+  candidates?: CliCandidate[];
+  coreRoot?: string;
+  repoRoot?: string;
+  bundledCliRoot?: string;
+  bundledDataRoot?: string;
+  samplePath?: string | null;
+  dataPath?: string | null;
+  storageRoot?: string;
+  feedbackRoot?: string;
+  cliRunRoot?: string;
+  error?: string;
 }
 
 export type Severity = "ok" | "warn" | "critical";
@@ -210,6 +242,8 @@ export interface DebugBundle {
   profileJson?: UserProfile;
   maaJson?: MaaJson;
   rotationJson?: RotationJson;
+  shiftFiles?: string[];
+  shiftReadErrors?: string[];
   serveRequest?: unknown;
   serveResponse?: unknown;
   stdout: string;
@@ -227,6 +261,7 @@ export interface DebugBundle {
     stderr?: string;
     command?: string;
     serveRequest?: string;
+    serveRequestLine?: string;
     serveResponse?: string;
     result?: string;
   };

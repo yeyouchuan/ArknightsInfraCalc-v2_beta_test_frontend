@@ -1,4 +1,12 @@
-import { BaseBlueprint, DebugBundle, FeedbackApiResponse, IssueReport, OperBoxEntry, PlanApiResponse } from "./types";
+import {
+  BaseBlueprint,
+  DebugBundle,
+  FeedbackApiResponse,
+  HealthApiResponse,
+  IssueReport,
+  OperBoxEntry,
+  PlanApiResponse,
+} from "./types";
 
 export async function runPlan(payload: {
   layout: BaseBlueprint;
@@ -21,7 +29,7 @@ export async function runPlan(payload: {
   return body;
 }
 
-export async function getHealth(): Promise<{ ok: boolean; cliPath?: string; error?: string }> {
+export async function getHealth(): Promise<HealthApiResponse> {
   const response = await fetch("/api/health");
   return response.json();
 }

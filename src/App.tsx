@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Boxes,
@@ -8,6 +10,11 @@ import {
   ShieldCheck,
   Terminal,
 } from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+
 import { getHealth, getSampleOperbox, runPlan, saveFeedback } from "./api";
 import {
   buildBlueprint,
@@ -35,13 +42,19 @@ import {
 import { copyText, downloadJson } from "./download";
 import { countOwned, readOperboxFile } from "./operbox";
 import { planToRows, RoomRow } from "./schedule";
-import { BaseBlueprint, FeedbackApiResponse, IssueReport, OperBoxEntry, PlanApiResponse, PresetDef } from "./types";
-import "./styles.css";
+import {
+  BaseBlueprint,
+  FeedbackApiResponse,
+  IssueReport,
+  OperBoxEntry,
+  PlanApiResponse,
+  PresetDef,
+} from "./types";
 
 const SESSION_KEY = "arknights-infra-calc-beta-session-v2";
 const KNOWN_ISSUES = [
-  "β 测试阶段仍可能出现排班策略和预期不一致的情况；请用“标记问题”提交上下文。",
-  "目前已知问题："
+  "Beta 测试阶段仍可能出现排班策略和预期不一致的情况；请用“标记问题”提交上下文。",
+  "如遇到 CLI 运行失败，请先下载调试包并保留本次运行记录。",
 ];
 
 function safeParseJson(value: string | null): unknown {
@@ -115,7 +128,7 @@ function buildIssueReport(
   };
 }
 
-function App() {
+function WorkbenchApp() {
   const initialSession = readSessionState() as
     | {
         preset?: PresetDef;
@@ -142,6 +155,7 @@ function App() {
   const [result, setResult] = useState<PlanApiResponse | null>(initialSession?.result ?? null);
   const [loading, setLoading] = useState(false);
   const [cliPath, setCliPath] = useState<string | null>(null);
+  const [cliReady, setCliReady] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [activeShift, setActiveShift] = useState(initialSession?.activeShift ?? 0);
   const [issueDraftRow, setIssueDraftRow] = useState<RoomRow | null>(
@@ -161,7 +175,7 @@ function App() {
   const activePlan = result?.maaJson?.plans?.[activeShift];
   const activeRotationShift = result?.rotationJson?.shifts?.[activeShift];
   const rows = useMemo(() => planToRows(activePlan, activeRotationShift, layout), [activePlan, activeRotationShift, layout]);
-  const canRun = Boolean(operbox && operbox.length > 0);
+  const canRun = Boolean(operbox && operbox.length > 0 && cliReady);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -184,16 +198,18 @@ function App() {
   useEffect(() => {
     getHealth()
       .then((health) => {
-        if (health.ok) {
+        if (health.ok && health.cliReady) {
           setCliPath(health.cliPath ?? null);
-          if (!health.cliPath) {
-            setApiError("API 正常，但未找到可执行的 infra-cli。");
-          }
+          setCliReady(true);
+          setApiError(null);
         } else {
-          setApiError(health.error ?? "本地 API 服务不可用。");
+          setCliReady(false);
+          setCliPath(health.cliPath ?? null);
+          setApiError(health.serveError ?? health.error ?? "API 正常，但未找到可执行的 infra-cli。");
         }
       })
       .catch((error) => {
+        setCliReady(false);
         setApiError(error instanceof Error ? error.message : "本地 API 服务不可用。");
       });
   }, []);
@@ -213,6 +229,10 @@ function App() {
 
   async function handleRun() {
     if (!operbox) return;
+    if (!cliReady) {
+      setApiError("当前没有可运行的 infra-cli；Windows 本地请设置 INFRA_CLI_PATH 指向 infra-cli.exe。");
+      return;
+    }
     setLoading(true);
     setInputError(null);
     setApiError(null);
@@ -359,44 +379,43 @@ function App() {
   );
 
   return (
-    <main>
-      <header className="topbar">
-        <div>
-          <span className="eyebrow">Arknights InfraCalc</span>
-          <h1>β 排班验收台</h1>
+    <main className="min-h-screen bg-muted/40 px-4 py-4 text-foreground sm:px-5">
+      <header className="mx-auto mb-4 flex max-w-[1760px] items-center justify-between gap-4 border-b pb-4 max-lg:flex-col max-lg:items-stretch">
+        <div className="min-w-0">
+          <span className="text-xs font-semibold uppercase tracking-normal text-primary">Arknights InfraCalc</span>
+          <h1 className="mt-1 text-2xl font-semibold leading-tight">排班验收台</h1>
         </div>
-        <div className="topbar-actions">
-          <StatusBar
-            loading={loading}
-            result={result}
-            error={inputError ?? apiError}
-            cliPath={cliPath}
-          />
+        <div className="flex min-w-0 items-center justify-end gap-2 max-lg:items-stretch max-sm:flex-col">
+          <StatusBar loading={loading} result={result} error={inputError ?? apiError} cliPath={cliPath} />
           <RunButton canRun={canRun} loading={loading} onRun={handleRun} />
         </div>
       </header>
 
-      <section className="workspace">
-        <aside className="left-column">
-          <Panel title="输入" icon={<Database size={18} />}>
+      <section className="mx-auto grid max-w-[1760px] grid-cols-[340px_minmax(560px,1fr)_390px] items-start gap-4 max-[1320px]:grid-cols-[320px_minmax(0,1fr)] max-[900px]:block">
+        <aside className="min-w-0 space-y-4">
+          <Panel title="输入" icon={<Database className="size-4" />}>
             <FileDrop fileName={fileName} onFile={handleFile} />
-            <button type="button" className="sample-button" onClick={handleLoadSample}>
-              <FlaskConical size={16} />
+            <Button type="button" variant="outline" className="mt-2 w-full" onClick={handleLoadSample}>
+              <FlaskConical />
               载入 243 全精二样例
-            </button>
-          <AccountStats operbox={operbox} />
-          {operbox && countOwned(operbox) === 0 && (
-            <div className="warning-line">
-              练度表已读入，但没有识别到 `own=true`，仍可继续生成排班。
-            </div>
-          )}
-            <div className="hint-line">
-              <Boxes size={15} />
-              <span>当前布局：{preset.label}，{roomSummary(layout)}</span>
+            </Button>
+            <AccountStats operbox={operbox} />
+            {operbox && countOwned(operbox) === 0 ? (
+              <Alert className="mt-3 border-amber-200 bg-amber-50 text-amber-700">
+                <AlertDescription className="text-amber-700">
+                  练度表已读入，但没有识别到 own=true，仍可继续生成排班。
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <Boxes className="size-4" />
+              <span className="truncate">
+                当前布局：{preset.label}，{roomSummary(layout)}
+              </span>
             </div>
           </Panel>
 
-          <Panel title="布局" icon={<LayoutGrid size={18} />}>
+          <Panel title="布局" icon={<LayoutGrid className="size-4" />}>
             <PresetSelector presets={PRESETS} selected={preset} onSelect={handlePresetSelect} />
             <LayoutEditor
               layout={layout}
@@ -406,12 +425,16 @@ function App() {
           </Panel>
         </aside>
 
-        <section className="center-column">
-          <Panel title="三班排班" icon={<ShieldCheck size={18} />} className="board-panel">
-            <div className="board-header">
-              <div>
-                <strong>{result?.maaJson?.title ?? "等待生成排班"}</strong>
-                <span>{activePlan?.description ?? "可先调整房间订单和配方，上传练度表后点击生成排班。"}</span>
+        <section className="min-w-0 max-[900px]:mt-4">
+          <Panel title="三班排班" icon={<ShieldCheck className="size-4" />} className="min-h-[calc(100vh-112px)]">
+            <div className="mb-3 flex items-start justify-between gap-3 max-sm:flex-col">
+              <div className="min-w-0">
+                <strong className="block truncate text-sm font-medium">
+                  {result?.maaJson?.title ?? "等待生成排班"}
+                </strong>
+                <span className="mt-1 block text-sm text-muted-foreground">
+                  {activePlan?.description ?? "可先调整房间订单和配方，上传练度表后点击生成排班。"}
+                </span>
               </div>
               <ShiftTabs maaJson={result?.maaJson} active={activeShift} onChange={setActiveShift} />
             </div>
@@ -425,8 +448,8 @@ function App() {
           </Panel>
         </section>
 
-        <aside className="right-column">
-          <Panel title="问题上下文" icon={<FileJson size={18} />}>
+        <aside className="min-w-0 space-y-4 max-[1320px]:col-span-full max-[1320px]:grid max-[1320px]:grid-cols-2 max-[1320px]:gap-4 max-[1320px]:space-y-0 max-[900px]:mt-4 max-[900px]:block max-[900px]:space-y-4">
+          <Panel title="问题上下文" icon={<FileJson className="size-4" />}>
             <IssuePanel
               issue={issueForPanel}
               report={issueReport}
@@ -435,16 +458,20 @@ function App() {
             />
           </Panel>
 
-          <Panel title="调试输出" icon={<Terminal size={18} />}>
+          <Panel title="调试输出" icon={<Terminal className="size-4" />}>
             <DebugActions
               result={result}
               onDownloadMaa={handleDownloadMaa}
               onDownloadBundle={handleDownloadBundle}
               onCopyCommand={handleCopyCommand}
             />
-            <details className="raw-details">
-              <summary>stdout / stderr</summary>
-              <pre>{result?.stdout || result?.stderr || "暂无输出。"}</pre>
+            <details className="mt-3 text-sm text-muted-foreground">
+              <summary className="cursor-pointer">stdout / stderr</summary>
+              <Textarea
+                readOnly
+                value={result?.stdout || result?.stderr || "暂无输出。"}
+                className="mt-2 max-h-64 min-h-32 resize-y font-mono text-xs"
+              />
             </details>
           </Panel>
         </aside>
@@ -460,11 +487,16 @@ function App() {
         onCancel={handleCancelIssue}
       />
 
-      <aside className="known-issues" aria-label="目前已知问题">
-        <strong>目前已知问题</strong>
-        <ul>
+      <aside
+        className="fixed bottom-4 right-4 z-30 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-amber-200 bg-background/95 p-3 text-sm shadow-lg backdrop-blur"
+        aria-label="目前已知问题"
+      >
+        <strong className="block text-sm font-medium">目前已知问题</strong>
+        <ul className="mt-2 grid gap-1 pl-4 text-xs leading-5 text-muted-foreground">
           {KNOWN_ISSUES.map((issue) => (
-            <li key={issue}>{issue}</li>
+            <li key={issue} className="list-disc">
+              {issue}
+            </li>
           ))}
         </ul>
       </aside>
@@ -472,4 +504,4 @@ function App() {
   );
 }
 
-export default App;
+export default WorkbenchApp;

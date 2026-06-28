@@ -1,6 +1,9 @@
 node_modules
 dist
+.next
+.playwright-cli
 .tmp
+bin/data/
 server/feedback
 server/storage
 *.tsbuildinfo
