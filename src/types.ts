@@ -107,6 +107,7 @@ export interface RoomEfficiency {
   manu_prod_skill?: number;
   manu_storage_limit?: number;
   power_score?: number;
+  power_skill_pct?: number;
   power_charge_speed_pct?: number;
 }
 

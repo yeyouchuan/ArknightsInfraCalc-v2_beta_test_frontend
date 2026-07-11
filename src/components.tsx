@@ -45,6 +45,7 @@ import {
   TRADE_ORDER_OPTIONS,
   TradeOrder,
   factoryRecipeFor,
+  maxRoomLevel,
   productLabel,
   roomKindLabel,
   tradeOrderFor,
@@ -224,6 +225,7 @@ export function LayoutEditor({
           const activeOrder = isTrade ? tradeOrderFor(room) : null;
           const activeRecipe = isFactory ? factoryRecipeFor(room) : null;
           const product = productLabel(room);
+          const levelMax = maxRoomLevel(room.kind);
 
           return (
             <div
@@ -245,13 +247,13 @@ export function LayoutEditor({
                     aria-label={`${room.id} 等级`}
                     type="number"
                     min={1}
-                    max={3}
+                    max={levelMax}
                     step={1}
                     value={room.level}
                     className="h-7 w-12 px-1 text-center text-sm"
                     onChange={(event) => {
                       const level = Number(event.target.value);
-                      if (Number.isInteger(level) && level >= 1 && level <= 3) onRoomLevelChange(room.id, level);
+                      if (Number.isInteger(level) && level >= 1 && level <= levelMax) onRoomLevelChange(room.id, level);
                     }}
                   />
                 </Label>
@@ -428,11 +430,11 @@ const roomToneClass: Record<string, string> = {
 
 function efficiencyPercent(row: RoomRow): number | null {
   const value = row.group === "trading"
-    ? row.efficiency?.trade_pct ?? row.efficiency?.trade_skill_pct ?? row.efficiency?.trade_gold_pct
+    ? row.efficiency?.trade_skill_pct
     : row.group === "manufacture"
-      ? row.efficiency?.manu_score ?? row.efficiency?.manu_prod_skill ?? row.efficiency?.manu_prod_total
+      ? row.efficiency?.manu_prod_skill
       : row.group === "power"
-        ? row.efficiency?.power_score ?? row.efficiency?.power_charge_speed_pct
+        ? row.efficiency?.power_skill_pct
         : undefined;
 
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(value, 300)) : null;
@@ -721,4 +723,3 @@ export function DebugActions({
     </div>
   );
 }
-

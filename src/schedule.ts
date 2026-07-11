@@ -150,23 +150,21 @@ function efficiencyLabel(group: RoomGroup, efficiency: RoomEfficiency | undefine
   if (!efficiency) return undefined;
 
   if (group === "trading") {
-    const parts = [
-      typeof efficiency.trade_score === "number" && `倍率 ${formatNumber(efficiency.trade_score, 2)}x`,
-      typeof efficiency.trade_pct === "number" && `订单 ${formatNumber(efficiency.trade_pct)}%`,
-      typeof efficiency.trade_skill_pct === "number" && `技能 ${formatNumber(efficiency.trade_skill_pct)}%`,
-      typeof efficiency.trade_gold_pct === "number" && `赤金 ${formatNumber(efficiency.trade_gold_pct)}%`,
-    ].filter(Boolean);
-    return parts.length > 0 ? parts.join(" / ") : undefined;
+    if (typeof efficiency.trade_skill_pct === "number") {
+      return `纯技能效率 ${formatNumber(efficiency.trade_skill_pct)}%`;
+    }
   }
 
   if (group === "manufacture") {
-    const score = efficiency.manu_score ?? efficiency.manu_prod_skill ?? efficiency.manu_prod_total;
-    if (typeof score === "number") return `制造效率 ${formatNumber(score)}%`;
+    if (typeof efficiency.manu_prod_skill === "number") {
+      return `纯技能效率 ${formatNumber(efficiency.manu_prod_skill)}%`;
+    }
   }
 
   if (group === "power") {
-    const score = efficiency.power_score ?? efficiency.power_charge_speed_pct;
-    if (typeof score === "number") return `充能 ${formatNumber(score)}%`;
+    if (typeof efficiency.power_skill_pct === "number") {
+      return `纯技能效率 ${formatNumber(efficiency.power_skill_pct)}%`;
+    }
   }
 
   return undefined;
