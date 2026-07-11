@@ -320,6 +320,43 @@ function buildRotationJson(profileJson: unknown, shifts: unknown[]) {
   };
 }
 
+function rotationShiftsFromServe(response: JsonRecord): unknown[] {
+  const result = response.result;
+  if (!isObject(result) || !Array.isArray(result.shifts)) return [];
+
+  return result.shifts.map((value) => {
+    if (!isObject(value) || !isObject(value.efficiencies)) return value;
+    const efficiencies = value.efficiencies;
+    const roomLines = Array.isArray(efficiencies.room_lines)
+      ? efficiencies.room_lines.map((line) => {
+          if (!isObject(line)) return line;
+          const trade = Number(line.trade_efficiency ?? 0);
+          const tradeSkill = Number(line.trade_skill_efficiency ?? 0);
+          const manufacture = Number(line.manufacture_efficiency ?? 0);
+          const manufactureSkill = Number(line.manufacture_skill_efficiency ?? 0);
+          const power = Number(line.power_efficiency ?? 0);
+          return {
+            room_id: line.room_id,
+            ...(trade ? { trade_score: trade } : {}),
+            ...(tradeSkill ? { trade_skill_pct: tradeSkill * 100 } : {}),
+            ...(manufacture ? { manu_score: manufacture * 100 } : {}),
+            ...(manufactureSkill ? { manu_prod_skill: manufactureSkill * 100 } : {}),
+            ...(power ? { power_score: power * 100 } : {}),
+          };
+        })
+      : [];
+    return {
+      ...value,
+      scores: {
+        trade_score: Number(efficiencies.trade_efficiency ?? 0),
+        manu_prod_sum: Number(efficiencies.manufacture_efficiency ?? 0) * 100,
+        power_charge_sum: Number(efficiencies.power_efficiency ?? 0) * 100,
+        room_lines: roomLines,
+      },
+    };
+  });
+}
+
 function countRoomsByKind(layout: BaseBlueprint, kind: string) {
   return Array.isArray(layout.rooms) ? layout.rooms.filter((room) => room.kind === kind).length : 0;
 }
@@ -842,7 +879,8 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
     const profileJson = await readJsonIfExists(profilePath);
     const maaJson = await readJsonIfExists(maaPath);
     const shiftRead = await readShiftFiles(shiftsDir);
-    const rotationJson = buildRotationJson(profileJson, shiftRead.shifts);
+    const serveShifts = rotationShiftsFromServe(serveResult.response);
+    const rotationJson = buildRotationJson(profileJson, serveShifts.length > 0 ? serveShifts : shiftRead.shifts);
     await writeFile(stdoutPath, serveResult.stdout, "utf-8");
     await writeFile(stderrPath, serveResult.stderr, "utf-8");
 
