@@ -8,6 +8,7 @@
     "dev:full": "npm run dev",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 5174",
+    "test": "node --test --experimental-strip-types src/server/shift-parser.test.ts",
     "lint": "eslint ."
   },
   "dependencies": {
