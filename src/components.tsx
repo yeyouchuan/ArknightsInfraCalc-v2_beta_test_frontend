@@ -435,6 +435,7 @@ function efficiencyPercent(row: RoomRow): number | null {
       ? row.efficiency?.manu_prod_skill
       : row.group === "power"
         ? row.efficiency?.power_skill_pct
+          ?? (typeof row.efficiency?.power_score === "number" ? Math.max(0, row.efficiency.power_score - 100) : undefined)
         : undefined;
 
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(value, 300)) : null;

@@ -162,8 +162,10 @@ function efficiencyLabel(group: RoomGroup, efficiency: RoomEfficiency | undefine
   }
 
   if (group === "power") {
-    if (typeof efficiency.power_skill_pct === "number") {
-      return `纯技能效率 ${formatNumber(efficiency.power_skill_pct)}%`;
+    const score = efficiency.power_skill_pct
+      ?? (typeof efficiency.power_score === "number" ? Math.max(0, efficiency.power_score - 100) : undefined);
+    if (typeof score === "number") {
+      return `纯技能效率 ${formatNumber(score)}%`;
     }
   }
 
