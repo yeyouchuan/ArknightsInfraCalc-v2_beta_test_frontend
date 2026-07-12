@@ -66,9 +66,13 @@ export function updateTradeOrder(layout: BaseBlueprint, roomId: string, order: T
   };
 }
 
+export function maxRoomLevel(kind: RoomKind): number {
+  return kind === "control_center" || kind === "dormitory" ? 5 : 3;
+}
+
 export function updateRoomLevel(layout: BaseBlueprint, roomId: string, level: number): BaseBlueprint {
   const target = layout.rooms.find((room) => room.id === roomId);
-  const maxLevel = target && (target.kind === "control_center" || target.kind === "dormitory") ? 5 : 3;
+  const maxLevel = target ? maxRoomLevel(target.kind) : 3;
   const nextLevel = Math.max(1, Math.min(maxLevel, Math.trunc(level)));
   return {
     ...layout,
