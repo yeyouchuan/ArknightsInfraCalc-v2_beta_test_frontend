@@ -806,9 +806,15 @@ function OperatorSlot({
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60" />
+      <span
+        className="absolute inset-x-0 bottom-0 truncate bg-black/64 px-1.5 py-1 text-center text-[11px] font-semibold leading-none text-white shadow-[0_-4px_10px_rgba(0,0,0,0.28)] max-sm:px-0.5 max-sm:py-0.5 max-sm:text-[7px]"
+        title={slot.name}
+      >
+        {slot.name}
+      </span>
       {typeof currentMorale === "number" ? (
         <span
-          className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded-sm bg-black/72 px-1 py-0.5 text-[10px] font-semibold leading-none text-white shadow-[0_1px_3px_rgba(0,0,0,0.5)] [&_svg]:size-2.5 max-sm:bottom-0.5 max-sm:left-0.5 max-sm:px-0.5 max-sm:text-[8px] max-sm:[&_svg]:size-2"
+          className="absolute bottom-5 left-1 flex items-center gap-0.5 rounded-sm bg-black/72 px-1 py-0.5 text-[10px] font-semibold leading-none text-white shadow-[0_1px_3px_rgba(0,0,0,0.5)] [&_svg]:size-2.5 max-sm:bottom-4 max-sm:left-0.5 max-sm:px-0.5 max-sm:text-[8px] max-sm:[&_svg]:size-2"
           aria-label={`当前心情 ${currentMorale}/24`}
           title={`当前心情 ${currentMorale}/24`}
         >
