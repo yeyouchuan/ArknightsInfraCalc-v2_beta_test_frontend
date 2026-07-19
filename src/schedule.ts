@@ -1,4 +1,5 @@
-import { BaseBlueprint, BlueprintRoom, MaaPlan, MaaRoom, MaaRooms, RoomEfficiency, RoomKind, RotationShift } from "./types";
+import { operatorPortraitFor } from "./operatorPortraits";
+import { BaseBlueprint, BlueprintRoom, MaaOperatorSlot, MaaPlan, MaaRoom, MaaRooms, RoomEfficiency, RoomKind, RotationShift } from "./types";
 
 export type RoomGroup = keyof MaaRooms;
 
@@ -12,10 +13,18 @@ export interface RoomRow {
   level?: number;
   product?: string;
   operators: string[];
+  operatorSlots: RoomOperatorSlot[];
   efficiency?: RoomEfficiency;
   efficiencyLabel?: string;
   rule: string;
   suspicious: boolean;
+}
+
+export interface RoomOperatorSlot {
+  name: string;
+  label: string;
+  skill?: number;
+  portrait?: string;
 }
 
 const GROUP_LABELS: Record<RoomGroup, string> = {
@@ -30,14 +39,14 @@ const GROUP_LABELS: Record<RoomGroup, string> = {
 };
 
 const GROUP_ORDER: RoomGroup[] = [
+  "control",
   "trading",
   "manufacture",
   "power",
-  "control",
   "dormitory",
+  "hire",
   "meeting",
   "processing",
-  "hire",
 ];
 
 const ROOM_PREFIX: Partial<Record<RoomGroup, string>> = {
@@ -51,7 +60,7 @@ const ROOM_PREFIX: Partial<Record<RoomGroup, string>> = {
   processing: "workshop",
 };
 
-const BLUEPRINT_GROUP: Record<RoomKind, RoomGroup> = {
+const BLUEPRINT_GROUP: Partial<Record<RoomKind, RoomGroup>> = {
   control_center: "control",
   trade_post: "trading",
   factory: "manufacture",
@@ -63,17 +72,35 @@ const BLUEPRINT_GROUP: Record<RoomKind, RoomGroup> = {
 };
 
 const PRODUCT_LABELS: Record<string, string> = {
-  LMD: "龙门币",
-  "Pure Gold": "赤金",
+  LMD: "龙门商法",
+  "Pure Gold": "贵金属",
   "Battle Record": "作战记录",
   "Originium Shard": "源石碎片",
-  gold: "赤金",
+  gold: "贵金属",
   battle_record: "作战记录",
   originium: "源石碎片",
 };
 
-function productLabel(value: unknown): string | undefined {
+const TRADE_PRODUCT_LABELS: Record<string, string> = {
+  LMD: "龙门商法",
+  gold: "龙门商法",
+  "Originium Shard": "开采协力",
+  originium: "开采协力",
+};
+
+const FACTORY_PRODUCT_LABELS: Record<string, string> = {
+  "Pure Gold": "贵金属",
+  gold: "贵金属",
+  "Battle Record": "作战记录",
+  battle_record: "作战记录",
+  "Originium Shard": "源石碎片",
+  originium: "源石碎片",
+};
+
+function productLabel(value: unknown, group?: RoomGroup): string | undefined {
   if (typeof value !== "string" || value.length === 0) return undefined;
+  if (group === "trading") return TRADE_PRODUCT_LABELS[value] ?? PRODUCT_LABELS[value] ?? value;
+  if (group === "manufacture") return FACTORY_PRODUCT_LABELS[value] ?? PRODUCT_LABELS[value] ?? value;
   return PRODUCT_LABELS[value] ?? value;
 }
 
@@ -84,6 +111,32 @@ function operatorName(value: unknown): string {
     return slot.skill ? `${slot.name ?? ""} S${slot.skill}` : slot.name ?? "";
   }
   return "";
+}
+
+function operatorSlot(value: unknown): RoomOperatorSlot | null {
+  if (typeof value === "string") {
+    const name = value.trim();
+    if (!name) return null;
+    return {
+      name,
+      label: name,
+      portrait: operatorPortraitFor(name),
+    };
+  }
+
+  if (value && typeof value === "object" && "name" in value) {
+    const slot = value as MaaOperatorSlot;
+    const name = slot.name?.trim();
+    if (!name) return null;
+    return {
+      name,
+      label: slot.skill ? `${name} S${slot.skill}` : name,
+      skill: slot.skill,
+      portrait: operatorPortraitFor(name),
+    };
+  }
+
+  return null;
 }
 
 function plainOperatorName(value: unknown): string {
@@ -97,6 +150,11 @@ function plainOperatorName(value: unknown): string {
 function roomOperators(room: MaaRoom): string[] {
   if (!Array.isArray(room.operators)) return [];
   return room.operators.map(operatorName).filter(Boolean);
+}
+
+function roomOperatorSlots(room: MaaRoom): RoomOperatorSlot[] {
+  if (!Array.isArray(room.operators)) return [];
+  return room.operators.map(operatorSlot).filter((slot): slot is RoomOperatorSlot => Boolean(slot));
 }
 
 function plainRoomOperators(room: MaaRoom): string[] {
@@ -150,23 +208,23 @@ function efficiencyLabel(group: RoomGroup, efficiency: RoomEfficiency | undefine
   if (!efficiency) return undefined;
 
   if (group === "trading") {
-    const parts = [
-      typeof efficiency.trade_score === "number" && `倍率 ${formatNumber(efficiency.trade_score, 2)}x`,
-      typeof efficiency.trade_pct === "number" && `订单 ${formatNumber(efficiency.trade_pct)}%`,
-      typeof efficiency.trade_skill_pct === "number" && `技能 ${formatNumber(efficiency.trade_skill_pct)}%`,
-      typeof efficiency.trade_gold_pct === "number" && `赤金 ${formatNumber(efficiency.trade_gold_pct)}%`,
-    ].filter(Boolean);
-    return parts.length > 0 ? parts.join(" / ") : undefined;
+    if (typeof efficiency.trade_skill_pct === "number") {
+      return `纯技能效率 ${formatNumber(efficiency.trade_skill_pct)}%`;
+    }
   }
 
   if (group === "manufacture") {
-    const score = efficiency.manu_score ?? efficiency.manu_prod_skill ?? efficiency.manu_prod_total;
-    if (typeof score === "number") return `制造效率 ${formatNumber(score)}%`;
+    if (typeof efficiency.manu_prod_skill === "number") {
+      return `纯技能效率 ${formatNumber(efficiency.manu_prod_skill)}%`;
+    }
   }
 
   if (group === "power") {
-    const score = efficiency.power_score ?? efficiency.power_charge_speed_pct;
-    if (typeof score === "number") return `充能 ${formatNumber(score)}%`;
+    const score = efficiency.power_skill_pct
+      ?? (typeof efficiency.power_score === "number" ? Math.max(0, efficiency.power_score - 100) : undefined);
+    if (typeof score === "number") {
+      return `纯技能效率 ${formatNumber(score)}%`;
+    }
   }
 
   return undefined;
@@ -191,8 +249,8 @@ function levelMapFor(layout: BaseBlueprint | undefined): Map<string, number> {
 
 function blueprintProductLabel(room: BlueprintRoom): string | undefined {
   if (!room.product) return undefined;
-  if ("factory" in room.product) return productLabel(room.product.factory.recipe);
-  if ("trade" in room.product) return room.product.trade.order === "gold" ? "龙门币订单" : "合成玉订单";
+  if ("factory" in room.product) return productLabel(room.product.factory.recipe, "manufacture");
+  if ("trade" in room.product) return productLabel(room.product.trade.order, "trading");
   return undefined;
 }
 
@@ -204,11 +262,13 @@ function layoutToRows(layout: BaseBlueprint | undefined): RoomRow[] {
   const sortedRooms = [...layout.rooms].sort((left, right) => {
     const leftGroup = BLUEPRINT_GROUP[left.kind];
     const rightGroup = BLUEPRINT_GROUP[right.kind];
-    return GROUP_ORDER.indexOf(leftGroup) - GROUP_ORDER.indexOf(rightGroup);
+    return (leftGroup ? GROUP_ORDER.indexOf(leftGroup) : Number.MAX_SAFE_INTEGER)
+      - (rightGroup ? GROUP_ORDER.indexOf(rightGroup) : Number.MAX_SAFE_INTEGER);
   });
 
   for (const room of sortedRooms) {
     const group = BLUEPRINT_GROUP[room.kind];
+    if (!group) continue;
     const index = groupCounts.get(group) ?? 0;
     groupCounts.set(group, index + 1);
     rows.push({
@@ -221,6 +281,7 @@ function layoutToRows(layout: BaseBlueprint | undefined): RoomRow[] {
       level: room.level,
       product: blueprintProductLabel(room),
       operators: [],
+      operatorSlots: [],
       rule: ruleFor(group, []),
       suspicious: false,
     });
@@ -240,6 +301,7 @@ export function planToRows(plan: MaaPlan | undefined, shift?: RotationShift, lay
     const rooms = Array.isArray(roomsByGroup[group]) ? roomsByGroup[group] : [];
     rooms.forEach((room, index) => {
       const operators = roomOperators(room);
+      const operatorSlots = roomOperatorSlots(room);
       const roomId = roomIdFor(group, index);
       const efficiency = efficiencyMap.get(roomId);
       rows.push({
@@ -250,8 +312,9 @@ export function planToRows(plan: MaaPlan | undefined, shift?: RotationShift, lay
         roomId,
         title: titleFor(group, index),
         level: levelMap.get(roomId),
-        product: productLabel(room.product),
+        product: productLabel(room.product, group),
         operators,
+        operatorSlots,
         efficiency,
         efficiencyLabel: efficiencyLabel(group, efficiency),
         rule: ruleFor(group, plainRoomOperators(room)),

@@ -72,6 +72,14 @@
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --radius: 0.625rem;
+    --shadow-border:
+      0 0 0 1px rgb(0 0 0 / 0.06),
+      0 1px 2px -1px rgb(0 0 0 / 0.06),
+      0 2px 4px rgb(0 0 0 / 0.04);
+    --shadow-border-hover:
+      0 0 0 1px rgb(0 0 0 / 0.08),
+      0 1px 2px -1px rgb(0 0 0 / 0.08),
+      0 2px 4px rgb(0 0 0 / 0.06);
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -114,6 +122,8 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --shadow-border: 0 0 0 1px rgb(255 255 255 / 0.08);
+    --shadow-border-hover: 0 0 0 1px rgb(255 255 255 / 0.13);
 }
 
 @layer base {
@@ -129,4 +139,101 @@
   html {
     @apply font-sans;
     }
+  h1, h2, h3 {
+    text-wrap: balance;
+    }
+  p, li, figcaption {
+    text-wrap: pretty;
+    }
+}
+
+.surface-shadow {
+  box-shadow: var(--shadow-border);
+}
+
+.interactive-surface-shadow {
+  box-shadow: var(--shadow-border);
+  transition-property: box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .interactive-surface-shadow:hover {
+    box-shadow: var(--shadow-border-hover);
+  }
+}
+
+.os-theme-yeye {
+  --os-size: 8px;
+  --os-padding-perpendicular: 0;
+  --os-padding-axis: 2px;
+  --os-track-border-radius: 999px;
+  --os-track-bg: transparent;
+  --os-track-bg-hover: transparent;
+  --os-track-bg-active: transparent;
+  --os-track-border: none;
+  --os-track-border-hover: none;
+  --os-track-border-active: none;
+  --os-handle-border-radius: 999px;
+  --os-handle-bg: rgb(148 163 184 / 0.5);
+  --os-handle-bg-hover: rgb(148 163 184 / 0.64);
+  --os-handle-bg-active: rgb(100 116 139 / 0.7);
+  --os-handle-border: none;
+  --os-handle-border-hover: none;
+  --os-handle-border-active: none;
+  --os-handle-min-size: 36px;
+  --os-handle-perpendicular-size: 4px;
+  --os-handle-perpendicular-size-hover: 4px;
+  --os-handle-perpendicular-size-active: 4px;
+  --os-handle-interactive-area-offset: 4px;
+}
+
+.os-theme-yeye .os-scrollbar-track {
+  background: transparent !important;
+}
+
+.yeye-scrollbar {
+  scrollbar-color: rgb(148 163 184 / 0.64) transparent;
+  scrollbar-width: thin;
+}
+
+.yeye-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.yeye-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.yeye-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(148 163 184 / 0.5);
+  background-clip: content-box;
+}
+
+.yeye-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(148 163 184 / 0.64);
+  background-clip: content-box;
+}
+
+.yeye-scrollbar::-webkit-scrollbar-thumb:active {
+  background: rgb(100 116 139 / 0.7);
+  background-clip: content-box;
+}
+
+.yeye-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

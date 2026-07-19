@@ -23,6 +23,19 @@ http://127.0.0.1:5174
 
 Next.js App Router 同时提供页面和 `/api/*` route handlers，不再需要单独启动 Express API 或 Vite 代理。
 
+## Box 导入与森空岛登录
+
+页面支持两种主要 Box 来源：森空岛扫码同步，以及上传或粘贴 MAA 的 `Arknights_OperBox_Export.json`。旧的一图流 xlsx 和 243 全精二样例仍保留为兼容入口。
+
+启用森空岛登录前必须配置至少 32 字节、长期保持不变的会话密钥：
+
+```powershell
+$env:SKLAND_SESSION_SECRET = "请替换为随机生成的长期密钥"
+npm run dev
+```
+
+森空岛凭证会使用 AES-256-GCM 加密后写入 HttpOnly Cookie，不写入浏览器存储、运行记录或反馈包。localhost 可使用 HTTP 开发；非 localhost 环境必须通过 HTTPS 访问，否则只禁用森空岛入口，MAA 导入和求解仍可使用。
+
 ## CLI 设置
 
 服务端 route handler 会优先使用本仓库内的 CLI：
@@ -76,7 +89,7 @@ fixtures/operbox_full_e2.json
 
 ## 设计目标
 
-- beta 测试者只需要上传练度表、选择布局、点击运行。
+- beta 测试者可从森空岛同步或直接导入 MAA 练度表，再选择布局并运行。
 - 首屏直接展示排班验收工作台，不做介绍页。
 - 房间视角展示三班排班和对应效率。
 - 一键导出调试包，便于判断前端、CLI、策略表或用户 box 的问题。

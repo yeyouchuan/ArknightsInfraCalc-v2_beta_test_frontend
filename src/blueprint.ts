@@ -17,14 +17,14 @@ export const PRESETS: PresetDef[] = [
 ];
 
 export const FACTORY_RECIPE_OPTIONS: { recipe: FactoryRecipe; label: string }[] = [
-  { recipe: "gold", label: "赤金" },
+  { recipe: "gold", label: "贵金属" },
   { recipe: "battle_record", label: "作战记录" },
   { recipe: "originium", label: "源石碎片" },
 ];
 
 export const TRADE_ORDER_OPTIONS: { order: TradeOrder; label: string }[] = [
-  { order: "gold", label: "龙门币订单" },
-  { order: "originium", label: "合成玉订单" },
+  { order: "gold", label: "龙门商法" },
+  { order: "originium", label: "开采协力" },
 ];
 
 export function buildBlueprint(preset: PresetDef): BaseBlueprint {
@@ -66,6 +66,21 @@ export function updateTradeOrder(layout: BaseBlueprint, roomId: string, order: T
   };
 }
 
+export function maxRoomLevel(kind: RoomKind): number {
+  return kind === "control_center" || kind === "dormitory" ? 5 : 3;
+}
+
+export function updateRoomLevel(layout: BaseBlueprint, roomId: string, level: number): BaseBlueprint {
+  const target = layout.rooms.find((room) => room.id === roomId);
+  const maxLevel = target ? maxRoomLevel(target.kind) : 3;
+  const nextLevel = Math.max(1, Math.min(maxLevel, Math.trunc(level)));
+  return {
+    ...layout,
+    scenario: structuredClone(layout.scenario),
+    rooms: layout.rooms.map((room) => (room.id === roomId ? { ...structuredClone(room), level: nextLevel } : structuredClone(room))),
+  };
+}
+
 export function factoryRecipeFor(room: BlueprintRoom): FactoryRecipe {
   if (room.product && "factory" in room.product) return room.product.factory.recipe;
   return "gold";
@@ -102,6 +117,44 @@ export function roomKindLabel(kind: RoomKind): string {
     office: "办公室",
     meeting_room: "会客室",
     workshop: "加工站",
+    training_room: "训练室",
   };
   return labels[kind];
 }
+
+/* ── 发电量校验 ── */
+
+const POWER_OUTPUT: Record<number, number> = { 1: 60, 2: 130, 3: 270 };
+
+const POWER_CONSUMPTION: Partial<Record<RoomKind, Record<number, number>>> = {
+  factory:       { 1: 10, 2: 30, 3: 60 },
+  trade_post:    { 1: 10, 2: 30, 3: 60 },
+  meeting_room:  { 1: 10, 2: 30, 3: 60 },
+  workshop:      { 1: 10, 2: 10, 3: 10 },
+  office:         { 1: 10, 2: 30, 3: 60 },
+  training_room:  { 1: 10, 2: 30, 3: 60 },
+  dormitory:      { 1: 10, 2: 20, 3: 30, 4: 45, 5: 65 },
+};
+
+export interface PowerBudget {
+  ok: boolean;
+  generated: number;
+  consumed: number;
+}
+
+export function computePowerBudget(layout: BaseBlueprint): PowerBudget {
+  let generated = 0;
+  let consumed = 0;
+
+  for (const room of layout.rooms) {
+    const lv = room.level;
+    if (room.kind === "power_plant") {
+      generated += POWER_OUTPUT[lv] ?? 0;
+    } else if (room.kind !== "control_center") {
+      consumed += POWER_CONSUMPTION[room.kind]?.[lv] ?? 0;
+    }
+  }
+
+  return { ok: generated >= consumed, generated, consumed };
+}
+

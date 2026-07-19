@@ -1,61 +1,74 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  Boxes,
-  Database,
-  FileJson,
-  FlaskConical,
-  LayoutGrid,
-  ShieldCheck,
-  Terminal,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Database, FileJson, Settings2, ShieldCheck, Terminal } from "lucide-react";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-import { getHealth, getSampleOperbox, runPlan, saveFeedback } from "./api";
+import {
+  getHealth,
+  getSampleOperbox,
+  getSklandSession,
+  logoutSkland,
+  runPlan,
+  saveFeedback,
+  selectSklandRole,
+  syncSkland,
+} from "./api";
 import {
   buildBlueprint,
+  computePowerBudget,
+  FACTORY_RECIPE_OPTIONS,
   FactoryRecipe,
   PRESETS,
-  roomSummary,
+  TRADE_ORDER_OPTIONS,
   TradeOrder,
   updateFactoryRecipe,
+  updateRoomLevel,
   updateTradeOrder,
 } from "./blueprint";
 import {
-  AccountStats,
   DebugActions,
-  FileDrop,
   IssuePanel,
   IssueNoteModal,
-  LayoutEditor,
   Panel,
-  PresetSelector,
+  PlanTelemetry,
   RunButton,
   ScheduleBoard,
   ShiftTabs,
   StatusBar,
 } from "./components";
 import { copyText, downloadJson } from "./download";
-import { countOwned, readOperboxFile } from "./operbox";
+import { ONBOARDING_STORAGE_KEY, initialSetupStep, shouldAutoOpenSetup, type SetupStep } from "./onboarding";
+import { readOperboxFile, readOperboxText } from "./operbox";
 import { planToRows, RoomRow } from "./schedule";
+import { SetupDialog } from "./setup-dialog";
+import { closestShift, compareShifts } from "./skland";
+import { InfrastructureSnapshot, ShiftComparisonCard, SklandAccount } from "./skland-components";
 import {
   BaseBlueprint,
+  BoxSource,
+  BlueprintRoom,
   FeedbackApiResponse,
   IssueReport,
   OperBoxEntry,
   PlanApiResponse,
   PresetDef,
+  SklandSnapshot,
 } from "./types";
 
-const SESSION_KEY = "arknights-infra-calc-beta-session-v2";
+const SESSION_KEY = "arknights-infra-calc-beta-session-v3";
+const LEGACY_SESSION_KEY = "arknights-infra-calc-beta-session-v2";
+const RESULT_CLEAR_WARNING_DISMISSED_KEY = "arknights-infra-calc-result-clear-warning-dismissed";
 const KNOWN_ISSUES = [
   "Beta 测试阶段仍可能出现排班策略和预期不一致的情况；请用“标记问题”提交上下文。",
   "如遇到 CLI 运行失败，请先下载调试包并保留本次运行记录。",
 ];
+
+type ProductChange =
+  | { type: "factory"; roomId: string; recipe: FactoryRecipe }
+  | { type: "trade"; roomId: string; order: TradeOrder };
 
 function safeParseJson(value: string | null): unknown {
   if (!value) return null;
@@ -68,11 +81,48 @@ function safeParseJson(value: string | null): unknown {
 
 function readSessionState() {
   if (typeof window === "undefined") return null;
-  return safeParseJson(window.localStorage.getItem(SESSION_KEY));
+  return safeParseJson(window.localStorage.getItem(SESSION_KEY)) ?? safeParseJson(window.localStorage.getItem(LEGACY_SESSION_KEY));
+}
+
+function readResultClearWarningDismissed() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(RESULT_CLEAR_WARNING_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 function resolvePreset(value: PresetDef | undefined): PresetDef {
   return PRESETS.find((preset) => preset.label === value?.label) ?? PRESETS[0];
+}
+
+function parseLayoutJson(value: unknown): BaseBlueprint | null {
+  if (!value || typeof value !== "object") return null;
+  const layout = value as Partial<BaseBlueprint>;
+  if (typeof layout.template !== "string" || !Array.isArray(layout.rooms) || !layout.scenario || typeof layout.scenario !== "object") {
+    return null;
+  }
+  const rooms = layout.rooms.map((room) => {
+    if (!room || typeof room !== "object" || typeof room.id !== "string" || typeof room.kind !== "string") return null;
+    const level = Number((room as BlueprintRoom).level);
+    const maxLevel = (room as BlueprintRoom).kind === "control_center" || (room as BlueprintRoom).kind === "dormitory" ? 5 : 3;
+    if (!Number.isInteger(level) || level < 1 || level > maxLevel) return null;
+    return { ...room, level } as BlueprintRoom;
+  });
+  if (rooms.some((room) => room === null) || !rooms.some((room) => room?.kind === "control_center")) return null;
+  return { ...layout, drone_cap: Number(layout.drone_cap ?? 0), scenario: layout.scenario, rooms: rooms as BlueprintRoom[] } as BaseBlueprint;
+}
+
+function layoutValidationError(layout: BaseBlueprint): string | null {
+  if (!layout.rooms.some((room) => room.kind === "control_center")) return "布局必须包含控制中枢。";
+  const invalid = layout.rooms.find((room) => {
+    const maxLevel = room.kind === "control_center" || room.kind === "dormitory" ? 5 : 3;
+    return !Number.isInteger(room.level) || room.level < 1 || room.level > maxLevel;
+  });
+  if (!invalid) return null;
+  const maxLevel = invalid.kind === "control_center" || invalid.kind === "dormitory" ? 5 : 3;
+  return `${invalid.id} 的设施等级必须在 1–${maxLevel} 之间。`;
 }
 
 function restoreEditableProducts(baseLayout: BaseBlueprint, cachedLayout: BaseBlueprint | undefined): BaseBlueprint {
@@ -86,6 +136,7 @@ function restoreEditableProducts(baseLayout: BaseBlueprint, cachedLayout: BaseBl
       if (room.kind === "factory" && cachedRoom?.kind === "factory" && cachedRoom.product && "factory" in cachedRoom.product) {
         return {
           ...room,
+          level: Number.isFinite(cachedRoom.level) ? cachedRoom.level : room.level,
           product: { factory: { recipe: cachedRoom.product.factory.recipe } },
         };
       }
@@ -97,11 +148,20 @@ function restoreEditableProducts(baseLayout: BaseBlueprint, cachedLayout: BaseBl
       ) {
         return {
           ...room,
+          level: Number.isFinite(cachedRoom.level) ? cachedRoom.level : room.level,
           product: { trade: { order: cachedRoom.product.trade.order } },
         };
       }
-      return room;
+      return { ...room, level: typeof cachedRoom?.level === "number" ? cachedRoom.level : room.level };
     }),
+  };
+}
+
+function mergeSklandLayout(current: BaseBlueprint, suggestion: BaseBlueprint): BaseBlueprint {
+  return {
+    ...suggestion,
+    drone_cap: current.drone_cap,
+    scenario: structuredClone(current.scenario),
   };
 }
 
@@ -135,6 +195,8 @@ function WorkbenchApp() {
         layout?: BaseBlueprint;
         operbox?: OperBoxEntry[] | null;
         fileName?: string | null;
+        boxSource?: BoxSource;
+        layoutDirty?: boolean;
         result?: PlanApiResponse | null;
         activeShift?: number;
         issueOpen?: boolean;
@@ -149,8 +211,25 @@ function WorkbenchApp() {
   const initialLayout = restoreEditableProducts(buildBlueprint(initialPreset), initialSession?.layout);
   const [preset, setPreset] = useState<PresetDef>(initialPreset);
   const [layout, setLayout] = useState<BaseBlueprint>(initialLayout);
+  const powerBudget = useMemo(() => computePowerBudget(layout), [layout]);
   const [operbox, setOperbox] = useState<OperBoxEntry[] | null>(initialSession?.operbox ?? null);
   const [fileName, setFileName] = useState<string | null>(initialSession?.fileName ?? null);
+  const [boxSource, setBoxSource] = useState<BoxSource>(initialSession?.boxSource ?? (initialSession?.operbox ? "maa" : "sample"));
+  const [layoutDirty, setLayoutDirty] = useState(initialSession?.layoutDirty ?? Boolean(initialSession?.layout));
+  const [inputMode, setInputMode] = useState<"skland" | "maa">("skland");
+  const [maaPaste, setMaaPaste] = useState("");
+  const [sklandSnapshot, setSklandSnapshot] = useState<SklandSnapshot | null>(null);
+  const [sklandConfigured, setSklandConfigured] = useState(false);
+  const [sklandDisabledReason, setSklandDisabledReason] = useState<string | null>(null);
+  const [sklandBusy, setSklandBusy] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setupInitialStep, setSetupInitialStep] = useState<SetupStep>("box");
+  const [sklandAccountOpen, setSklandAccountOpen] = useState(false);
+  const resumeSetupAfterSkland = useRef(false);
+  const initialLayoutForRestore = useRef(initialLayout);
+  const initialBoxSource = useRef(boxSource);
+  const initialOperbox = useRef(operbox);
+  const initialLayoutDirty = useRef(layoutDirty);
   const [inputError, setInputError] = useState<string | null>(null);
   const [result, setResult] = useState<PlanApiResponse | null>(initialSession?.result ?? null);
   const [loading, setLoading] = useState(false);
@@ -171,11 +250,33 @@ function WorkbenchApp() {
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedbackResult, setFeedbackResult] = useState<FeedbackApiResponse | null>(initialSession?.feedback ?? null);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [resultClearNotice, setResultClearNotice] = useState<string | null>(null);
+  const [resultClearWarningDismissed, setResultClearWarningDismissed] = useState(readResultClearWarningDismissed);
 
   const scheduleResult = result?.success ? result : null;
   const activePlan = scheduleResult?.maaJson?.plans?.[activeShift];
   const activeRotationShift = scheduleResult?.rotationJson?.shifts?.[activeShift];
   const rows = useMemo(() => planToRows(activePlan, activeRotationShift, layout), [activePlan, activeRotationShift, layout]);
+  const currentMoraleByOperator = useMemo(() => {
+    if (boxSource !== "skland" || !sklandSnapshot) return undefined;
+
+    return new Map(
+      sklandSnapshot.infrastructure.rooms.flatMap((room) =>
+        room.operators.map((operator) => [operator.name, operator.morale] as const)
+      )
+    );
+  }, [boxSource, sklandSnapshot]);
+  const shiftComparisons = useMemo(
+    () => compareShifts(scheduleResult?.maaJson, sklandSnapshot?.infrastructure),
+    [scheduleResult?.maaJson, sklandSnapshot?.infrastructure]
+  );
+  const closestComparison = useMemo(() => closestShift(shiftComparisons), [shiftComparisons]);
+  const sklandLayoutMatches = useMemo(() => {
+    const suggestion = sklandSnapshot?.infrastructure.layoutSuggestion;
+    if (!suggestion) return false;
+    const compact = (value: BaseBlueprint) => value.rooms.map((room) => [room.id, room.kind, room.level, room.product]);
+    return JSON.stringify(compact(layout)) === JSON.stringify(compact(suggestion));
+  }, [layout, sklandSnapshot?.infrastructure.layoutSuggestion]);
   const canRun = Boolean(operbox && operbox.length > 0 && cliReady);
 
   useEffect(() => {
@@ -185,6 +286,8 @@ function WorkbenchApp() {
       layout,
       operbox,
       fileName,
+      boxSource,
+      layoutDirty,
       result: result?.success ? result : null,
       activeShift,
       issueOpen,
@@ -198,11 +301,24 @@ function WorkbenchApp() {
     } catch (error) {
       console.warn("Failed to persist workbench session", error);
     }
-  }, [preset, layout, operbox, fileName, result, activeShift, issueOpen, issueDraftRow, issueDraftNote, savedIssue, feedbackResult]);
+  }, [preset, layout, operbox, fileName, boxSource, layoutDirty, result, activeShift, issueOpen, issueDraftRow, issueDraftNote, savedIssue, feedbackResult]);
 
   useEffect(() => {
-    getHealth()
-      .then((health) => {
+    if (typeof window === "undefined") return;
+    if (shouldAutoOpenSetup(window.localStorage.getItem(ONBOARDING_STORAGE_KEY), Boolean(initialOperbox.current?.length))) {
+      setSetupInitialStep("box");
+      setSetupOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.allSettled([getHealth(), getSklandSession()]).then(([healthResult, sessionResult]) => {
+      if (cancelled) return;
+      if (healthResult.status === "fulfilled") {
+        const health = healthResult.value;
+        setSklandConfigured(Boolean(health.sklandConfigured));
+        setSklandDisabledReason(health.sklandDisabledReason ?? null);
         if (health.ok && health.cliReady) {
           setCliPath(health.cliPath ?? null);
           setCliReady(true);
@@ -212,14 +328,36 @@ function WorkbenchApp() {
           setCliPath(health.cliPath ?? null);
           setApiError(health.serveError ?? health.error ?? "API 正常，但未找到可执行的 infra-cli。");
         }
-      })
-      .catch((error) => {
+      } else {
         setCliReady(false);
-        setApiError(error instanceof Error ? error.message : "本地 API 服务不可用。");
-      });
+        setApiError(healthResult.reason instanceof Error ? healthResult.reason.message : "本地 API 服务不可用。");
+      }
+
+      if (sessionResult.status === "fulfilled") {
+        const session = sessionResult.value;
+        setSklandConfigured(session.configured);
+        setSklandDisabledReason(session.disabledReason ?? null);
+        if (session.authenticated && session.snapshot) {
+          setSklandSnapshot(session.snapshot);
+          if (initialBoxSource.current === "skland" || !initialOperbox.current) {
+            setOperbox(session.snapshot.operbox);
+            setFileName(session.snapshot.sourceName);
+            setBoxSource("skland");
+          }
+          if (!initialLayoutDirty.current && session.snapshot.infrastructure.layoutSuggestion) {
+            const suggestion = session.snapshot.infrastructure.layoutSuggestion;
+            setLayout(mergeSklandLayout(initialLayoutForRestore.current, suggestion));
+            setPreset(resolvePreset(PRESETS.find((item) => item.label === session.snapshot?.infrastructure.layoutLabel)));
+          }
+        }
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  async function handleFile(file: File) {
+  async function handleFile(file: File): Promise<boolean> {
     setInputError(null);
     setResult(null);
     clearIssueState();
@@ -227,18 +365,112 @@ function WorkbenchApp() {
       const entries = await readOperboxFile(file);
       setOperbox(entries);
       setFileName(file.name);
+      setBoxSource("maa");
+      return true;
     } catch (error) {
       setInputError(error instanceof Error ? error.message : "练度文件解析失败。");
+      return false;
     }
+  }
+
+  function applySklandSnapshot(snapshot: SklandSnapshot, applyLayoutWhenClean = true) {
+    setSklandSnapshot(snapshot);
+    setOperbox(snapshot.operbox);
+    setFileName(snapshot.sourceName);
+    setBoxSource("skland");
+    setInputMode("skland");
+    clearPlanResult();
+    if (applyLayoutWhenClean && !layoutDirty && snapshot.infrastructure.layoutSuggestion) {
+      setLayout((current) => mergeSklandLayout(current, snapshot.infrastructure.layoutSuggestion as BaseBlueprint));
+      setPreset(resolvePreset(PRESETS.find((item) => item.label === snapshot.infrastructure.layoutLabel)));
+      setLayoutDirty(false);
+    }
+  }
+
+  function handleMaaPaste(): boolean {
+    setInputError(null);
+    try {
+      const entries = readOperboxText(maaPaste);
+      setOperbox(entries);
+      setFileName("粘贴的 Arknights_OperBox_Export.json");
+      setBoxSource("maa");
+      clearPlanResult();
+      return true;
+    } catch (error) {
+      setInputError(error instanceof Error ? error.message : "MAA JSON 解析失败。");
+      return false;
+    }
+  }
+
+  async function handleSklandRefresh() {
+    setSklandBusy(true);
+    setInputError(null);
+    try {
+      const session = await syncSkland();
+      if (!session.authenticated || !session.snapshot) throw new Error(session.error ?? "森空岛同步失败。");
+      applySklandSnapshot(session.snapshot, false);
+    } catch (error) {
+      setInputError(error instanceof Error ? error.message : "森空岛同步失败。");
+    } finally {
+      setSklandBusy(false);
+    }
+  }
+
+  async function handleSklandRole(uid: string) {
+    setSklandBusy(true);
+    setInputError(null);
+    try {
+      const session = await selectSklandRole(uid);
+      if (!session.authenticated || !session.snapshot) throw new Error(session.error ?? "角色切换失败。");
+      applySklandSnapshot(session.snapshot, false);
+    } catch (error) {
+      setInputError(error instanceof Error ? error.message : "角色切换失败。");
+    } finally {
+      setSklandBusy(false);
+    }
+  }
+
+  async function handleSklandLogout() {
+    setSklandBusy(true);
+    setInputError(null);
+    try {
+      await logoutSkland();
+      setSklandSnapshot(null);
+      if (boxSource === "skland") {
+        setOperbox(null);
+        setFileName(null);
+        setBoxSource("sample");
+        clearPlanResult();
+      }
+    } catch (error) {
+      setInputError(error instanceof Error ? error.message : "退出森空岛失败。");
+    } finally {
+      setSklandBusy(false);
+    }
+  }
+
+  function handleApplySklandLayout() {
+    const suggestion = sklandSnapshot?.infrastructure.layoutSuggestion;
+    if (!suggestion) return;
+    setLayout((current) => mergeSklandLayout(current, suggestion));
+    setPreset(resolvePreset(PRESETS.find((item) => item.label === sklandSnapshot.infrastructure.layoutLabel)));
+    setLayoutDirty(false);
+    clearPlanResult();
   }
 
   async function handleRun() {
     if (!operbox) return;
+    const layoutError = layoutValidationError(layout);
+    if (layoutError) {
+      setApiError(layoutError);
+      return;
+    }
     if (!cliReady) {
       setApiError("当前没有可运行的 infra-cli；Windows 本地请设置 INFRA_CLI_PATH 指向 infra-cli.exe。");
       return;
     }
     setLoading(true);
+    setResultClearNotice(null);
     setInputError(null);
     setApiError(null);
     setResult(null);
@@ -262,7 +494,7 @@ function WorkbenchApp() {
     }
   }
 
-  async function handleLoadSample() {
+  async function handleLoadSample(): Promise<boolean> {
     setInputError(null);
     setResult(null);
     clearIssueState();
@@ -273,8 +505,11 @@ function WorkbenchApp() {
       }
       setOperbox(sample.operbox);
       setFileName(sample.sourceName ?? "243 全精二样例");
+      setBoxSource("sample");
+      return true;
     } catch (error) {
       setInputError(error instanceof Error ? error.message : "样例数据读取失败。");
+      return false;
     }
   }
 
@@ -358,20 +593,136 @@ function WorkbenchApp() {
     clearIssueState();
   }
 
+  function applyProductChange(change: ProductChange) {
+    if (change.type === "factory") {
+      setLayout((current) => updateFactoryRecipe(current, change.roomId, change.recipe));
+    } else {
+      setLayout((current) => updateTradeOrder(current, change.roomId, change.order));
+    }
+    setLayoutDirty(true);
+    clearPlanResult();
+  }
+
+  function productChangeLabel(change: ProductChange) {
+    if (change.type === "factory") {
+      return FACTORY_RECIPE_OPTIONS.find((option) => option.recipe === change.recipe)?.label;
+    }
+    return TRADE_ORDER_OPTIONS.find((option) => option.order === change.order)?.label;
+  }
+
+  function showResultClearNotice(label: string | undefined) {
+    if (resultClearWarningDismissed || !result?.success) return;
+    setResultClearNotice(label ? `已切换到：${label}` : "配置已切换");
+  }
+
+  function requestProductChange(change: ProductChange) {
+    showResultClearNotice(productChangeLabel(change));
+    applyProductChange(change);
+  }
+
+  function dismissResultClearWarning() {
+    setResultClearWarningDismissed(true);
+    setResultClearNotice(null);
+    try {
+      window.localStorage.setItem(RESULT_CLEAR_WARNING_DISMISSED_KEY, "1");
+    } catch {
+      // The current session can still honor the preference when storage is unavailable.
+    }
+  }
+
+  function restoreResultClearWarning() {
+    setResultClearWarningDismissed(false);
+    try {
+      window.localStorage.removeItem(RESULT_CLEAR_WARNING_DISMISSED_KEY);
+    } catch {
+      // The in-memory preference has already been restored.
+    }
+  }
+
   function handlePresetSelect(nextPreset: PresetDef) {
+    showResultClearNotice(`布局 ${nextPreset.label}`);
     setPreset(nextPreset);
     setLayout(buildBlueprint(nextPreset));
+    setLayoutDirty(true);
     clearPlanResult();
   }
 
   function handleFactoryRecipeChange(roomId: string, recipe: FactoryRecipe) {
-    setLayout((current) => updateFactoryRecipe(current, roomId, recipe));
-    clearPlanResult();
+    requestProductChange({ type: "factory", roomId, recipe });
   }
 
   function handleTradeOrderChange(roomId: string, order: TradeOrder) {
-    setLayout((current) => updateTradeOrder(current, roomId, order));
+    requestProductChange({ type: "trade", roomId, order });
+  }
+
+  function handleRoomLevelChange(roomId: string, level: number) {
+    setLayout((current) => updateRoomLevel(current, roomId, level));
+    setLayoutDirty(true);
     clearPlanResult();
+  }
+
+  async function handleLayoutFile(file: File) {
+    try {
+      const parsed = parseLayoutJson(JSON.parse(await file.text()));
+      if (!parsed) throw new Error("layout JSON 格式无效：需要 rooms[].id、kind 和合法的设施等级。");
+      setLayout(parsed);
+      setLayoutDirty(true);
+      clearPlanResult();
+      setInputError(null);
+    } catch (error) {
+      setInputError(error instanceof Error ? error.message : "布局 JSON 读取失败。");
+    }
+  }
+
+  function markOnboardingSeen() {
+    try {
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+    } catch (error) {
+      console.warn("Failed to persist onboarding state", error);
+    }
+  }
+
+  function openSetup() {
+    setSetupInitialStep(initialSetupStep(Boolean(operbox?.length)));
+    setSetupOpen(true);
+  }
+
+  function handleSetupOpenChange(next: boolean) {
+    setSetupOpen(next);
+    if (!next) markOnboardingSeen();
+  }
+
+  function closeSetup() {
+    markOnboardingSeen();
+    setSetupOpen(false);
+  }
+
+  function openSklandFromSetup() {
+    resumeSetupAfterSkland.current = true;
+    setSetupOpen(false);
+    setSklandAccountOpen(true);
+  }
+
+  function handleSklandAccountOpenChange(next: boolean) {
+    setSklandAccountOpen(next);
+    if (!next && resumeSetupAfterSkland.current) {
+      resumeSetupAfterSkland.current = false;
+      setSetupInitialStep("box");
+      setSetupOpen(true);
+    }
+  }
+
+  function handleSklandAuthenticated(snapshot: SklandSnapshot) {
+    applySklandSnapshot(snapshot);
+    if (resumeSetupAfterSkland.current) {
+      resumeSetupAfterSkland.current = false;
+      setSetupInitialStep("layout");
+      setSetupOpen(true);
+    }
+  }
+
+  function handleUseCurrentSklandBox() {
+    if (sklandSnapshot) applySklandSnapshot(sklandSnapshot, false);
   }
 
   const issueForPanel = useMemo(
@@ -384,68 +735,72 @@ function WorkbenchApp() {
   );
 
   return (
-    <main className="min-h-screen bg-muted/40 px-4 py-4 text-foreground sm:px-5">
-      <header className="mx-auto mb-4 flex max-w-[1760px] items-center justify-between gap-4 border-b pb-4 max-lg:flex-col max-lg:items-stretch">
-        <div className="min-w-0">
-          <span className="text-xs font-semibold uppercase tracking-normal text-primary">Arknights InfraCalc</span>
-          <h1 className="mt-1 text-2xl font-semibold leading-tight">排班验收台</h1>
-        </div>
-        <div className="flex min-w-0 items-center justify-end gap-2 max-lg:items-stretch max-sm:flex-col">
+    <main className="min-h-screen bg-background px-4 py-4 text-foreground sm:px-5">
+      <header className="mx-auto mb-4 max-w-[1760px] border-b pb-4">
+        <h1 className="sr-only">明日方舟基建排班验收工作台</h1>
+        <div className="grid w-full grid-cols-[minmax(240px,1fr)_auto_auto_auto] items-center gap-2 max-sm:grid-cols-3">
           <StatusBar loading={loading} result={result} error={inputError ?? apiError} cliPath={cliPath} />
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 min-w-0 px-3 max-sm:w-full"
+            aria-label="配置 Box 与布局"
+            onClick={openSetup}
+          >
+            <Settings2 />
+            <span className="hidden md:inline">配置 Box 与布局</span>
+            <span className="md:hidden">配置</span>
+          </Button>
+          <SklandAccount
+            open={sklandAccountOpen}
+            onOpenChange={handleSklandAccountOpenChange}
+            configured={sklandConfigured}
+            disabledReason={sklandDisabledReason}
+            snapshot={sklandSnapshot}
+            busy={sklandBusy}
+            onAuthenticated={handleSklandAuthenticated}
+            onRefresh={handleSklandRefresh}
+            onRoleChange={handleSklandRole}
+            onLogout={handleSklandLogout}
+          />
           <RunButton canRun={canRun} loading={loading} onRun={handleRun} />
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1760px] grid-cols-[340px_minmax(560px,1fr)_390px] items-start gap-4 max-[1320px]:grid-cols-[320px_minmax(0,1fr)] max-[900px]:block">
-        <aside className="min-w-0 space-y-4">
-          <Panel title="输入" icon={<Database className="size-4" />}>
-            <FileDrop fileName={fileName} onFile={handleFile} />
-            <Button type="button" variant="outline" className="mt-2 w-full" onClick={handleLoadSample}>
-              <FlaskConical />
-              载入 243 全精二样例
-            </Button>
-            <AccountStats operbox={operbox} />
-            {operbox && countOwned(operbox) === 0 ? (
-              <Alert className="mt-3 border-amber-200 bg-amber-50 text-amber-700">
-                <AlertDescription className="text-amber-700">
-                  练度表已读入，但没有识别到 own=true，仍可继续生成排班。
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <Boxes className="size-4" />
-              <span className="truncate">
-                当前布局：{preset.label}，{roomSummary(layout)}
-              </span>
-            </div>
-          </Panel>
-
-          <Panel title="布局" icon={<LayoutGrid className="size-4" />}>
-            <PresetSelector presets={PRESETS} selected={preset} onSelect={handlePresetSelect} />
-            <LayoutEditor
-              layout={layout}
-              onFactoryRecipeChange={handleFactoryRecipeChange}
-              onTradeOrderChange={handleTradeOrderChange}
-            />
-          </Panel>
-        </aside>
-
-        <section className="min-w-0 max-[900px]:mt-4">
-          <Panel title="三班排班" icon={<ShieldCheck className="size-4" />} className="min-h-[calc(100vh-112px)]">
+      <section className="mx-auto grid max-w-[1760px] grid-cols-[minmax(0,1fr)_430px] items-start max-[1100px]:block">
+        <section className="min-w-0 pr-5 max-[1100px]:pr-0">
+          <Panel title="计划安排" icon={<ShieldCheck className="size-4" />} className="min-h-[calc(100vh-112px)]">
             <div className="mb-3 flex items-start justify-between gap-3 max-sm:flex-col">
               <div className="min-w-0">
                 <strong className="block truncate text-sm font-medium">
                   {result?.maaJson?.title ?? "等待生成排班"}
                 </strong>
                 <span className="mt-1 block text-sm text-muted-foreground">
-                  {activePlan?.description ?? "可先调整房间订单和配方，上传练度表后点击生成排班。"}
+                  {activePlan?.description ?? "配置 Box 与基建布局后，即可生成三班排班。"}
                 </span>
               </div>
-              <ShiftTabs maaJson={result?.maaJson} active={activeShift} onChange={setActiveShift} />
+              <ShiftTabs maaJson={result?.maaJson} active={activeShift} closest={closestComparison?.planIndex} onChange={setActiveShift} />
             </div>
+            {!operbox ? (
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-y border-dashed border-border/70 py-6">
+                <div>
+                  <strong className="block text-sm">先完成 Box 与布局配置</strong>
+                  <p className="mt-1 text-sm text-muted-foreground">支持森空岛同步、MAA 导入和 243 全精二样例。</p>
+                </div>
+                <Button type="button" onClick={openSetup}><Settings2 />配置 Box 与布局</Button>
+              </div>
+            ) : null}
+            <PlanTelemetry
+              profile={scheduleResult?.profileJson}
+              rotation={scheduleResult?.rotationJson}
+              layout={layout}
+              activeShift={activeShift}
+            />
+            <ShiftComparisonCard comparison={closestComparison} />
             <ScheduleBoard
               rows={rows}
               layout={layout}
+              currentMoraleByOperator={currentMoraleByOperator}
               onIssue={handleMarkIssue}
               onFactoryRecipeChange={handleFactoryRecipeChange}
               onTradeOrderChange={handleTradeOrderChange}
@@ -453,7 +808,12 @@ function WorkbenchApp() {
           </Panel>
         </section>
 
-        <aside className="min-w-0 space-y-4 max-[1320px]:col-span-full max-[1320px]:grid max-[1320px]:grid-cols-2 max-[1320px]:gap-4 max-[1320px]:space-y-0 max-[900px]:mt-4 max-[900px]:block max-[900px]:space-y-4">
+        <aside className="min-w-0 divide-y divide-border/70 border-l border-border/70 pl-5 max-[1100px]:mt-5 max-[1100px]:grid max-[1100px]:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] max-[1100px]:divide-x max-[1100px]:divide-y-0 max-[1100px]:border-l-0 max-[1100px]:border-t max-[1100px]:pl-0 max-[1100px]:[&>section]:px-5 max-[700px]:block max-[700px]:divide-x-0 max-[700px]:divide-y max-[700px]:[&>section]:px-0">
+          {sklandSnapshot ? (
+            <Panel title="当前状态 · 森空岛基建" icon={<Database className="size-4" />}>
+              <InfrastructureSnapshot snapshot={sklandSnapshot} layoutMatches={sklandLayoutMatches} onApplyLayout={handleApplySklandLayout} />
+            </Panel>
+          ) : null}
           <Panel title="问题上下文" icon={<FileJson className="size-4" />}>
             <IssuePanel
               issue={issueForPanel}
@@ -481,6 +841,67 @@ function WorkbenchApp() {
           </Panel>
         </aside>
       </section>
+
+      {resultClearNotice ? (
+        <aside
+          className="fixed left-1/2 top-4 z-[70] w-[min(720px,calc(100vw-2rem))] -translate-x-1/2 border border-[#FFD800]/70 bg-[#313131] px-4 py-3 text-white shadow-[0_16px_44px_rgba(0,0,0,0.35)]"
+          aria-live="polite"
+          aria-label="排班结果已清空"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <strong className="block text-sm font-semibold text-[#FFD800]">已清空旧求解结果</strong>
+              <span className="mt-0.5 block text-xs text-white/68">{resultClearNotice}，需要重新运行求解。</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={() => setResultClearNotice(null)}>
+                知道了
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white" onClick={dismissResultClearWarning}>
+                不再提示
+              </Button>
+            </div>
+          </div>
+        </aside>
+      ) : null}
+
+      <SetupDialog
+        open={setupOpen}
+        initialStep={setupInitialStep}
+        onOpenChange={handleSetupOpenChange}
+        operbox={operbox}
+        boxSource={boxSource}
+        fileName={fileName}
+        inputMode={inputMode}
+        onInputModeChange={setInputMode}
+        maaPaste={maaPaste}
+        onMaaPasteChange={setMaaPaste}
+        inputError={inputError}
+        resultClearWarningDismissed={resultClearWarningDismissed}
+        sklandSnapshot={sklandSnapshot}
+        sklandConfigured={sklandConfigured}
+        sklandDisabledReason={sklandDisabledReason}
+        sklandBusy={sklandBusy}
+        onOpenSkland={openSklandFromSetup}
+        onRefreshSkland={handleSklandRefresh}
+        onUseSkland={handleUseCurrentSklandBox}
+        onMaaFile={handleFile}
+        onMaaPaste={handleMaaPaste}
+        onLoadSample={handleLoadSample}
+        presets={PRESETS}
+        preset={preset}
+        layout={layout}
+        onPresetSelect={handlePresetSelect}
+        onLayoutFile={handleLayoutFile}
+        onDownloadLayout={() => downloadJson(`layout-${layout.template}.json`, layout)}
+        onRestoreResultClearWarning={restoreResultClearWarning}
+        onFactoryRecipeChange={handleFactoryRecipeChange}
+        onTradeOrderChange={handleTradeOrderChange}
+        onRoomLevelChange={handleRoomLevelChange}
+        powerBudget={powerBudget}
+        onFinish={closeSetup}
+        onSkip={closeSetup}
+      />
 
       <IssueNoteModal
         open={issueOpen}
@@ -510,3 +931,4 @@ function WorkbenchApp() {
 }
 
 export default WorkbenchApp;
+

@@ -41,9 +41,9 @@ function roomLinesFromDamagedText(raw: string): JsonRecord[] {
 export function parseShiftFile(raw: string, index: number): unknown | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (isObject(parsed) && isObject(parsed.scores)) return parsed;
+    if (isObject(parsed) && isObject(parsed.scores) && Array.isArray(parsed.scores.room_lines)) return parsed;
     const roomLines = roomLinesFromParsed(parsed);
-    return roomLines.length ? recoveredShift(roomLines, index) : parsed;
+    return roomLines.length ? recoveredShift(roomLines, index) : null;
   } catch {
     const roomLines = roomLinesFromDamagedText(raw);
     return roomLines.length ? recoveredShift(roomLines, index) : null;

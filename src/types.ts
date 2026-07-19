@@ -16,7 +16,8 @@ export type RoomKind =
   | "dormitory"
   | "office"
   | "meeting_room"
-  | "workshop";
+  | "workshop"
+  | "training_room";
 
 export interface BlueprintRoom {
   id: string;
@@ -101,12 +102,16 @@ export interface RoomEfficiency {
   trade_score?: number;
   trade_pct?: number;
   trade_skill_pct?: number;
+  trade_display_pct?: number;
   trade_gold_pct?: number;
   manu_score?: number;
   manu_prod_total?: number;
   manu_prod_skill?: number;
+  manu_display_pct?: number;
   manu_storage_limit?: number;
   power_score?: number;
+  power_skill_pct?: number;
+  power_display_pct?: number;
   power_charge_speed_pct?: number;
 }
 
@@ -168,7 +173,123 @@ export interface HealthApiResponse {
   storageRoot?: string;
   feedbackRoot?: string;
   cliRunRoot?: string;
+  sklandConfigured?: boolean;
+  sklandDisabledReason?: string | null;
   error?: string;
+}
+
+export type BoxSource = "skland" | "maa" | "sample";
+
+export interface SklandRole {
+  uid: string;
+  nickname: string;
+  channelName: string;
+  isDefault: boolean;
+}
+
+export interface SklandPlayer {
+  uid: string;
+  nickname: string;
+  level: number;
+  channelName: string;
+  storeTs: number;
+  lastOnlineTs: number;
+}
+
+export type SklandInfrastructureGroup =
+  | "control"
+  | "trading"
+  | "manufacture"
+  | "power"
+  | "dormitory"
+  | "meeting"
+  | "hire"
+  | "training";
+
+export interface SklandInfrastructureOperator {
+  id: string;
+  name: string;
+  morale: number;
+}
+
+export interface SklandInfrastructureRoom {
+  key: string;
+  group: SklandInfrastructureGroup;
+  index: number;
+  level: number;
+  product?: string;
+  operators: SklandInfrastructureOperator[];
+  production?: {
+    stock: number | null;
+    capacity: number | null;
+    completed: number | null;
+    remaining: number | null;
+    completeWorkTime: number | null;
+  };
+}
+
+export interface SklandInfrastructure {
+  currentTs: number;
+  storeTs: number;
+  layoutLabel: PresetDef["label"] | null;
+  layoutSuggestion: BaseBlueprint | null;
+  layoutWarning: string | null;
+  rooms: SklandInfrastructureRoom[];
+  tiredOperators: string[];
+  labor: {
+    value: number;
+    maxValue: number;
+    remainSecs: number;
+  };
+  training: {
+    trainee: string | null;
+    trainer: string | null;
+    remainSecs: number;
+  } | null;
+}
+
+export interface SklandSnapshot {
+  player: SklandPlayer;
+  roles: SklandRole[];
+  operbox: OperBoxEntry[];
+  infrastructure: SklandInfrastructure;
+  sourceName: string;
+  warnings: string[];
+}
+
+export interface SklandSessionResponse {
+  authenticated: boolean;
+  configured: boolean;
+  disabledReason?: string | null;
+  snapshot?: SklandSnapshot;
+  error?: string;
+  code?: string;
+}
+
+export interface SklandQrStartResponse {
+  success: boolean;
+  scanId?: string;
+  scanUrl?: string;
+  error?: string;
+  code?: string;
+}
+
+export interface SklandQrStatusResponse {
+  success: boolean;
+  status: "waiting" | "scanned" | "expired" | "authenticated";
+  snapshot?: SklandSnapshot;
+  error?: string;
+  code?: string;
+}
+
+export interface ShiftComparison {
+  planIndex: number;
+  score: number;
+  matched: string[];
+  missing: string[];
+  unexpected: string[];
+  misplaced: string[];
+  tiredScheduled: string[];
 }
 
 export type Severity = "ok" | "warn" | "critical";
@@ -177,12 +298,15 @@ export interface UserProfileSummary {
   owned: number;
   tier_up_owned: number;
   trade_pool_ready: number;
-  manu_pool_ready: number;
+  manufacture_pool_ready?: number;
+  manu_pool_ready?: number;
 }
 
 export interface UserProfileComboSnapshot {
   operators: string[];
-  score: number;
+  final_efficiency?: number;
+  mechanic_equivalent_efficiency?: number;
+  score?: number;
   trade_pct?: number;
   gold_pct?: number;
 }
@@ -197,9 +321,12 @@ export interface UserProfileDomainMetric {
 }
 
 export interface UserProfileRotationSnapshot {
-  daily_trade: number;
-  daily_manu: number;
-  daily_power: number;
+  daily_trade_efficiency?: number;
+  daily_manufacture_efficiency?: number;
+  daily_power_efficiency?: number;
+  daily_trade?: number;
+  daily_manu?: number;
+  daily_power?: number;
 }
 
 export interface UserProfileAction {

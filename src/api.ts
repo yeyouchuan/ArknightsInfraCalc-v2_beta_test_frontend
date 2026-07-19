@@ -6,6 +6,9 @@ import {
   IssueReport,
   OperBoxEntry,
   PlanApiResponse,
+  SklandQrStartResponse,
+  SklandQrStatusResponse,
+  SklandSessionResponse,
 } from "./types";
 
 export async function runPlan(payload: {
@@ -32,6 +35,45 @@ export async function runPlan(payload: {
 export async function getHealth(): Promise<HealthApiResponse> {
   const response = await fetch("/api/health");
   return response.json();
+}
+
+async function sklandJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, init);
+  const body = (await response.json().catch(() => ({}))) as T & { error?: string };
+  if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}: ${response.statusText}`);
+  return body;
+}
+
+export function getSklandSession(): Promise<SklandSessionResponse> {
+  return sklandJson("/api/skland/session");
+}
+
+export function startSklandQr(): Promise<SklandQrStartResponse> {
+  return sklandJson("/api/skland/auth/qr", { method: "POST" });
+}
+
+export function pollSklandQr(scanId: string): Promise<SklandQrStatusResponse> {
+  return sklandJson("/api/skland/auth/qr/status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scanId }),
+  });
+}
+
+export function syncSkland(): Promise<SklandSessionResponse> {
+  return sklandJson("/api/skland/sync", { method: "POST" });
+}
+
+export function selectSklandRole(uid: string): Promise<SklandSessionResponse> {
+  return sklandJson("/api/skland/role", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uid }),
+  });
+}
+
+export function logoutSkland(): Promise<{ success: boolean }> {
+  return sklandJson("/api/skland/session", { method: "DELETE" });
 }
 
 export async function getSampleOperbox(): Promise<{

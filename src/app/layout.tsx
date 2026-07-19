@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import "overlayscrollbars/overlayscrollbars.css";
 
+import { PageScrollbar } from "@/components/ui/page-scrollbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
@@ -15,8 +17,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" className="antialiased">
       <body>
+        <PageScrollbar />
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
