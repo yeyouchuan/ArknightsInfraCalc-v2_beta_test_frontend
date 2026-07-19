@@ -117,6 +117,7 @@ export function roomKindLabel(kind: RoomKind): string {
     office: "办公室",
     meeting_room: "会客室",
     workshop: "加工站",
+    training_room: "训练室",
   };
   return labels[kind];
 }
@@ -130,8 +131,9 @@ const POWER_CONSUMPTION: Partial<Record<RoomKind, Record<number, number>>> = {
   trade_post:    { 1: 10, 2: 30, 3: 60 },
   meeting_room:  { 1: 10, 2: 30, 3: 60 },
   workshop:      { 1: 10, 2: 10, 3: 10 },
-  office:        { 1: 10, 2: 30, 3: 60 },
-  dormitory:     { 1: 10, 2: 20, 3: 30, 4: 45, 5: 65 },
+  office:         { 1: 10, 2: 30, 3: 60 },
+  training_room:  { 1: 10, 2: 30, 3: 60 },
+  dormitory:      { 1: 10, 2: 20, 3: 30, 4: 45, 5: 65 },
 };
 
 export interface PowerBudget {
@@ -152,9 +154,6 @@ export function computePowerBudget(layout: BaseBlueprint): PowerBudget {
       consumed += POWER_CONSUMPTION[room.kind]?.[lv] ?? 0;
     }
   }
-
-  // 训练室不在布局 JSON 里，但实际存在，默认满级耗电 60
-  consumed += 60;
 
   return { ok: generated >= consumed, generated, consumed };
 }
