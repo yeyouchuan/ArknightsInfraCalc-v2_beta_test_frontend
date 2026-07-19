@@ -326,8 +326,23 @@ function rotationShiftsFromServe(response: JsonRecord): unknown[] {
   const result = response.result;
   if (!isObject(result) || !Array.isArray(result.shifts)) return [];
 
-  return result.shifts.map((value) => {
-    if (!isObject(value) || !isObject(value.efficiencies)) return value;
+  return result.shifts.map((value, index) => {
+    if (!isObject(value)) return value;
+
+    const durationHours =
+      typeof value.duration_hours === "number" && Number.isFinite(value.duration_hours)
+        ? value.duration_hours
+        : index === 0
+          ? 12
+          : 6;
+
+    if (!isObject(value.efficiencies)) {
+      return {
+        ...value,
+        duration_hours: durationHours,
+      };
+    }
+
     const efficiencies = value.efficiencies;
     const roomLines = Array.isArray(efficiencies.room_lines)
       ? efficiencies.room_lines.map((line) => {
@@ -337,6 +352,7 @@ function rotationShiftsFromServe(response: JsonRecord): unknown[] {
       : [];
     return {
       ...value,
+      duration_hours: durationHours,
       scores: {
         trade_score: Number(efficiencies.trade_efficiency ?? 0),
         manu_prod_sum: Number(efficiencies.manufacture_efficiency ?? 0) * 100,

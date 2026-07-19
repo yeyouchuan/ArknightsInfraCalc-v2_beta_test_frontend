@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-import type { FactoryRecipe, TradeOrder } from "./blueprint";
+import type { FactoryRecipe, PowerBudget, TradeOrder } from "./blueprint";
 import { roomSummary } from "./blueprint";
 import { AccountStats, FileDrop, LayoutEditor, PresetSelector } from "./components";
 import { countOwned } from "./operbox";
@@ -50,6 +50,7 @@ type SetupDialogProps = {
   onFactoryRecipeChange: (roomId: string, recipe: FactoryRecipe) => void;
   onTradeOrderChange: (roomId: string, order: TradeOrder) => void;
   onRoomLevelChange: (roomId: string, level: number) => void;
+  powerBudget: PowerBudget;
   onFinish: () => void;
   onSkip: () => void;
 };
@@ -98,6 +99,7 @@ export function SetupDialog({
   onFactoryRecipeChange,
   onTradeOrderChange,
   onRoomLevelChange,
+  powerBudget,
   onFinish,
   onSkip,
 }: SetupDialogProps) {
@@ -306,17 +308,23 @@ export function SetupDialog({
             恢复切换提示
           </Button>
           <div className="flex flex-wrap justify-end gap-2">
-          {step === "box" ? (
-            <>
-              <Button className="h-10" type="button" variant="ghost" onClick={onSkip}>稍后设置</Button>
-              <Button className="h-10" type="button" disabled={!hasBox} onClick={() => setStep("layout")}>下一步：配置基建</Button>
-            </>
-          ) : (
-            <>
-              <Button className="h-10" type="button" variant="ghost" onClick={() => setStep("box")}>上一步：修改 Box</Button>
-              <Button className="h-10" type="button" onClick={onFinish}><Check />完成设置</Button>
-            </>
-          )}
+            {step === "box" ? (
+              <>
+                <Button className="h-10" type="button" variant="ghost" onClick={onSkip}>稍后设置</Button>
+                <Button className="h-10" type="button" disabled={!hasBox} onClick={() => setStep("layout")}>下一步：配置基建</Button>
+              </>
+            ) : (
+              <>
+                <Button className="h-10" type="button" variant="ghost" onClick={() => setStep("box")}>上一步：修改 Box</Button>
+                <span className="flex items-center gap-3">
+                  <span className={`text-sm font-normal ${powerBudget.ok ? "text-muted-foreground" : "text-red-600"}`}>
+                    发电 {powerBudget.generated} / 耗电 {powerBudget.consumed}
+                    {!powerBudget.ok && " — 电量不足"}
+                  </span>
+                  <Button className="h-10" type="button" disabled={!powerBudget.ok} onClick={onFinish}><Check />完成设置</Button>
+                </span>
+              </>
+            )}
           </div>
         </footer>
       </DialogContent>

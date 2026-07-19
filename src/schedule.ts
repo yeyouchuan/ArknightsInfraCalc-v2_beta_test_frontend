@@ -60,7 +60,7 @@ const ROOM_PREFIX: Partial<Record<RoomGroup, string>> = {
   processing: "workshop",
 };
 
-const BLUEPRINT_GROUP: Record<RoomKind, RoomGroup> = {
+const BLUEPRINT_GROUP: Partial<Record<RoomKind, RoomGroup>> = {
   control_center: "control",
   trade_post: "trading",
   factory: "manufacture",
@@ -262,11 +262,13 @@ function layoutToRows(layout: BaseBlueprint | undefined): RoomRow[] {
   const sortedRooms = [...layout.rooms].sort((left, right) => {
     const leftGroup = BLUEPRINT_GROUP[left.kind];
     const rightGroup = BLUEPRINT_GROUP[right.kind];
-    return GROUP_ORDER.indexOf(leftGroup) - GROUP_ORDER.indexOf(rightGroup);
+    return (leftGroup ? GROUP_ORDER.indexOf(leftGroup) : Number.MAX_SAFE_INTEGER)
+      - (rightGroup ? GROUP_ORDER.indexOf(rightGroup) : Number.MAX_SAFE_INTEGER);
   });
 
   for (const room of sortedRooms) {
     const group = BLUEPRINT_GROUP[room.kind];
+    if (!group) continue;
     const index = groupCounts.get(group) ?? 0;
     groupCounts.set(group, index + 1);
     rows.push({

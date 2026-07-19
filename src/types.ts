@@ -16,7 +16,8 @@ export type RoomKind =
   | "dormitory"
   | "office"
   | "meeting_room"
-  | "workshop";
+  | "workshop"
+  | "training_room";
 
 export interface BlueprintRoom {
   id: string;

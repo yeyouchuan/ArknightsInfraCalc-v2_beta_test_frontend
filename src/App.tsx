@@ -18,6 +18,7 @@ import {
 } from "./api";
 import {
   buildBlueprint,
+  computePowerBudget,
   FACTORY_RECIPE_OPTIONS,
   FactoryRecipe,
   PRESETS,
@@ -85,7 +86,11 @@ function readSessionState() {
 
 function readResultClearWarningDismissed() {
   if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(RESULT_CLEAR_WARNING_DISMISSED_KEY) === "1";
+  try {
+    return window.localStorage.getItem(RESULT_CLEAR_WARNING_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 function resolvePreset(value: PresetDef | undefined): PresetDef {
@@ -206,6 +211,7 @@ function WorkbenchApp() {
   const initialLayout = restoreEditableProducts(buildBlueprint(initialPreset), initialSession?.layout);
   const [preset, setPreset] = useState<PresetDef>(initialPreset);
   const [layout, setLayout] = useState<BaseBlueprint>(initialLayout);
+  const powerBudget = useMemo(() => computePowerBudget(layout), [layout]);
   const [operbox, setOperbox] = useState<OperBoxEntry[] | null>(initialSession?.operbox ?? null);
   const [fileName, setFileName] = useState<string | null>(initialSession?.fileName ?? null);
   const [boxSource, setBoxSource] = useState<BoxSource>(initialSession?.boxSource ?? (initialSession?.operbox ? "maa" : "sample"));
@@ -464,6 +470,7 @@ function WorkbenchApp() {
       return;
     }
     setLoading(true);
+    setResultClearNotice(null);
     setInputError(null);
     setApiError(null);
     setResult(null);
@@ -616,15 +623,19 @@ function WorkbenchApp() {
   function dismissResultClearWarning() {
     setResultClearWarningDismissed(true);
     setResultClearNotice(null);
-    if (typeof window !== "undefined") {
+    try {
       window.localStorage.setItem(RESULT_CLEAR_WARNING_DISMISSED_KEY, "1");
+    } catch {
+      // The current session can still honor the preference when storage is unavailable.
     }
   }
 
   function restoreResultClearWarning() {
     setResultClearWarningDismissed(false);
-    if (typeof window !== "undefined") {
+    try {
       window.localStorage.removeItem(RESULT_CLEAR_WARNING_DISMISSED_KEY);
+    } catch {
+      // The in-memory preference has already been restored.
     }
   }
 
@@ -722,6 +733,7 @@ function WorkbenchApp() {
     () => buildIssueReport(issueForPanel, fileName, result?.debugBundle?.command),
     [issueForPanel, fileName, result?.debugBundle?.command]
   );
+
   return (
     <main className="min-h-screen bg-background px-4 py-4 text-foreground sm:px-5">
       <header className="mx-auto mb-4 max-w-[1760px] border-b pb-4">
@@ -831,24 +843,26 @@ function WorkbenchApp() {
       </section>
 
       {resultClearNotice ? (
-        <div className="fixed left-1/2 top-4 z-[70] w-[min(720px,calc(100vw-2rem))] -translate-x-1/2 border border-[#FFD800]/70 bg-[#313131] px-4 py-3 text-white shadow-[0_16px_44px_rgba(0,0,0,0.35)]">
+        <aside
+          className="fixed left-1/2 top-4 z-[70] w-[min(720px,calc(100vw-2rem))] -translate-x-1/2 border border-[#FFD800]/70 bg-[#313131] px-4 py-3 text-white shadow-[0_16px_44px_rgba(0,0,0,0.35)]"
+          aria-live="polite"
+          aria-label="排班结果已清空"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <strong className="block text-sm font-semibold text-[#FFD800]">已清空旧求解结果</strong>
               <span className="mt-0.5 block text-xs text-white/68">{resultClearNotice}，需要重新运行求解。</span>
             </div>
-            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-white/74">
-              <input
-                type="checkbox"
-                className="size-4 accent-[#FFD800]"
-                onChange={(event) => {
-                  if (event.currentTarget.checked) dismissResultClearWarning();
-                }}
-              />
-              不再显示
-            </label>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={() => setResultClearNotice(null)}>
+                知道了
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white" onClick={dismissResultClearWarning}>
+                不再提示
+              </Button>
+            </div>
           </div>
-        </div>
+        </aside>
       ) : null}
 
       <SetupDialog
@@ -884,6 +898,7 @@ function WorkbenchApp() {
         onFactoryRecipeChange={handleFactoryRecipeChange}
         onTradeOrderChange={handleTradeOrderChange}
         onRoomLevelChange={handleRoomLevelChange}
+        powerBudget={powerBudget}
         onFinish={closeSetup}
         onSkip={closeSetup}
       />

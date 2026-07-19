@@ -72,6 +72,8 @@ export function unsealSklandSession(value: string, secret?: string, now = Date.n
 }
 
 export function isSecureSklandRequest(request: Request, nodeEnv = process.env.NODE_ENV): boolean {
+  if (process.env.SKLAND_ALLOW_INSECURE_HTTP === "1") return true;
+
   const url = new URL(request.url);
   const forwarded = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const host = (request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() || request.headers.get("host") || url.host)

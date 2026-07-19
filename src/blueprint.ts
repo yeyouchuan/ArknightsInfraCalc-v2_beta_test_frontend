@@ -117,7 +117,44 @@ export function roomKindLabel(kind: RoomKind): string {
     office: "办公室",
     meeting_room: "会客室",
     workshop: "加工站",
+    training_room: "训练室",
   };
   return labels[kind];
+}
+
+/* ── 发电量校验 ── */
+
+const POWER_OUTPUT: Record<number, number> = { 1: 60, 2: 130, 3: 270 };
+
+const POWER_CONSUMPTION: Partial<Record<RoomKind, Record<number, number>>> = {
+  factory:       { 1: 10, 2: 30, 3: 60 },
+  trade_post:    { 1: 10, 2: 30, 3: 60 },
+  meeting_room:  { 1: 10, 2: 30, 3: 60 },
+  workshop:      { 1: 10, 2: 10, 3: 10 },
+  office:         { 1: 10, 2: 30, 3: 60 },
+  training_room:  { 1: 10, 2: 30, 3: 60 },
+  dormitory:      { 1: 10, 2: 20, 3: 30, 4: 45, 5: 65 },
+};
+
+export interface PowerBudget {
+  ok: boolean;
+  generated: number;
+  consumed: number;
+}
+
+export function computePowerBudget(layout: BaseBlueprint): PowerBudget {
+  let generated = 0;
+  let consumed = 0;
+
+  for (const room of layout.rooms) {
+    const lv = room.level;
+    if (room.kind === "power_plant") {
+      generated += POWER_OUTPUT[lv] ?? 0;
+    } else if (room.kind !== "control_center") {
+      consumed += POWER_CONSUMPTION[room.kind]?.[lv] ?? 0;
+    }
+  }
+
+  return { ok: generated >= consumed, generated, consumed };
 }
 
