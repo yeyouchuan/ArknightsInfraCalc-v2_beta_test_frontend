@@ -16,7 +16,8 @@ export type RoomKind =
   | "dormitory"
   | "office"
   | "meeting_room"
-  | "workshop";
+  | "workshop"
+  | "training_room";
 
 export interface BlueprintRoom {
   id: string;
@@ -81,6 +82,7 @@ export interface MaaRooms {
   meeting?: MaaRoom[];
   hire?: MaaRoom[];
   processing?: MaaRoom[];
+  training?: MaaRoom[];
 }
 
 export interface MaaPlan {

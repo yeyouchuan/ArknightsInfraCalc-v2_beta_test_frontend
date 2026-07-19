@@ -36,6 +36,7 @@ const GROUP_LABELS: Record<RoomGroup, string> = {
   meeting: "会客室",
   hire: "办公室",
   processing: "加工站",
+  training: "训练室",
 };
 
 const GROUP_ORDER: RoomGroup[] = [
@@ -47,6 +48,7 @@ const GROUP_ORDER: RoomGroup[] = [
   "hire",
   "meeting",
   "processing",
+  "training",
 ];
 
 const ROOM_PREFIX: Partial<Record<RoomGroup, string>> = {
@@ -58,6 +60,7 @@ const ROOM_PREFIX: Partial<Record<RoomGroup, string>> = {
   meeting: "meeting",
   hire: "office",
   processing: "workshop",
+  training: "training",
 };
 
 const BLUEPRINT_GROUP: Record<RoomKind, RoomGroup> = {
@@ -69,6 +72,7 @@ const BLUEPRINT_GROUP: Record<RoomKind, RoomGroup> = {
   office: "hire",
   meeting_room: "meeting",
   workshop: "processing",
+  training_room: "training",
 };
 
 const PRODUCT_LABELS: Record<string, string> = {
@@ -190,13 +194,13 @@ function ruleFor(group: RoomGroup, operators: string[]): string {
 
 function titleFor(group: RoomGroup, index: number): string {
   const label = GROUP_LABELS[group];
-  if (["control", "meeting", "processing", "hire"].includes(group)) return label;
+  if (["control", "meeting", "processing", "hire", "training"].includes(group)) return label;
   return `${label} ${index + 1}`;
 }
 
 function roomIdFor(group: RoomGroup, index: number): string {
   const prefix = ROOM_PREFIX[group] ?? group;
-  if (["control", "meeting", "workshop", "office"].includes(prefix)) return prefix;
+  if (["control", "meeting", "workshop", "office", "training"].includes(prefix)) return prefix;
   return `${prefix}_${index + 1}`;
 }
 
@@ -266,6 +270,7 @@ function layoutToRows(layout: BaseBlueprint | undefined): RoomRow[] {
   });
 
   for (const room of sortedRooms) {
+    if (room.kind === "training_room") continue;
     const group = BLUEPRINT_GROUP[room.kind];
     const index = groupCounts.get(group) ?? 0;
     groupCounts.set(group, index + 1);
