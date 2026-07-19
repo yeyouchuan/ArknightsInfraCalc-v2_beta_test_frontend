@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronDown,
   CircleHelp,
   Download,
   FileWarning,
@@ -11,7 +12,7 @@ import {
   Smile,
   Upload,
 } from "lucide-react";
-import { CSSProperties, ChangeEvent, ReactNode } from "react";
+import { CSSProperties, ChangeEvent, ReactNode, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -590,9 +591,10 @@ type RoomVisual = {
 };
 
 const ROOM_SLOT_COUNT = 5;
+const AUXILIARY_ROOM_GROUPS = new Set(["dormitory", "hire", "meeting", "processing"]);
 
 function roomSlotCountFor(group: string) {
-  if (group === "trading") return 3;
+  if (group === "trading" || group === "manufacture") return 3;
   return ROOM_SLOT_COUNT;
 }
 
@@ -834,6 +836,9 @@ export function ScheduleBoard({
   onFactoryRecipeChange: (roomId: string, recipe: FactoryRecipe) => void;
   onTradeOrderChange: (roomId: string, order: TradeOrder) => void;
 }) {
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [hiddenGroups, setHiddenGroups] = useState<Record<string, boolean>>({});
+
   if (rows.length === 0) {
     return (
       <div className="flex min-h-[420px] items-center justify-center border-y border-dashed border-border/70 py-6 text-center text-sm text-muted-foreground">
@@ -851,22 +856,102 @@ export function ScheduleBoard({
     }
     return groups;
   }, []);
+  const auxiliaryGroups = rowGroups.filter((group) => AUXILIARY_ROOM_GROUPS.has(group.rows[0]?.group ?? ""));
+  const hiddenAuxiliaryCount = auxiliaryGroups.filter((group) => hiddenGroups[group.label]).length;
+  const allAuxiliaryCollapsed =
+    auxiliaryGroups.length > 0 &&
+    auxiliaryGroups.every((group) => collapsedGroups[group.label] || hiddenGroups[group.label]);
+
+  function toggleAuxiliaryGroups() {
+    if (allAuxiliaryCollapsed) {
+      setCollapsedGroups((current) => {
+        const next = { ...current };
+        auxiliaryGroups.forEach((group) => {
+          next[group.label] = false;
+        });
+        return next;
+      });
+      setHiddenGroups((current) => {
+        const next = { ...current };
+        auxiliaryGroups.forEach((group) => {
+          next[group.label] = false;
+        });
+        return next;
+      });
+      return;
+    }
+
+    setCollapsedGroups((current) => {
+      const next = { ...current };
+      auxiliaryGroups.forEach((group) => {
+        next[group.label] = true;
+      });
+      return next;
+    });
+  }
+
+  function restoreHiddenAuxiliaryGroups() {
+    setHiddenGroups((current) => {
+      const next = { ...current };
+      auxiliaryGroups.forEach((group) => {
+        next[group.label] = false;
+      });
+      return next;
+    });
+  }
 
   return (
     <div className="flex flex-col gap-7">
+      {auxiliaryGroups.length ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          {hiddenAuxiliaryCount ? (
+            <Button type="button" variant="ghost" size="sm" onClick={restoreHiddenAuxiliaryGroups}>
+              恢复已隐藏（{hiddenAuxiliaryCount}）
+            </Button>
+          ) : null}
+          <Button type="button" variant="outline" size="sm" onClick={toggleAuxiliaryGroups}>
+            <ChevronDown className={cn("transition-transform", allAuxiliaryCollapsed ? "-rotate-90" : "rotate-0")} />
+            {allAuxiliaryCollapsed ? "展开辅助设施" : "一键折叠辅助设施"}
+          </Button>
+        </div>
+      ) : null}
       {rowGroups.map((group) => {
         const visual = roomVisualFor(group.rows[0]?.group ?? "default");
         const groupStyle = {
           "--room-accent": visual.accent,
         } as CSSProperties;
+        const collapsed = collapsedGroups[group.label];
+        const auxiliary = AUXILIARY_ROOM_GROUPS.has(group.rows[0]?.group ?? "");
+
+        if (hiddenGroups[group.label]) return null;
 
         return (
           <section key={group.label} className="min-w-0" aria-label={group.label} style={groupStyle}>
-            <div className="mb-2 flex items-center gap-2.5">
-              <span className="h-7 w-1.5 bg-[var(--room-accent)]" aria-hidden="true" />
-              <h3 className="text-[21px] font-medium leading-none text-[#313131]">{group.label}</h3>
+            <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
+              <button
+                type="button"
+                className="flex min-w-0 items-center gap-2.5 text-left"
+                aria-expanded={!collapsed}
+                onClick={() => setCollapsedGroups((current) => ({ ...current, [group.label]: !current[group.label] }))}
+              >
+                <span className="h-7 w-1.5 shrink-0 bg-[var(--room-accent)]" aria-hidden="true" />
+                <h3 className="truncate text-[21px] font-medium leading-none text-[#313131]">{group.label}</h3>
+                <span className="text-xs text-[#313131]/52">{group.rows.length}</span>
+                <ChevronDown className={cn("size-4 shrink-0 text-[#313131]/45 transition-transform", collapsed && "-rotate-90")} />
+              </button>
+              {auxiliary && collapsed ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 text-muted-foreground"
+                  onClick={() => setHiddenGroups((current) => ({ ...current, [group.label]: true }))}
+                >
+                  暂不显示
+                </Button>
+              ) : null}
             </div>
-            <div className="grid min-w-0 gap-3 pb-2">
+            <div className={cn("grid min-w-0 gap-3 pb-2", collapsed && "hidden")}>
               {group.rows.map((row) => {
                 const layoutRoom = layout.rooms.find((room) => room.id === row.roomId);
                 const rowVisual = roomVisualFor(row.group);
@@ -919,7 +1004,12 @@ export function ScheduleBoard({
                     </div>
 
                     <div className="flex min-w-0 flex-1 items-center gap-5 py-2 pl-12 pr-10 max-sm:flex-col max-sm:items-stretch max-sm:gap-2 max-sm:px-3 max-sm:pb-3 max-sm:pt-0">
-                      <div className="grid min-w-0 flex-1 grid-cols-5 items-center gap-2.5 max-sm:flex max-sm:overflow-x-auto max-sm:pb-1">
+                      <div
+                        className={cn(
+                          "grid min-w-0 flex-1 items-center justify-items-center gap-2.5 max-sm:flex max-sm:overflow-x-auto max-sm:pb-1",
+                          slotCount === 3 ? "grid-cols-3" : "grid-cols-5"
+                        )}
+                      >
                         {slots.map((slot, index) => (
                           <OperatorSlot
                             key={`${slot?.name ?? "empty"}-${index}`}
