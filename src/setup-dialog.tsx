@@ -159,12 +159,12 @@ export function SetupDialog({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="box" className="min-h-0 overflow-hidden">
+          <TabsContent value="box" className="min-h-0 overflow-hidden px-5 py-5 sm:px-7 sm:py-6">
             <ScrollArea className="h-full">
-              <div className="mx-auto grid max-w-3xl gap-5 px-5 py-5 sm:px-7 sm:py-6">
+              <div className="mx-auto grid max-w-3xl gap-5 px-5 sm:px-7">
                 <section className="surface-shadow rounded-xl bg-card p-4 sm:p-5">
                   <Tabs value={inputMode} onValueChange={(value) => onInputModeChange(value as "skland" | "maa")}>
-                    <TabsList className="h-10 w-full rounded-lg sm:w-auto">
+                    <TabsList className="h-auto w-full rounded-lg sm:w-auto">
                       <TabsTrigger value="skland"><Database />森空岛同步</TabsTrigger>
                       <TabsTrigger value="maa"><FileJson />MAA 导入</TabsTrigger>
                     </TabsList>
@@ -252,9 +252,9 @@ export function SetupDialog({
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="layout" className="min-h-0 overflow-hidden">
+          <TabsContent value="layout" className="min-h-0 overflow-hidden  px-5 py-5 sm:px-7 sm:py-6">
             <ScrollArea className="h-full">
-              <div className="grid gap-5 px-5 py-5 sm:px-7 sm:py-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+              <div className="grid gap-5 px-5 sm:px-7 lg:grid-cols-[280px_minmax(0,1fr)]">
                 <section className="surface-shadow min-w-0 self-start rounded-xl bg-card p-4 lg:sticky lg:top-0">
                   <div className="mb-4 flex items-start gap-2">
                     <LayoutGrid className="mt-0.5 size-4 text-primary" />
