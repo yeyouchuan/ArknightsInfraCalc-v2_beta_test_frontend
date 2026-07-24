@@ -5,9 +5,6 @@ import { Database, FileJson, FlaskConical, Loader2, Settings2, ShieldCheck, Term
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Any = any;
-
 import type { FactoryRecipe, TradeOrder } from "@/blueprint";
 import {
   DebugActions,
@@ -19,24 +16,33 @@ import {
 } from "@/components";
 import { InfrastructureSnapshot, ShiftComparisonCard } from "@/skland-components";
 import type { RoomRow } from "@/schedule";
-import type { OperBoxEntry, SklandSnapshot } from "@/types";
+import type {
+  BaseBlueprint,
+  FeedbackApiResponse,
+  IssueReport,
+  MaaPlan,
+  OperBoxEntry,
+  PlanApiResponse,
+  ShiftComparison,
+  SklandSnapshot,
+} from "@/types";
 
 interface InfraCalculatorProps {
   operbox: OperBoxEntry[] | null;
-  layout: Any;
+  layout: BaseBlueprint;
   sklandSnapshot: SklandSnapshot | null;
   sklandLayoutMatches: boolean | null;
-  result: Any;
-  scheduleResult: Any;
+  result: PlanApiResponse | null;
+  scheduleResult: PlanApiResponse | null;
   activeShift: number;
   rows: RoomRow[];
   currentMoraleByOperator: Map<string, number> | undefined;
-  activePlan: Any;
-  closestComparison: Any;
+  activePlan: MaaPlan | undefined;
+  closestComparison: ShiftComparison | null;
   resultClearNotice: string | null;
   issueForPanel: { row: RoomRow; note: string } | null;
-  issueReport: Any;
-  feedbackResult: Any;
+  issueReport: IssueReport | null;
+  feedbackResult: FeedbackApiResponse | null;
   feedbackError: string | null;
   sampleLoading: boolean;
   onLoadSample: () => Promise<boolean>;

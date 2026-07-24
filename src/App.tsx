@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Database, FileJson, FlaskConical, Loader2, Settings2, ShieldCheck, Terminal } from "lucide-react";
+import { Settings2 } from "lucide-react";
 
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar, type AppPage } from "@/components/layout/AppSidebar";
@@ -10,7 +10,6 @@ import { SklandStatus } from "@/components/pages/SklandStatus";
 import { TrainingAdvice } from "@/components/pages/TrainingAdvice";
 
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 
 import {
   getHealth,
@@ -35,14 +34,8 @@ import {
   updateTradeOrder,
 } from "./blueprint";
 import {
-  DebugActions,
-  IssuePanel,
   IssueNoteModal,
-  Panel,
-  PlanTelemetry,
   RunButton,
-  ScheduleBoard,
-  ShiftTabs,
   StatusBar,
 } from "./components";
 import { copyText, downloadJson } from "./download";
@@ -51,7 +44,7 @@ import { readOperboxFile, readOperboxText } from "./operbox";
 import { planToRows, RoomRow } from "./schedule";
 import { SetupDialog } from "./setup-dialog";
 import { closestShift, compareShifts } from "./skland";
-import { InfrastructureSnapshot, ShiftComparisonCard, SklandAccount } from "./skland-components";
+import { SklandAccount } from "./skland-components";
 import {
   BaseBlueprint,
   BoxSource,
