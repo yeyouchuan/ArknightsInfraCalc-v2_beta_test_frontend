@@ -265,9 +265,15 @@ export interface SklandSnapshot {
   warnings: string[];
 }
 
+export interface SklandAuthMethods {
+  qr: true;
+  phoneCode: true;
+}
+
 export interface SklandSessionResponse {
   authenticated: boolean;
   configured: boolean;
+  authMethods?: SklandAuthMethods;
   disabledReason?: string | null;
   snapshot?: SklandSnapshot;
   error?: string;
@@ -485,6 +491,7 @@ export type AppErrorCode =
   | "AIC-AUTH-2001"
   | "AIC-AUTH-2002"
   | "AIC-AUTH-2003"
+  | "AIC-AUTH-2004"
   | "AIC-PLAN-3001"
   | "AIC-PLAN-3002"
   | "AIC-PLAN-3003"
@@ -578,6 +585,7 @@ export interface FeedbackData {
 export interface SklandSessionData {
   authenticated: boolean;
   configured: boolean;
+  authMethods?: SklandAuthMethods;
   disabledReason?: string | null;
   snapshot?: SklandSnapshot;
 }
@@ -592,9 +600,20 @@ export interface SklandQrStatusData {
   snapshot?: SklandSnapshot;
 }
 
+export interface SklandPhoneCodeStartData {
+  challengeId: string;
+  expiresInSeconds: number;
+  resendAfterSeconds: number;
+}
+
+export interface SklandPhoneCodeVerifyData {
+  snapshot: SklandSnapshot;
+}
+
 export interface DisplayError {
   code: AppErrorCode;
   message: string;
   requestId?: string;
   retryable: boolean;
+  fieldErrors?: ApiFieldError[];
 }

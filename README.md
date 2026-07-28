@@ -45,7 +45,7 @@ http://127.0.0.1:5174/?beta
 
 ## Box 导入与森空岛登录
 
-页面支持两种主要 Box 来源：森空岛扫码同步，以及上传或粘贴 MAA 的 `Arknights_OperBox_Export.json`。旧的一图流 xlsx 仍保留为兼容入口，243 全精二样例可从首页的 “Full E2 测试” 直接载入。
+页面支持两种主要 Box 来源：森空岛同步，以及上传或粘贴 MAA 的 `Arknights_OperBox_Export.json`。森空岛可通过桌面二维码、同手机打开授权链接或绑定手机号短信验证码登录，不接收账号密码。旧的一图流 xlsx 仍保留为兼容入口，243 全精二样例可从首页的 “Full E2 测试” 直接载入。
 
 启用森空岛登录前必须配置至少 32 字节、长期保持不变的会话密钥：
 
@@ -62,7 +62,7 @@ $env:SKLAND_PUBLIC_ORIGIN = "https://infra.example.com"
 $env:BETA_TRUST_PROXY_HEADERS = "1"
 ```
 
-`BETA_PUBLIC_ORIGIN`保护全部公开写接口，`SKLAND_PUBLIC_ORIGIN`继续保护森空岛会话流。森空岛凭证会使用 AES-256-GCM 加密后写入 HttpOnly Cookie，不写入浏览器存储、运行记录或反馈包。localhost 可使用 HTTP 开发；非 localhost 环境默认必须通过 HTTPS 访问，否则只禁用森空岛入口，MAA 导入和求解仍可使用。仅在临时、可信的 HTTP 测试环境中可以显式设置 `SKLAND_ALLOW_INSECURE_HTTP=1`；此时登录流量不会受到 HTTPS 保护。
+`BETA_PUBLIC_ORIGIN`保护全部公开写接口，`SKLAND_PUBLIC_ORIGIN`继续保护森空岛会话流。森空岛凭证会使用 AES-256-GCM 加密后写入 HttpOnly Cookie；手机号、验证码和登录凭证都不会写入浏览器存储、运行记录或反馈包。localhost 可使用 HTTP 开发；非 localhost 环境默认必须通过 HTTPS 访问，否则只禁用森空岛入口，MAA 导入和求解仍可使用。仅在临时、可信的 HTTP 测试环境中可以显式设置 `SKLAND_ALLOW_INSECURE_HTTP=1`；此时登录流量不会受到 HTTPS 保护。
 
 ## CLI 设置
 

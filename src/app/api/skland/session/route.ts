@@ -16,6 +16,7 @@ import {
 import { isSecureSklandRequest, isSklandConfigured } from "@/server/skland/session";
 
 export const runtime = "nodejs";
+const authMethods = { qr: true as const, phoneCode: true as const };
 
 export async function GET(request: Request) {
   const requestId = createRequestId();
@@ -24,14 +25,22 @@ export async function GET(request: Request) {
     return successResponse({
       authenticated: false,
       configured: isSklandConfigured(),
+      authMethods,
       disabledReason: "当前未开放森空岛登录，可使用 MAA 导入。",
     }, requestId);
   }
   try {
     const session = await readSklandSession();
-    if (!session) return successResponse({ authenticated: false, configured: true }, requestId);
+    if (!session) {
+      return successResponse({ authenticated: false, configured: true, authMethods }, requestId);
+    }
     const result = await loadSessionSnapshot(session);
-    const response = successResponse({ authenticated: true, configured: true, snapshot: result.snapshot }, requestId);
+    const response = successResponse({
+      authenticated: true,
+      configured: true,
+      authMethods,
+      snapshot: result.snapshot,
+    }, requestId);
     setSklandSessionCookie(response, request, result.session);
     return response;
   } catch (error) {

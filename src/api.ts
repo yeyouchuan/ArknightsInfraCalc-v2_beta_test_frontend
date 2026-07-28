@@ -10,6 +10,8 @@ import type {
   PublicHealthData,
   PublicPlanData,
   SampleOperboxData,
+  SklandPhoneCodeStartData,
+  SklandPhoneCodeVerifyData,
   SklandQrStartData,
   SklandQrStatusData,
   SklandSessionData,
@@ -19,6 +21,7 @@ export class ApiClientError extends Error implements DisplayError {
   readonly code: AppErrorCode;
   readonly requestId?: string;
   readonly retryable: boolean;
+  readonly fieldErrors?: ApiFailure["error"]["fieldErrors"];
 
   constructor(error: ApiFailure["error"]) {
     super(error.message);
@@ -26,6 +29,7 @@ export class ApiClientError extends Error implements DisplayError {
     this.code = error.code;
     this.requestId = error.requestId;
     this.retryable = error.retryable;
+    this.fieldErrors = error.fieldErrors;
   }
 }
 
@@ -64,6 +68,7 @@ export function toDisplayError(error: unknown, fallback: string): DisplayError {
       message: error.message,
       requestId: error.requestId,
       retryable: error.retryable,
+      fieldErrors: error.fieldErrors,
     };
   }
   return {
@@ -102,6 +107,25 @@ export function pollSklandQr(scanId: string): Promise<SklandQrStatusData> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ scanId }),
+  });
+}
+
+export function sendSklandPhoneCode(phone: string): Promise<SklandPhoneCodeStartData> {
+  return requestData("/api/skland/auth/phone/code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+}
+
+export function verifySklandPhoneCode(
+  challengeId: string,
+  code: string
+): Promise<SklandPhoneCodeVerifyData> {
+  return requestData("/api/skland/auth/phone/code/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ challengeId, code }),
   });
 }
 

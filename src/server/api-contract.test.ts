@@ -24,6 +24,7 @@ test("error catalog keeps the required HTTP status mapping", () => {
   assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2001"].status, 401);
   assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2002"].status, 403);
   assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2003"].status, 503);
+  assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2004"].status, 401);
   assert.equal(ERROR_DEFINITIONS["AIC-PLAN-3001"].status, 503);
   assert.equal(ERROR_DEFINITIONS["AIC-PLAN-3002"].status, 429);
   assert.equal(ERROR_DEFINITIONS["AIC-PLAN-3003"].status, 504);
