@@ -11,11 +11,6 @@ import {
 
 import type { SklandQrStatusResponse, SklandSnapshot } from "@/types";
 import { rolesFromBinding, snapshotFromPlayerInfo } from "./normalize";
-import {
-  PHONE_CHALLENGE_TTL_MS,
-  PHONE_CODE_RESEND_SECONDS,
-  PhoneChallengeRegistry,
-} from "./phone-challenge";
 import { SKLAND_SESSION_TTL_SECONDS, type SklandSessionPayload } from "./session";
 
 const SCAN_TTL_MS = 10 * 60 * 1000;
@@ -31,16 +26,12 @@ type RateEntry = { timestamps: number[] };
 
 declare global {
   var __infraCalcSklandScans: Map<string, PendingScan> | undefined;
-  var __infraCalcSklandPhoneChallenges: PhoneChallengeRegistry<Client> | undefined;
   var __infraCalcSklandRate: Map<string, RateEntry> | undefined;
 }
 
 const pendingScans = globalThis.__infraCalcSklandScans ?? new Map<string, PendingScan>();
-const pendingPhoneChallenges =
-  globalThis.__infraCalcSklandPhoneChallenges ?? new PhoneChallengeRegistry<Client>();
 const rateEntries = globalThis.__infraCalcSklandRate ?? new Map<string, RateEntry>();
 globalThis.__infraCalcSklandScans = pendingScans;
-globalThis.__infraCalcSklandPhoneChallenges = pendingPhoneChallenges;
 globalThis.__infraCalcSklandRate = rateEntries;
 
 export class SklandServiceError extends Error {
@@ -50,7 +41,6 @@ export class SklandServiceError extends Error {
       | "INSECURE"
       | "RATE_LIMITED"
       | "AUTH_EXPIRED"
-      | "AUTH_INVALID"
       | "UNAVAILABLE"
       | "BAD_DATA",
     message: string,
@@ -64,7 +54,6 @@ function cleanupScans(now = Date.now()): void {
   for (const [scanId, scan] of pendingScans) {
     if (now - scan.createdAt > SCAN_TTL_MS) pendingScans.delete(scanId);
   }
-  pendingPhoneChallenges.cleanup(now);
   for (const [key, entry] of rateEntries) {
     const timestamps = entry.timestamps.filter((timestamp) => now - timestamp < SCAN_TTL_MS);
     if (timestamps.length === 0) rateEntries.delete(key);
@@ -88,29 +77,6 @@ function publicError(error: unknown): SklandServiceError {
   if (/cred|token|认证|unauthor|用户未登录|登录失效/i.test(combinedMessage)) return new SklandServiceError("AUTH_EXPIRED", "森空岛登录已失效，请重新扫码。", 401);
   if (/429|频繁|limit/i.test(combinedMessage)) return new SklandServiceError("RATE_LIMITED", "森空岛请求过于频繁，请稍后再试。", 429);
   return new SklandServiceError("UNAVAILABLE", "森空岛暂时不可用，请稍后重试；MAA 导入仍可正常使用。", 502);
-}
-
-function phoneAuthenticationError(error: unknown): SklandServiceError {
-  if (error instanceof SklandServiceError) return error;
-  const cause =
-    error && typeof error === "object" && "cause" in error
-      ? (error as { cause?: unknown }).cause
-      : null;
-  const causeStatus =
-    cause && typeof cause === "object" && "status" in cause
-      ? Number((cause as { status?: unknown }).status)
-      : null;
-  const causeMessage =
-    cause && typeof cause === "object" && "msg" in cause
-      ? String((cause as { msg?: unknown }).msg ?? "")
-      : "";
-  if (/429|频繁|limit/i.test(causeMessage)) {
-    return new SklandServiceError("RATE_LIMITED", "森空岛请求过于频繁，请稍后再试。", 429);
-  }
-  if (causeStatus !== null && Number.isFinite(causeStatus) && causeStatus !== 0) {
-    return new SklandServiceError("AUTH_INVALID", "验证码错误或已失效，请检查后重试。", 401);
-  }
-  return publicError(error);
 }
 
 export function scanStatusFromError(error: unknown): "waiting" | "scanned" | "expired" | null {
@@ -246,56 +212,6 @@ export async function pollScan(scanId: string): Promise<{
     const known = publicError(error);
     if (known.code === "AUTH_EXPIRED") pendingScans.delete(scanId);
     throw known;
-  }
-}
-
-export async function startPhoneCode(phone: string): Promise<{
-  challengeId: string;
-  expiresInSeconds: number;
-  resendAfterSeconds: number;
-}> {
-  cleanupScans();
-  const client = createClient({ timeout: 30_000 });
-  try {
-    await client.collections.hypergryph.sendPhoneCode(phone);
-    return {
-      challengeId: pendingPhoneChallenges.create(phone, client),
-      expiresInSeconds: PHONE_CHALLENGE_TTL_MS / 1000,
-      resendAfterSeconds: PHONE_CODE_RESEND_SECONDS,
-    };
-  } catch (error) {
-    throw publicError(error);
-  }
-}
-
-export async function verifyPhoneCode(
-  challengeId: string,
-  code: string
-): Promise<{ session: SklandSessionPayload; snapshot: SklandSnapshot }> {
-  cleanupScans();
-  const challenge = pendingPhoneChallenges.acquire(challengeId);
-  if (!challenge) {
-    throw new SklandServiceError("AUTH_INVALID", "验证码错误或已失效，请检查后重试。", 401);
-  }
-
-  let oauthToken: string;
-  try {
-    oauthToken = await challenge.client.collections.hypergryph.getOAuthTokenByPhoneCode({
-      phone: challenge.phone,
-      code,
-    });
-  } catch (error) {
-    pendingPhoneChallenges.recordFailure(challengeId);
-    throw phoneAuthenticationError(error);
-  }
-
-  try {
-    const completed = await completeOAuthLogin(challenge.client, oauthToken);
-    pendingPhoneChallenges.consume(challengeId);
-    return completed;
-  } catch (error) {
-    pendingPhoneChallenges.release(challengeId);
-    throw publicError(error);
   }
 }
 

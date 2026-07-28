@@ -89,8 +89,6 @@ type ApiFailure = {
 - `GET/DELETE /api/skland/session`
 - `POST /api/skland/auth/qr`
 - `POST /api/skland/auth/qr/status`
-- `POST /api/skland/auth/phone/code`
-- `POST /api/skland/auth/phone/code/verify`
 - `POST /api/skland/sync`
 - `POST /api/skland/role`
 
@@ -108,8 +106,6 @@ type ApiFailure = {
 | 反馈 | 每 IP 每小时 5 次；请求体 128KB；说明 1–1000 字 |
 | 森空岛二维码创建 | 每 IP 10 分钟 10 次 |
 | 森空岛二维码轮询 | 每 IP 10 分钟 120 次 |
-| 森空岛短信发送 | 每手机号 60 秒 1 次、10 分钟 5 次；每 IP 10 分钟 10 次 |
-| 森空岛短信验证 | 每挑战最多失败 5 次；每 IP 10 分钟 20 次 |
 | 森空岛同步/角色/退出 | 每 IP 每小时 30 次 |
 
 排班输入还限制干员数据不超过 1000 条、布局不超过 64 个房间、来源名称不超过 80 字。限流响应带 `Retry-After`。

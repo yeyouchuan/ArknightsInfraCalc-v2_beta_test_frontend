@@ -8,7 +8,6 @@ import {
   ExternalLink,
   LoaderCircle,
   LogOut,
-  MessageSquareText,
   RefreshCw,
   ScanLine,
   UserRound,
@@ -26,16 +25,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  pollSklandQr,
-  sendSklandPhoneCode,
-  startSklandQr,
-  toDisplayError,
-  verifySklandPhoneCode,
-} from "./api";
+import { pollSklandQr, startSklandQr, toDisplayError } from "./api";
+import { buildSklandMobileAuthUrl } from "./skland-auth-url";
 import type { ShiftComparison, SklandSnapshot } from "./types";
 
 const QRCodeSVG = dynamic(() => import("qrcode.react").then((module) => module.QRCodeSVG), { ssr: false });
@@ -53,14 +44,7 @@ type AccountProps = {
   onLogout: () => Promise<void>;
 };
 
-type LoginMethod = "app" | "phone";
 type ScanState = "idle" | "loading" | "waiting" | "scanned" | "expired";
-
-function validPhoneInput(value: string): boolean {
-  const compact = value.trim().replace(/[\s-]+/g, "");
-  const phone = compact.startsWith("+86") ? compact.slice(3) : compact;
-  return /^1\d{10}$/.test(phone);
-}
 
 export function SklandAccount({
   open,
@@ -78,16 +62,7 @@ export function SklandAccount({
   const [scanUrl, setScanUrl] = useState<string | null>(null);
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [scanError, setScanError] = useState<string | null>(null);
-  const [loginMethod, setLoginMethod] = useState<LoginMethod>("app");
-  const [phone, setPhone] = useState("");
-  const [challengeId, setChallengeId] = useState<string | null>(null);
-  const [phoneCode, setPhoneCode] = useState("");
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [codeError, setCodeError] = useState<string | null>(null);
-  const [phoneRequestError, setPhoneRequestError] = useState<string | null>(null);
-  const [sendingCode, setSendingCode] = useState(false);
-  const [verifyingCode, setVerifyingCode] = useState(false);
-  const [resendSeconds, setResendSeconds] = useState(0);
+  const mobileAuthUrl = scanUrl ? buildSklandMobileAuthUrl(scanUrl) : null;
 
   async function createQr() {
     setScanError(null);
@@ -121,13 +96,6 @@ export function SklandAccount({
           setScanUrl(null);
           setScanState("idle");
           setScanError(null);
-          setPhone("");
-          setChallengeId(null);
-          setPhoneCode("");
-          setPhoneError(null);
-          setCodeError(null);
-          setPhoneRequestError(null);
-          setResendSeconds(0);
           return;
         }
         if (result.status === "expired") {
@@ -151,93 +119,17 @@ export function SklandAccount({
     };
   }, [onAuthenticated, onOpenChange, open, scanId]);
 
-  useEffect(() => {
-    if (resendSeconds <= 0) return;
-    const timer = window.setInterval(() => {
-      setResendSeconds((current) => Math.max(0, current - 1));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [resendSeconds]);
-
   function resetLoginState() {
-    setLoginMethod("app");
     setScanId(null);
     setScanUrl(null);
     setScanState("idle");
     setScanError(null);
-    setPhone("");
-    setChallengeId(null);
-    setPhoneCode("");
-    setPhoneError(null);
-    setCodeError(null);
-    setPhoneRequestError(null);
-    setSendingCode(false);
-    setVerifyingCode(false);
-    setResendSeconds(0);
   }
 
   function handleOpenChange(next: boolean) {
     onOpenChange(next);
     if (next && !snapshot && configured && scanState === "idle") void createQr();
     if (!next && !snapshot) resetLoginState();
-  }
-
-  async function handleSendPhoneCode() {
-    setPhoneError(null);
-    setCodeError(null);
-    setPhoneRequestError(null);
-    if (!validPhoneInput(phone)) {
-      setPhoneError("请输入有效的中国大陆手机号。");
-      return;
-    }
-
-    setSendingCode(true);
-    try {
-      const result = await sendSklandPhoneCode(phone);
-      setChallengeId(result.challengeId);
-      setPhoneCode("");
-      setResendSeconds(result.resendAfterSeconds);
-    } catch (caught) {
-      const detail = toDisplayError(caught, "验证码发送失败，请稍后重试。");
-      const fieldError = detail.fieldErrors?.find((item) => item.path === "phone");
-      if (fieldError) setPhoneError(fieldError.message);
-      else setPhoneRequestError(`${detail.message}（${detail.code}${detail.requestId ? ` · ${detail.requestId}` : ""}）`);
-    } finally {
-      setSendingCode(false);
-    }
-  }
-
-  async function handleVerifyPhoneCode(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPhoneError(null);
-    setCodeError(null);
-    setPhoneRequestError(null);
-    if (!challengeId) {
-      setPhoneError("请先获取短信验证码。");
-      return;
-    }
-    if (!/^\d{6}$/.test(phoneCode)) {
-      setCodeError("请输入六位数字验证码。");
-      return;
-    }
-
-    setVerifyingCode(true);
-    try {
-      const result = await verifySklandPhoneCode(challengeId, phoneCode);
-      onAuthenticated(result.snapshot);
-      onOpenChange(false);
-      resetLoginState();
-    } catch (caught) {
-      const detail = toDisplayError(caught, "验证码登录失败，请稍后重试。");
-      const fieldError = detail.fieldErrors?.find((item) => item.path === "code");
-      if (fieldError || detail.code === "AIC-AUTH-2004") {
-        setCodeError(fieldError?.message ?? detail.message);
-      } else {
-        setPhoneRequestError(`${detail.message}（${detail.code}${detail.requestId ? ` · ${detail.requestId}` : ""}）`);
-      }
-    } finally {
-      setVerifyingCode(false);
-    }
   }
 
   return (
@@ -306,187 +198,74 @@ export function SklandAccount({
             <>
               <DialogHeader>
                 <DialogTitle>登录森空岛</DialogTitle>
-                <DialogDescription>使用森空岛 App 授权，或通过绑定手机号接收验证码。</DialogDescription>
+                <DialogDescription>
+                  桌面端使用森空岛 App 扫码；手机端可尝试通过官方通用链接打开 App。
+                </DialogDescription>
               </DialogHeader>
               {!configured ? (
                 <Alert>
                   <AlertDescription>{disabledReason}</AlertDescription>
                 </Alert>
               ) : (
-                <Tabs
-                  value={loginMethod}
-                  onValueChange={(value) => setLoginMethod(value as LoginMethod)}
-                  className="gap-4"
-                >
-                  <TabsList activateOnFocus className="grid h-12 w-full grid-cols-2">
-                    <TabsTrigger value="app" className="h-10">
-                      <ScanLine />App 授权
-                    </TabsTrigger>
-                    <TabsTrigger value="phone" className="h-10">
-                      <MessageSquareText />验证码
-                    </TabsTrigger>
-                  </TabsList>
+                <div className="grid place-items-center gap-3 py-1">
+                  <div className="hidden size-56 place-items-center rounded-xl bg-white p-3 shadow-[inset_0_0_0_1px_rgb(0_0_0/0.08)] sm:grid">
+                    {scanUrl ? (
+                      <QRCodeSVG
+                        value={scanUrl}
+                        size={196}
+                        title="森空岛登录二维码"
+                        role="img"
+                        aria-label="森空岛登录二维码"
+                      />
+                    ) : (
+                      <LoaderCircle className="size-8 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
 
-                  <TabsContent value="app">
-                    <div className="grid place-items-center gap-3 py-1">
-                      <div className="hidden size-56 place-items-center rounded-xl bg-white p-3 shadow-[inset_0_0_0_1px_rgb(0_0_0/0.08)] sm:grid">
-                        {scanUrl ? (
-                          <QRCodeSVG
-                            value={scanUrl}
-                            size={196}
-                            title="森空岛登录二维码"
-                            role="img"
-                            aria-label="森空岛登录二维码"
-                          />
-                        ) : (
-                          <LoaderCircle className="size-8 animate-spin text-muted-foreground" />
-                        )}
-                      </div>
-
-                      <div className="grid w-full gap-2 sm:hidden">
-                        {scanUrl ? (
-                          <Button
-                            render={
-                              <a
-                                href={scanUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                aria-label="在手机上打开森空岛授权"
-                              />
-                            }
-                            className="h-11 w-full"
-                          >
-                            <ExternalLink />在手机上打开授权
-                          </Button>
-                        ) : (
-                          <Button type="button" className="h-11 w-full" disabled>
-                            <LoaderCircle className="animate-spin" />正在准备授权
-                          </Button>
-                        )}
-                        <p className="text-center text-xs text-muted-foreground">
-                          授权后返回此页面，登录状态会自动更新。
-                        </p>
-                      </div>
-
-                      <p className="text-sm text-muted-foreground" aria-live="polite">
-                        {scanState === "scanned"
-                          ? "已扫码，请在森空岛中确认登录。"
-                          : scanState === "expired"
-                            ? "二维码已过期。"
-                            : "等待森空岛授权…"}
-                      </p>
-                      {scanError ? (
-                        <Alert variant="destructive">
-                          <AlertDescription>{scanError}</AlertDescription>
-                        </Alert>
-                      ) : null}
-                      {scanState === "expired" || scanError ? (
-                        <Button type="button" className="h-10" variant="outline" onClick={() => void createQr()}>
-                          <RefreshCw />刷新二维码
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="phone">
-                    <form className="grid gap-4 py-1" onSubmit={handleVerifyPhoneCode} noValidate>
-                      <div className="grid gap-2">
-                        <Label htmlFor="skland-phone">鹰角通行证手机号</Label>
-                        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                          <Input
-                            id="skland-phone"
-                            className="h-10"
-                            type="tel"
-                            inputMode="tel"
-                            autoComplete="tel"
-                            placeholder="请输入手机号"
-                            value={phone}
-                            aria-invalid={Boolean(phoneError)}
-                            aria-describedby={phoneError ? "skland-phone-error" : undefined}
-                            disabled={sendingCode || verifyingCode}
-                            onChange={(event) => {
-                              setPhone(event.target.value);
-                              setPhoneError(null);
-                              setChallengeId(null);
-                              setPhoneCode("");
-                              setResendSeconds(0);
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-10 min-w-32"
-                            disabled={sendingCode || verifyingCode || resendSeconds > 0}
-                            onClick={() => void handleSendPhoneCode()}
-                          >
-                            {sendingCode ? (
-                              <><LoaderCircle className="animate-spin" />发送中</>
-                            ) : resendSeconds > 0 ? (
-                              <span className="tabular-nums">{resendSeconds} 秒后重发</span>
-                            ) : challengeId ? (
-                              "重新发送"
-                            ) : (
-                              "获取验证码"
-                            )}
-                          </Button>
-                        </div>
-                        {phoneError ? (
-                          <p id="skland-phone-error" className="text-xs text-destructive">
-                            {phoneError}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="skland-phone-code">短信验证码</Label>
-                        <Input
-                          id="skland-phone-code"
-                          className="h-10 tracking-[0.24em] tabular-nums"
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          pattern="[0-9]{6}"
-                          placeholder="六位验证码"
-                          value={phoneCode}
-                          aria-invalid={Boolean(codeError)}
-                          aria-describedby={codeError ? "skland-code-error" : undefined}
-                          disabled={!challengeId || verifyingCode}
-                          onChange={(event) => {
-                            setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6));
-                            setCodeError(null);
-                          }}
-                        />
-                        {codeError ? (
-                          <p id="skland-code-error" className="text-xs text-destructive">
-                            {codeError}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      {phoneRequestError ? (
-                        <Alert variant="destructive">
-                          <AlertDescription>{phoneRequestError}</AlertDescription>
-                        </Alert>
-                      ) : null}
-
+                  <div className="grid w-full gap-2 sm:hidden">
+                    {mobileAuthUrl ? (
                       <Button
-                        type="submit"
+                        render={
+                          <a
+                            href={mobileAuthUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label="尝试在手机上打开森空岛授权"
+                          />
+                        }
                         className="h-11 w-full"
-                        disabled={!challengeId || verifyingCode}
                       >
-                        {verifyingCode ? (
-                          <><LoaderCircle className="animate-spin" />正在登录</>
-                        ) : (
-                          "验证码登录"
-                        )}
+                        <ExternalLink />在森空岛中打开授权
                       </Button>
-                      <p className="text-xs leading-5 text-muted-foreground">
-                        验证码只用于本次登录，不会写入浏览器存储或反馈记录。
-                      </p>
-                    </form>
-                  </TabsContent>
-                </Tabs>
+                    ) : (
+                      <Button type="button" className="h-11 w-full" disabled>
+                        <LoaderCircle className="animate-spin" />正在准备授权
+                      </Button>
+                    )}
+                    <p className="text-pretty text-center text-xs leading-5 text-muted-foreground">
+                      这是实验性入口。若只打开森空岛首页，说明当前 App 未转交登录请求，请改用桌面二维码。
+                      授权后返回此页面，登录状态会自动更新。
+                    </p>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground" aria-live="polite">
+                    {scanState === "scanned"
+                      ? "已扫码，请在森空岛中确认登录。"
+                      : scanState === "expired"
+                        ? "二维码已过期。"
+                        : "等待森空岛授权…"}
+                  </p>
+                  {scanError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{scanError}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                  {scanState === "expired" || scanError ? (
+                    <Button type="button" className="h-10" variant="outline" onClick={() => void createQr()}>
+                      <RefreshCw />刷新二维码
+                    </Button>
+                  ) : null}
+                </div>
               )}
             </>
           )}

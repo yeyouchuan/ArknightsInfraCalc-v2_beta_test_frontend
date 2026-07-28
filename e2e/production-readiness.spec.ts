@@ -67,37 +67,6 @@ const sampleData = [{
   rarity: 5,
 }];
 
-const sklandSnapshot = {
-  player: {
-    uid: "123456789",
-    nickname: "测试博士",
-    level: 120,
-    channelName: "官服",
-    storeTs: Math.floor(now / 1000),
-    lastOnlineTs: Math.floor(now / 1000),
-  },
-  roles: [{
-    uid: "123456789",
-    nickname: "测试博士",
-    channelName: "官服",
-    isDefault: true,
-  }],
-  operbox: sampleData,
-  infrastructure: {
-    currentTs: Math.floor(now / 1000),
-    storeTs: Math.floor(now / 1000),
-    layoutLabel: "243",
-    layoutSuggestion: layout243,
-    layoutWarning: null,
-    rooms: [],
-    tiredOperators: [],
-    labor: { value: 80, maxValue: 200, remainSecs: 120 },
-    training: null,
-  },
-  sourceName: "森空岛 · 测试博士",
-  warnings: [],
-};
-
 async function mockApis(
   page: Page,
   options: { debugTools?: boolean; sklandConfigured?: boolean } = {}
@@ -128,7 +97,7 @@ async function mockApis(
       data: {
         authenticated: false,
         configured: Boolean(options.sklandConfigured),
-        authMethods: { qr: true, phoneCode: true },
+        authMethods: { qr: true },
         disabledReason: options.sklandConfigured
           ? null
           : "当前未开放森空岛登录，可使用 MAA 导入。",
@@ -334,7 +303,7 @@ test("responsive navigation and the two locked areas keep their current behavior
   await expect(page.getByRole("button", { name: "森空岛状态" })).toBeVisible();
 });
 
-test("Skland login supports app authorization and SMS without a password flow", async ({ page }) => {
+test("Skland login supports desktop QR and the official mobile app handoff", async ({ page }) => {
   await mockApis(page, { sklandConfigured: true });
   await page.route("**/api/skland/auth/qr", (route) => route.fulfill({
     status: 200,
@@ -343,7 +312,7 @@ test("Skland login supports app authorization and SMS without a password flow", 
       success: true,
       data: {
         scanId: "scan-login-1",
-        scanUrl: "https://as.hypergryph.com/scan/test-login",
+        scanUrl: "hypergryph://scan_login?scanId=scan-login-1&from=web",
       },
       requestId,
     }),
@@ -357,51 +326,21 @@ test("Skland login supports app authorization and SMS without a password flow", 
       requestId,
     }),
   }));
-  await page.route("**/api/skland/auth/phone/code", async (route) => {
-    expect((await route.request().postDataJSON()).phone).toBe("138 0013 8000");
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        success: true,
-        data: {
-          challengeId: "phone-challenge-1",
-          expiresInSeconds: 600,
-          resendAfterSeconds: 60,
-        },
-        requestId,
-      }),
-    });
-  });
-  await page.route("**/api/skland/auth/phone/code/verify", async (route) => {
-    expect(await route.request().postDataJSON()).toEqual({
-      challengeId: "phone-challenge-1",
-      code: "123456",
-    });
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        success: true,
-        data: { snapshot: sklandSnapshot },
-        requestId,
-      }),
-    });
-  });
   await seedPreferences(page);
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
 
   const accountButton = page.getByRole("button", { name: "登录森空岛" });
   await accountButton.click();
-  await expect(page.getByRole("heading", { name: "登录森空岛" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "App 授权" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "验证码" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: /密码/ })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "在手机上打开森空岛授权" })).toHaveAttribute(
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "登录森空岛" })).toBeVisible();
+  await expect(dialog.getByRole("tab")).toHaveCount(0);
+  await expect(dialog.getByText(/手机号|验证码|密码/)).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "尝试在手机上打开森空岛授权" })).toHaveAttribute(
     "href",
-    "https://as.hypergryph.com/scan/test-login"
+    "https://bbs.hycdn.cn/u-link/download.html?schema=hypergryph%3A%2F%2Fscan_login%3FscanId%3Dscan-login-1%26from%3Dweb"
   );
+  await expect(page.getByText("这是实验性入口。", { exact: false })).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { name: "登录森空岛" })).toHaveCount(0);
@@ -410,30 +349,8 @@ test("Skland login supports app authorization and SMS without a password flow", 
   await page.setViewportSize({ width: 1024, height: 800 });
   await accountButton.click();
   await expect(page.getByRole("img", { name: "森空岛登录二维码" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "在手机上打开森空岛授权" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "尝试在手机上打开森空岛授权" })).toBeHidden();
   await page.keyboard.press("Escape");
-
-  await page.setViewportSize({ width: 375, height: 812 });
-  await accountButton.click();
-
-  const appTab = page.getByRole("tab", { name: "App 授权" });
-  await appTab.focus();
-  await page.keyboard.press("ArrowRight");
-  const phoneTab = page.getByRole("tab", { name: "验证码" });
-  await expect(phoneTab).toHaveAttribute("aria-selected", "true");
-
-  await page.getByRole("button", { name: "获取验证码" }).click();
-  await expect(page.getByLabel("鹰角通行证手机号")).toHaveAttribute("aria-invalid", "true");
-  await expect(page.getByText("请输入有效的中国大陆手机号。")).toBeVisible();
-
-  await page.getByLabel("鹰角通行证手机号").fill("138 0013 8000");
-  await page.getByRole("button", { name: "获取验证码" }).click();
-  await expect(page.getByRole("button", { name: "60 秒后重发" })).toBeDisabled();
-  await page.getByLabel("短信验证码").fill("123456");
-  await page.getByRole("button", { name: "验证码登录" }).click();
-
-  await expect(page.getByRole("heading", { name: "登录森空岛" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "森空岛账号：测试博士" })).toBeVisible();
 });
 
 test("settings clears local product data without logging out of Skland", async ({ page }) => {

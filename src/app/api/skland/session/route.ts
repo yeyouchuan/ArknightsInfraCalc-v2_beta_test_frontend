@@ -16,7 +16,7 @@ import {
 import { isSecureSklandRequest, isSklandConfigured } from "@/server/skland/session";
 
 export const runtime = "nodejs";
-const authMethods = { qr: true as const, phoneCode: true as const };
+const authMethods = { qr: true as const };
 
 export async function GET(request: Request) {
   const requestId = createRequestId();

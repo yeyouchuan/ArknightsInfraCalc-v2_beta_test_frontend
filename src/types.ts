@@ -267,7 +267,6 @@ export interface SklandSnapshot {
 
 export interface SklandAuthMethods {
   qr: true;
-  phoneCode: true;
 }
 
 export interface SklandSessionResponse {
@@ -491,7 +490,6 @@ export type AppErrorCode =
   | "AIC-AUTH-2001"
   | "AIC-AUTH-2002"
   | "AIC-AUTH-2003"
-  | "AIC-AUTH-2004"
   | "AIC-PLAN-3001"
   | "AIC-PLAN-3002"
   | "AIC-PLAN-3003"
@@ -598,16 +596,6 @@ export interface SklandQrStartData {
 export interface SklandQrStatusData {
   status: "waiting" | "scanned" | "expired" | "authenticated";
   snapshot?: SklandSnapshot;
-}
-
-export interface SklandPhoneCodeStartData {
-  challengeId: string;
-  expiresInSeconds: number;
-  resendAfterSeconds: number;
-}
-
-export interface SklandPhoneCodeVerifyData {
-  snapshot: SklandSnapshot;
 }
 
 export interface DisplayError {

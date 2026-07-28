@@ -10,8 +10,6 @@ import type {
   PublicHealthData,
   PublicPlanData,
   SampleOperboxData,
-  SklandPhoneCodeStartData,
-  SklandPhoneCodeVerifyData,
   SklandQrStartData,
   SklandQrStatusData,
   SklandSessionData,
@@ -107,25 +105,6 @@ export function pollSklandQr(scanId: string): Promise<SklandQrStatusData> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ scanId }),
-  });
-}
-
-export function sendSklandPhoneCode(phone: string): Promise<SklandPhoneCodeStartData> {
-  return requestData("/api/skland/auth/phone/code", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone }),
-  });
-}
-
-export function verifySklandPhoneCode(
-  challengeId: string,
-  code: string
-): Promise<SklandPhoneCodeVerifyData> {
-  return requestData("/api/skland/auth/phone/code/verify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ challengeId, code }),
   });
 }
 
