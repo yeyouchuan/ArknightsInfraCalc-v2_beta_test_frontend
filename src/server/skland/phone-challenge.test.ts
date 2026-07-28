@@ -55,6 +55,21 @@ test("removes a challenge after five failed verification attempts", () => {
   assert.equal(registry.get(challengeId, 2_000), null);
 });
 
+test("allows only one in-flight verification per challenge", () => {
+  const client = { id: "single-flight-client" };
+  const registry = new PhoneChallengeRegistry<object>(new Map(), () => "challenge-3");
+  const challengeId = registry.create("13800138000", client, 3_000);
+
+  assert.equal(registry.acquire(challengeId, 3_000)?.client, client);
+  assert.equal(registry.acquire(challengeId, 3_000), null);
+
+  registry.recordFailure(challengeId, 3_000);
+  assert.equal(registry.acquire(challengeId, 3_000)?.client, client);
+
+  registry.release(challengeId);
+  assert.equal(registry.acquire(challengeId, 3_000)?.client, client);
+});
+
 test("uses a one-way SHA-256 subject for phone rate limits", () => {
   const subject = sklandPhoneRateSubject("13800138000");
   assert.equal(subject.length, 64);

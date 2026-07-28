@@ -9,6 +9,7 @@ export type PhoneChallenge<TClient> = {
   phone: string;
   createdAt: number;
   failedAttempts: number;
+  verifying: boolean;
 };
 
 export function normalizeSklandPhone(value: string): string | null {
@@ -45,6 +46,7 @@ export class PhoneChallengeRegistry<TClient> {
       phone,
       createdAt: now,
       failedAttempts: 0,
+      verifying: false,
     });
     return challengeId;
   }
@@ -54,13 +56,26 @@ export class PhoneChallengeRegistry<TClient> {
     return this.entries.get(challengeId) ?? null;
   }
 
+  acquire(challengeId: string, now = Date.now()): PhoneChallenge<TClient> | null {
+    const challenge = this.get(challengeId, now);
+    if (!challenge || challenge.verifying) return null;
+    challenge.verifying = true;
+    return challenge;
+  }
+
   recordFailure(challengeId: string, now = Date.now()): number {
     const challenge = this.get(challengeId, now);
     if (!challenge) return 0;
     challenge.failedAttempts += 1;
+    challenge.verifying = false;
     const remaining = Math.max(0, PHONE_CHALLENGE_MAX_FAILURES - challenge.failedAttempts);
     if (remaining === 0) this.entries.delete(challengeId);
     return remaining;
+  }
+
+  release(challengeId: string): void {
+    const challenge = this.entries.get(challengeId);
+    if (challenge) challenge.verifying = false;
   }
 
   consume(challengeId: string): void {

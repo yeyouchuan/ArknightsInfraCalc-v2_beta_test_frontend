@@ -273,7 +273,7 @@ export async function verifyPhoneCode(
   code: string
 ): Promise<{ session: SklandSessionPayload; snapshot: SklandSnapshot }> {
   cleanupScans();
-  const challenge = pendingPhoneChallenges.get(challengeId);
+  const challenge = pendingPhoneChallenges.acquire(challengeId);
   if (!challenge) {
     throw new SklandServiceError("AUTH_INVALID", "验证码错误或已失效，请检查后重试。", 401);
   }
@@ -294,6 +294,7 @@ export async function verifyPhoneCode(
     pendingPhoneChallenges.consume(challengeId);
     return completed;
   } catch (error) {
+    pendingPhoneChallenges.release(challengeId);
     throw publicError(error);
   }
 }
