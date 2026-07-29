@@ -184,7 +184,7 @@ export function SklandAccount({
       <Button
         type="button"
         variant="outline"
-        className="h-10 min-w-0 justify-start px-3 max-sm:h-11 max-sm:w-full"
+        className="h-10 min-w-0 justify-start px-3 max-sm:size-11 max-sm:justify-center max-sm:px-0"
         aria-label={snapshot ? `森空岛账号：${snapshot.player.nickname}` : "登录森空岛"}
         onFocus={prepareQrOnIntent}
         onPointerDown={prepareQrOnIntent}
@@ -194,13 +194,12 @@ export function SklandAccount({
         {snapshot ? (
           <>
             <UserRound className="shrink-0" aria-hidden="true" />
-            <span className="max-w-32 truncate">{snapshot.player.nickname}</span>
+            <span className="hidden max-w-32 truncate md:inline">{snapshot.player.nickname}</span>
           </>
         ) : (
           <>
             <ScanLine />
             <span className="hidden md:inline">登录森空岛</span>
-            <span className="md:hidden">森空岛</span>
           </>
         )}
       </Button>

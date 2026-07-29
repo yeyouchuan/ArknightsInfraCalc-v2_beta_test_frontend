@@ -837,11 +837,11 @@ function WorkbenchApp() {
     <SidebarProvider defaultOpen={false}>
       <AppSidebar page={page} onPageChange={setPage} />
       <SidebarInset>
-        <header className="sticky top-0 z-30 border-b bg-background/95 px-[clamp(1.75rem,10vw,12rem)] py-3 backdrop-blur-sm">
+        <header className="sticky top-0 z-30 border-b bg-background/95 px-2 py-2 backdrop-blur-sm sm:px-[clamp(1.75rem,10vw,12rem)] sm:py-3">
           <h1 className="sr-only">明日方舟基建排班助手</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <SidebarTrigger className="h-11 w-11 shrink-0 md:hidden" />
-            <div className="grid w-full grid-cols-[minmax(160px,1fr)_auto_auto_auto] items-center gap-2 max-sm:grid-cols-3">
+            <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1 sm:gap-2">
               <StatusBar
                 loading={loading}
                 result={result}
@@ -852,35 +852,34 @@ function WorkbenchApp() {
                   if (statusError) void copyText(`${statusError.code}${statusError.requestId ? ` · ${statusError.requestId}` : ""}`);
                 }}
               />
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 min-w-0 px-3 max-sm:h-11 max-sm:w-full"
-            aria-label="配置干员数据与布局"
-            onClick={openSetup}
-          >
-            <Settings2 />
-            <span className="hidden md:inline">配置干员数据与布局</span>
-            <span className="md:hidden">配置</span>
-          </Button>
-          <SklandAccount
-            open={sklandAccountOpen}
-            onOpenChange={handleSklandAccountOpenChange}
-            configured={sklandConfigured}
-            disabledReason={sklandDisabledReason}
-            snapshot={sklandSnapshot}
-            busy={sklandBusy}
-            onAuthenticated={handleSklandAuthenticated}
-            onRefresh={handleSklandRefresh}
-            onRoleChange={handleSklandRole}
-            onLogout={handleSklandLogout}
-          />
-          <RunButton canRun={canRun} loading={loading} onRun={handleRun} />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 min-w-0 px-3 max-sm:size-11 max-sm:px-0"
+                aria-label="配置干员数据与布局"
+                onClick={openSetup}
+              >
+                <Settings2 />
+                <span className="hidden md:inline">配置干员数据与布局</span>
+              </Button>
+              <SklandAccount
+                open={sklandAccountOpen}
+                onOpenChange={handleSklandAccountOpenChange}
+                configured={sklandConfigured}
+                disabledReason={sklandDisabledReason}
+                snapshot={sklandSnapshot}
+                busy={sklandBusy}
+                onAuthenticated={handleSklandAuthenticated}
+                onRefresh={handleSklandRefresh}
+                onRoleChange={handleSklandRole}
+                onLogout={handleSklandLogout}
+              />
+              <RunButton canRun={canRun} loading={loading} onRun={handleRun} />
             </div>
-        </div>
-      </header>
+          </div>
+        </header>
 
-      <div className="px-[clamp(1.75rem,10vw,12rem)] py-4">
+      <div className="px-3 py-4 sm:px-[clamp(1.75rem,10vw,12rem)]">
       {page === "calculator" ? (
         <InfraCalculator
           operbox={operbox}

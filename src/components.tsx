@@ -426,7 +426,7 @@ export function StatusBar({
   return (
     <div
       className={cn(
-        "surface-shadow col-span-1 flex min-h-10 min-w-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-1 text-sm max-sm:col-span-3",
+        "surface-shadow flex min-h-10 min-w-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-1 text-sm max-sm:px-2",
         content.className
       )}
       role={error ? "alert" : "status"}
@@ -461,7 +461,7 @@ export function RunButton({
 }) {
   return (
     <Button
-      className="h-10 min-w-0 px-3 max-sm:h-11 max-sm:w-full"
+      className="h-10 min-w-0 px-3 max-sm:size-11 max-sm:px-0"
       aria-label={loading ? "计算中" : canRun ? "生成排班" : "请先导入干员数据"}
       title={!canRun ? "请先导入干员数据，并等待排班服务就绪。" : undefined}
       onClick={onRun}
@@ -469,7 +469,6 @@ export function RunButton({
     >
       {loading ? <Loader2 className="animate-spin" /> : <Play />}
       <span className="hidden md:inline">{loading ? "计算中" : canRun ? "生成排班" : "请先导入数据"}</span>
-      <span className="md:hidden">{loading ? "计算" : canRun ? "生成" : "先导入"}</span>
     </Button>
   );
 }
