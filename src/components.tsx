@@ -60,6 +60,7 @@ import {
   listFunctionalOperatorPosition,
   listFunctionalOperatorPlacementClass,
   listFunctionalRoomSpanClass,
+  listMobileOperatorGridClass,
   listRoomHeightClass,
   listRoomTitleSizeClass,
   listRoomUsesAlignedOperatorOrigin,
@@ -860,7 +861,7 @@ function OperatorSlotShell({
           ? COMPACT_OPERATOR_SIZE_CLASS
           : "[--operator-slot-size:clamp(70px,7.3vw,88px)] max-sm:[--operator-slot-size:clamp(56px,16vw,76px)]",
         compactFactory && "min-[1800px]:[--operator-slot-size:70px]",
-        centerFrameInList && "sm:relative sm:h-full sm:w-[var(--operator-slot-size)]",
+        centerFrameInList && "max-sm:w-full sm:relative sm:h-full sm:w-[var(--operator-slot-size)]",
       )}
       title={title}
     >
@@ -868,7 +869,7 @@ function OperatorSlotShell({
         className={cn(
           "relative aspect-square h-[var(--operator-slot-size)] min-w-0 shrink-0 overflow-hidden border-2 max-sm:border",
           frameClassName,
-          centerFrameInList && "sm:absolute sm:left-0 sm:top-1/2 sm:-translate-y-1/2",
+          centerFrameInList && "max-sm:h-auto max-sm:w-full sm:absolute sm:left-0 sm:top-1/2 sm:-translate-y-1/2",
         )}
         aria-label={ariaLabel}
       >
@@ -1137,7 +1138,7 @@ export function ScheduleBoard({
             </div>
             <div
               className={cn(
-                "grid min-w-0 gap-3 pb-2",
+                "grid min-w-0 gap-3 pb-2 max-sm:gap-4 max-sm:pb-4",
                 group.label === "功能设施" && listFunctionalFacilityGridClass(),
                 group.rows[0]?.group === "manufacture" && "min-[1800px]:grid-cols-2",
                 collapsed && "hidden"
@@ -1182,7 +1183,7 @@ export function ScheduleBoard({
                         aria-hidden="true"
                       />
                       <div className="absolute inset-0 bg-gradient-to-r from-[#313131]/20 via-[#313131]/72 to-[#313131]" />
-                      <div className="relative z-10 flex h-full flex-col justify-center gap-2 px-3 py-3 max-sm:justify-start max-sm:gap-1.5 max-sm:px-3 max-sm:py-2">
+                      <div className="relative z-10 flex h-full flex-col justify-center gap-2 px-3 py-3 max-sm:justify-start max-sm:gap-2 max-sm:px-3 max-sm:py-3">
                         <div className="max-sm:flex max-sm:items-center max-sm:gap-2">
                           <div>
                             <div className="flex items-center gap-2.5 max-sm:gap-1.5">
@@ -1214,26 +1215,27 @@ export function ScheduleBoard({
 
                     <div
                       className={cn(
-                        "flex min-w-0 flex-1 items-center gap-5 py-2 pl-2 pr-3 sm:h-full max-sm:flex-col max-sm:items-stretch max-sm:gap-2 max-sm:px-3 max-sm:pb-3 max-sm:pt-0",
+                        "flex min-w-0 flex-1 items-center gap-5 py-2 pl-2 pr-3 sm:h-full max-sm:flex-col max-sm:items-stretch max-sm:gap-3 max-sm:px-3 max-sm:pb-4 max-sm:pt-1",
                         compactInlineRoom && "justify-center pl-4 pr-8",
                         compactFactoryRoom && "min-[1800px]:grid min-[1800px]:grid-cols-1 min-[1800px]:grid-rows-[1fr_auto] min-[1800px]:items-stretch min-[1800px]:gap-1 min-[1800px]:pr-3"
                       )}
                     >
                       <div
                         className={cn(
-                          "grid min-w-0 items-center justify-start sm:h-full max-sm:flex max-sm:overflow-x-auto max-sm:pb-1",
+                          "grid min-w-0 items-center justify-start [column-gap:var(--operator-column-gap-desktop)] sm:h-full",
+                          listMobileOperatorGridClass(),
                           compactInlineRoom ? "flex-none" : "flex-1 grid-flow-col auto-cols-max",
                           compactFactoryRoom && "min-[1800px]:col-start-1 min-[1800px]:row-span-2 min-[1800px]:row-start-1",
                           compactInlineRoom && (slotCount === 2 ? "grid-cols-2" : "grid-cols-1"),
                           functionalOperatorPlacementClass
                         )}
                         style={{
-                          columnGap: functionalOperatorPosition?.columnGap
+                          "--operator-column-gap-desktop": functionalOperatorPosition?.columnGap
                             ?? "clamp(0.75rem, 1.25vw, 1.25rem)",
                           ...(functionalOperatorPosition
                             ? { left: functionalOperatorPosition.left }
                             : {}),
-                        }}
+                        } as CSSProperties}
                       >
                         {slots.map((slot, index) => (
                           <OperatorSlot

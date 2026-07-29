@@ -57,6 +57,10 @@ export function listRoomTitleSizeClass(): string {
   return "text-[18px] max-sm:text-[16px]";
 }
 
+export function listMobileOperatorGridClass(): string {
+  return "max-sm:grid max-sm:w-full max-sm:max-w-[304px] max-sm:grid-cols-5 max-sm:[column-gap:0.375rem] max-sm:gap-y-2 max-sm:overflow-visible max-sm:pb-2";
+}
+
 export function listFunctionalOperatorPosition(
   group: RoomGroup,
 ): { columnGap: string; left: string } | undefined {

@@ -12,6 +12,7 @@ import {
   listFunctionalOperatorPosition,
   listFunctionalOperatorPlacementClass,
   listFunctionalRoomSpanClass,
+  listMobileOperatorGridClass,
   listRoomHeightClass,
   listRoomTitleSizeClass,
   listRoomUsesAlignedOperatorOrigin,
@@ -90,6 +91,13 @@ test("uses 18px list room titles for every room", () => {
   assert.equal(
     listRoomTitleSizeClass(),
     "text-[18px] max-sm:text-[16px]",
+  );
+});
+
+test("fits five operator slots in one mobile row", () => {
+  assert.equal(
+    listMobileOperatorGridClass(),
+    "max-sm:grid max-sm:w-full max-sm:max-w-[304px] max-sm:grid-cols-5 max-sm:[column-gap:0.375rem] max-sm:gap-y-2 max-sm:overflow-visible max-sm:pb-2",
   );
 });
 
