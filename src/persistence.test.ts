@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { PublicPlanData } from "./types.ts";
+import { DEFAULT_ROTATION_PROFILE } from "./rotation-settings.ts";
 import {
   clearLocalProductData,
   loadPersistedSession,
@@ -68,10 +69,12 @@ test("v4 persistence stores expiry metadata and strips debug fields", () => {
     sourceName: "示例",
     boxSource: "sample",
     layoutDirty: false,
+    rotationProfile: DEFAULT_ROTATION_PROFILE,
     result,
     activeShift: 1,
   }, now);
   assert.equal(Date.parse(saved.expiresAt) - now, SESSION_TTL_MS);
+  assert.equal(saved.rotationProfile, DEFAULT_ROTATION_PROFILE);
   assert.equal(saved.result?.debug, undefined);
   assert.equal((JSON.parse(storage.getItem(SESSION_KEY_V4) ?? "{}").result as Record<string, unknown>).debug, undefined);
 });
@@ -97,6 +100,7 @@ test("v2 and v3 migrate once to the v4 allowlist", () => {
     }));
     const migrated = loadPersistedSession(storage, Date.parse("2026-07-28T00:00:00.000Z"));
     assert.equal(migrated?.version, 4);
+    assert.equal(migrated?.rotationProfile, DEFAULT_ROTATION_PROFILE);
     assert.equal(migrated?.result?.diagnosticId, "legacy-diag");
     assert.equal(migrated?.result?.debug, undefined);
     assert.equal(storage.getItem(legacyKey), null);
@@ -144,6 +148,7 @@ test("new Skland persistence always uses a non-identifying source label", () => 
     sourceName: "skland:123456789:1785196800",
     boxSource: "skland",
     layoutDirty: false,
+    rotationProfile: DEFAULT_ROTATION_PROFILE,
     result: {
       ...result,
       profile: {
@@ -188,6 +193,7 @@ test("quota failures surface without corrupting the previous session", () => {
     sourceName: "示例",
     boxSource: "sample",
     layoutDirty: false,
+    rotationProfile: DEFAULT_ROTATION_PROFILE,
     result: null,
     activeShift: 0,
   }));
@@ -207,6 +213,7 @@ test("internal fields nested in persisted result data are stripped", () => {
     sourceName: "示例",
     boxSource: "sample",
     layoutDirty: false,
+    rotationProfile: DEFAULT_ROTATION_PROFILE,
     result: unsafeResult,
     activeShift: 0,
   });

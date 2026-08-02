@@ -649,12 +649,18 @@ export interface PlanComputeParams {
     operbox?: string | null;
   };
   options?: {
-    rotation?: "abc_12_6_6" | "main_backup_12_12" | "fiammetta_8_8_4_4" | "abyssal_7_5_7_5";
+    rotation?: RotationProfile;
     top?: number;
     system_preferences?: Record<string, string>;
     maa_title?: string | null;
   };
 }
+
+export type RotationProfile =
+  | "abc_12_6_6"
+  | "main_backup_12_12"
+  | "fiammetta_8_8_4_4"
+  | "abyssal_7_5_7_5";
 
 export interface PlanApiResponse {
   success: boolean;

@@ -5,9 +5,11 @@ import type {
   OperBoxEntry,
   PublicPlanData,
   RotationJson,
+  RotationProfile,
   UserProfile,
 } from "./types";
 import { stripInternalFields } from "./internal-field-safety.ts";
+import { normalizeRotationProfile } from "./rotation-settings.ts";
 
 export const SESSION_KEY_V4 = "arknights-infra-calc-session-v4";
 export const SESSION_KEY_V3 = "arknights-infra-calc-beta-session-v3";
@@ -26,6 +28,7 @@ export interface PersistedSessionV4 {
   sourceName: string | null;
   boxSource: BoxSource;
   layoutDirty: boolean;
+  rotationProfile: RotationProfile;
   result: PublicPlanData | null;
   activeShift: number;
 }
@@ -131,6 +134,7 @@ function normalizeSession(value: unknown, now: number): PersistedSessionV4 | nul
     sourceName: boxSource === "skland" ? SKLAND_SOURCE_NAME : rawSourceName,
     boxSource,
     layoutDirty: Boolean(value.layoutDirty),
+    rotationProfile: normalizeRotationProfile(value.rotationProfile),
     result: hasLegacySklandIdentity ? null : safeResult(value.result),
     activeShift: Number.isInteger(value.activeShift) ? Math.max(0, Math.min(2, Number(value.activeShift))) : 0,
   };

@@ -13,6 +13,7 @@ import type {
   HealthApiResponse,
   OperBoxEntry,
   PlanApiResponse,
+  RotationProfile,
 } from "@/types";
 import { isSklandConfigured, sklandDisabledReason } from "@/server/skland/session";
 import { normalizeServeRoomEfficiency } from "@/efficiency";
@@ -21,6 +22,7 @@ import {
   parsePlanComputePayload,
 } from "./plan-protocol";
 import { parseShiftFile } from "./shift-parser";
+import { isRotationProfile } from "@/rotation-settings";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -47,6 +49,7 @@ type PlanRequestBody = {
   layout: BaseBlueprint;
   operbox: OperBoxEntry[];
   sourceName?: string | null;
+  rotation: RotationProfile;
 };
 
 const repoRoot = path.resolve(/* turbopackIgnore: true */ process.cwd());
@@ -192,6 +195,9 @@ function assertPlanBody(body: unknown): asserts body is PlanRequestBody {
   }
   if (!Array.isArray(body.operbox) || body.operbox.length === 0) {
     throw new Error("请求缺少非空 operbox 数组。");
+  }
+  if (!isRotationProfile(body.rotation)) {
+    throw new Error("请求缺少受支持的 rotation 参数。");
   }
 }
 
@@ -841,7 +847,7 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
           operbox: body.sourceName ?? null,
         },
         options: {
-          rotation: "abc_12_6_6",
+          rotation: body.rotation,
           top: 20,
           system_preferences: {},
           maa_title: `${body.sourceName ?? "Arknights InfraCalc"} · ${String(body.layout.template ?? "layout")}`,
@@ -867,6 +873,7 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
         maa_out: maaPath,
         output_dir: shiftsDir,
         top: 20,
+        rotation: body.rotation,
         maa_title: `${body.sourceName ?? "Arknights InfraCalc"} · ${String(body.layout.template ?? "layout")}`,
       });
 
@@ -1098,5 +1105,10 @@ export async function activateCliRelease(id: string) {
 export async function runOpsSmokeTest() {
   const sample = await getSampleOperbox();
   const layout = JSON.parse(await readFile(path.join(repoRoot, "src", "layouts", "243.json"), "utf-8")) as BaseBlueprint;
-  return runPlan({ layout, operbox: sample.operbox as OperBoxEntry[], sourceName: "ops-smoke-243-full-e2" });
+  return runPlan({
+    layout,
+    operbox: sample.operbox as OperBoxEntry[],
+    sourceName: "ops-smoke-243-full-e2",
+    rotation: "abc_12_6_6",
+  });
 }

@@ -725,6 +725,47 @@ test("setup owns Box parse errors and uses technical summary surfaces", async ({
   ))).toBe(1);
 });
 
+test("setup exposes and persists only worker-supported rotation profiles", async ({ page }) => {
+  await mockApis(page);
+  await seedV4Session(page);
+  let planRequests = 0;
+  let requestedRotation: unknown;
+  await page.route("**/api/plan", async (route) => {
+    planRequests += 1;
+    requestedRotation = (route.request().postDataJSON() as { rotation?: unknown }).rotation;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: planData, requestId }),
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "配置干员数据与布局" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("tab", { name: /配置基建/ }).click();
+  await dialog.getByText("高级设置", { exact: true }).click();
+
+  await dialog.getByRole("combobox", { name: "换班方式" }).click();
+  await expect(page.getByRole("option", { name: /自动轮换/ })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: /一天两换/ })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: /自定义/ })).toHaveCount(0);
+  await expect(page.getByRole("option")).toHaveCount(4);
+  await page.getByRole("option", { name: /菲亚梅塔轮换 · 8\/8\/4\/4/ }).click();
+  await expect(dialog.getByText("完整循环 24 小时")).toBeVisible();
+  await expect(dialog.getByText("第 4 班 4h")).toBeVisible();
+  await dialog.getByRole("button", { name: "完成设置" }).click();
+
+  await page.getByRole("button", { name: "生成排班" }).click();
+  await expect.poll(() => planRequests).toBe(1);
+  expect(requestedRotation).toBe("fiammetta_8_8_4_4");
+  const persisted = await page.evaluate(() => JSON.parse(
+    window.localStorage.getItem("arknights-infra-calc-session-v4") ?? "{}"
+  ));
+  expect(persisted.rotationProfile).toBe("fiammetta_8_8_4_4");
+});
+
 test("layout level controls clamp edits and expose the power-safe 342 defaults", async ({ page }) => {
   await mockApis(page);
   await seedV4Session(page);

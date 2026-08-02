@@ -10,13 +10,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { InfraTechnicalCard, InfraTechnicalHeading } from "@/components/InfraTechnicalCard";
+import { RotationSettings } from "@/components/RotationSettings";
 
 import type { FactoryRecipe, PowerBudget, TradeOrder } from "./blueprint";
 import { roomSummary } from "./blueprint";
 import { AccountStats, FileDrop, LayoutEditor, PresetSelector } from "./components";
 import { countOwned } from "./operbox";
 import type { SetupStep } from "./onboarding";
-import type { BaseBlueprint, BoxSource, DisplayError, OperBoxEntry, PresetDef, SklandSnapshot } from "./types";
+import type { BaseBlueprint, BoxSource, DisplayError, OperBoxEntry, PresetDef, RotationProfile, SklandSnapshot } from "./types";
 
 type SetupDialogProps = {
   open: boolean;
@@ -40,6 +41,8 @@ type SetupDialogProps = {
   presets: PresetDef[];
   preset: PresetDef;
   layout: BaseBlueprint;
+  rotationProfile: RotationProfile;
+  onRotationProfileChange: (value: RotationProfile) => void;
   onPresetSelect: (preset: PresetDef) => void;
   onLayoutFile: (file: File) => Promise<void>;
   onDownloadLayout: () => void;
@@ -88,6 +91,8 @@ export function SetupDialog({
   presets,
   preset,
   layout,
+  rotationProfile,
+  onRotationProfileChange,
   onPresetSelect,
   onLayoutFile,
   onDownloadLayout,
@@ -123,9 +128,9 @@ export function SetupDialog({
         <DialogHeader className="px-5 py-5 pr-16 sm:px-7">
           <DialogTitle className="flex items-center gap-3 text-lg">
             <span className="h-6 w-1 shrink-0 bg-primary" aria-hidden="true" />
-            配置干员数据（Box）与布局
+            配置干员数据（Box）、换班与布局
           </DialogTitle>
-          <DialogDescription className="text-pretty">导入干员数据，再确认基建设施。修改会立即应用，但不会自动生成排班。</DialogDescription>
+          <DialogDescription className="text-pretty">导入干员数据，再确认换班方式与基建设施。修改会立即应用，但不会自动生成排班。</DialogDescription>
         </DialogHeader>
 
         <Tabs
@@ -146,8 +151,8 @@ export function SetupDialog({
             <TabsTrigger value="layout" disabled={!hasBox} className="h-12 justify-start gap-3 rounded-lg px-3 text-left">
               <span className="grid size-7 shrink-0 place-items-center rounded-md bg-background text-xs font-semibold shadow-xs">2</span>
               <span className="min-w-0">
-                <strong className="block text-sm">配置基建</strong>
-                <span className="hidden truncate text-xs font-normal text-muted-foreground sm:block">布局、等级、产品和订单</span>
+                <strong className="block text-sm">配置基建与换班</strong>
+                <span className="hidden truncate text-xs font-normal text-muted-foreground sm:block">布局、换班、等级、产品和订单</span>
               </span>
             </TabsTrigger>
           </TabsList>
@@ -282,7 +287,8 @@ export function SetupDialog({
                   <PresetSelector presets={presets} selected={preset} onSelect={onPresetSelect} />
                   <details className="mt-4 border-t border-border/70 pt-3">
                     <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">高级设置</summary>
-                    <p className="mb-2 text-xs text-muted-foreground">导入或导出布局文件，适合跨设备复用配置。</p>
+                    <RotationSettings value={rotationProfile} onChange={onRotationProfileChange} />
+                    <p className="mb-2 mt-4 border-t border-border/70 pt-4 text-xs text-muted-foreground">导入或导出布局文件，适合跨设备复用配置。</p>
                     <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed text-sm font-medium text-muted-foreground transition-[color,border-color,background-color,scale] duration-150 ease-out active:scale-[0.96] hover:border-primary hover:bg-muted/40 hover:text-primary motion-reduce:transform-none">
                       <Upload className="size-4" />导入布局文件
                       <input
@@ -332,7 +338,7 @@ export function SetupDialog({
             {step === "box" ? (
               <>
                 <Button className="h-10" type="button" variant="ghost" onClick={onSkip}>稍后设置</Button>
-                <Button className="h-10" type="button" disabled={!hasBox} onClick={() => setStep("layout")}>下一步：配置基建</Button>
+                <Button className="h-10" type="button" disabled={!hasBox} onClick={() => setStep("layout")}>下一步：配置基建与换班</Button>
               </>
             ) : (
               <>

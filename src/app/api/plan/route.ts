@@ -14,7 +14,8 @@ import {
   successResponse,
 } from "@/server/api-contract";
 import { safeDisplayName, toPublicPlanData } from "@/server/public-plan";
-import type { BaseBlueprint, OperBoxEntry } from "@/types";
+import { isRotationProfile } from "@/rotation-settings";
+import type { BaseBlueprint, OperBoxEntry, RotationProfile } from "@/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
       layout?: BaseBlueprint;
       operbox?: OperBoxEntry[];
       sourceName?: unknown;
+      rotation?: unknown;
     };
     const layoutErrors = validateLayoutJson(body?.layout);
     if (layoutErrors.length || !body.layout) {
@@ -53,6 +55,19 @@ export async function POST(request: Request) {
         }],
       });
     }
+    let rotation: RotationProfile = "abc_12_6_6";
+    if (body.rotation !== undefined) {
+      if (!isRotationProfile(body.rotation)) {
+        throw new PublicApiError("AIC-PLAN-3001", {
+          fieldErrors: [{
+            path: "rotation",
+            code: "invalid_rotation",
+            message: "换班参数不在当前求解器支持范围内。",
+          }],
+        });
+      }
+      rotation = body.rotation;
+    }
     assertPlanCollectionLimits(body.operbox.length, body.layout.rooms.length, body.sourceName);
     let operbox: OperBoxEntry[];
     try {
@@ -68,7 +83,7 @@ export async function POST(request: Request) {
       });
     }
     const sourceName = safeDisplayName(body.sourceName, "已导入的干员数据");
-    const result = await runPlan({ layout: body.layout, operbox, sourceName });
+    const result = await runPlan({ layout: body.layout, operbox, sourceName, rotation });
     return successResponse(
       toPublicPlanData(result, { layoutLabel: body.layout.template, sourceName }, requestId),
       requestId

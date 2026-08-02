@@ -46,6 +46,7 @@ import {
   RESULT_CLEAR_WARNING_DISMISSED_KEY,
 } from "./persistence";
 import { planToRows, RoomRow } from "./schedule";
+import { DEFAULT_ROTATION_PROFILE } from "./rotation-settings";
 import { SetupDialog } from "./setup-dialog";
 import { closestShift, compareShifts } from "./skland";
 import {
@@ -58,6 +59,7 @@ import {
   OperBoxEntry,
   PublicPlanData,
   PresetDef,
+  RotationProfile,
   SklandAccountSummary,
   SklandSessionData,
   SklandSnapshot,
@@ -180,6 +182,7 @@ function WorkbenchApp() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [boxSource, setBoxSource] = useState<BoxSource>("sample");
   const [layoutDirty, setLayoutDirty] = useState(false);
+  const [rotationProfile, setRotationProfile] = useState<RotationProfile>(DEFAULT_ROTATION_PROFILE);
   const [inputMode, setInputMode] = useState<"skland" | "maa">("skland");
   const [maaPaste, setMaaPaste] = useState("");
   const [sklandSnapshot, setSklandSnapshot] = useState<SklandSnapshot | null>(null);
@@ -267,6 +270,7 @@ function WorkbenchApp() {
         setFileName(restored.sourceName);
         setBoxSource(restored.boxSource);
         setLayoutDirty(restored.layoutDirty);
+        setRotationProfile(restored.rotationProfile);
         setResult(restored.result);
         setActiveShift(restored.activeShift);
         initialLayoutForRestore.current = restoredLayout;
@@ -295,6 +299,7 @@ function WorkbenchApp() {
         sourceName: fileName,
         boxSource,
         layoutDirty,
+        rotationProfile,
         result,
         activeShift,
       });
@@ -302,7 +307,7 @@ function WorkbenchApp() {
     } catch {
       setStorageNotice(displayError("AIC-LOCAL-7001", "浏览器无法保存本地数据，但仍可继续生成排班。"));
     }
-  }, [hasRestoredSession, preset, layout, operbox, fileName, boxSource, layoutDirty, result, activeShift]);
+  }, [hasRestoredSession, preset, layout, operbox, fileName, boxSource, layoutDirty, rotationProfile, result, activeShift]);
 
   useEffect(() => {
     if (!hasRestoredSession || typeof window === "undefined") return;
@@ -509,6 +514,7 @@ function WorkbenchApp() {
         layout,
         operbox: deduped,
         sourceName: fileName,
+        rotation: rotationProfile,
       });
       setResult(response);
       if (response.maa.plans[0]) {
@@ -638,6 +644,11 @@ function WorkbenchApp() {
     setResult(null);
     setActiveShift(0);
     clearIssueState();
+  }
+
+  function handleRotationProfileChange(value: RotationProfile) {
+    setRotationProfile(value);
+    clearPlanResult();
   }
 
   function applyProductChange(change: ProductChange) {
@@ -770,6 +781,7 @@ function WorkbenchApp() {
       setFileName(null);
       setBoxSource("sample");
       setLayoutDirty(false);
+      setRotationProfile(DEFAULT_ROTATION_PROFILE);
       setResult(null);
       setActiveShift(0);
       setResultClearWarningDismissed(false);
@@ -923,6 +935,8 @@ function WorkbenchApp() {
         presets={PRESETS}
         preset={preset}
         layout={layout}
+        rotationProfile={rotationProfile}
+        onRotationProfileChange={handleRotationProfileChange}
         onPresetSelect={handlePresetSelect}
         onLayoutFile={handleLayoutFile}
         onDownloadLayout={() => downloadJson(`layout-${layout.template}.json`, layout)}

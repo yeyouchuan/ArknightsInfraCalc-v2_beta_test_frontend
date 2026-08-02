@@ -9,6 +9,7 @@ import type {
   OperBoxEntry,
   PublicHealthData,
   PublicPlanData,
+  RotationProfile,
   SampleOperboxData,
   SklandQrStartData,
   SklandQrStatusData,
@@ -80,6 +81,7 @@ export function runPlan(payload: {
   layout: BaseBlueprint;
   operbox: OperBoxEntry[];
   sourceName: string | null;
+  rotation: RotationProfile;
 }): Promise<PublicPlanData> {
   return requestData("/api/plan", {
     method: "POST",
