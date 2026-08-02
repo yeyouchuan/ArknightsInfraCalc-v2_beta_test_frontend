@@ -691,7 +691,7 @@ function BuildingMetricCard({ metric }: { metric: SklandStatusMetric }) {
   );
 }
 
-function InfrastructureTab({
+function LayoutSyncControl({
   snapshot,
   layoutMatches,
   layoutDirty,
@@ -704,6 +704,77 @@ function InfrastructureTab({
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { infrastructure } = snapshot;
+
+  function requestApplyLayout() {
+    if (layoutDirty) setConfirmOpen(true);
+    else onApplyLayout();
+  }
+
+  const hasSuggestion = Boolean(infrastructure.layoutSuggestion);
+  const status = hasSuggestion
+    ? `森空岛布局 ${infrastructure.layoutLabel ?? "未识别"}`
+    : "未识别可同步布局";
+
+  return (
+    <>
+      <div
+        className="flex min-w-0 items-center gap-2"
+        data-slot="skland-layout-sync"
+        aria-label="布局同步"
+        aria-live="polite"
+      >
+        <span
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1.5 text-xs",
+            layoutMatches ? "text-foreground" : "text-muted-foreground"
+          )}
+        >
+          {layoutMatches
+            ? <Check className="size-3.5 shrink-0" aria-hidden="true" />
+            : <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />}
+          <span className="truncate">{status}</span>
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="shrink-0 max-sm:h-11"
+          disabled={!hasSuggestion || layoutMatches}
+          onClick={requestApplyLayout}
+        >
+          <Building2 />
+          {layoutMatches ? "已同步" : hasSuggestion ? "应用布局" : "不可同步"}
+        </Button>
+      </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>覆盖当前布局设置？</DialogTitle>
+            <DialogDescription>
+              你已经手动修改过当前布局。继续后会使用森空岛的设施等级、制造配方和贸易订单。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>取消</Button>
+            <Button
+              type="button"
+              onClick={() => {
+                onApplyLayout();
+                setConfirmOpen(false);
+              }}
+            >
+              覆盖并应用
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function InfrastructureTab({ snapshot }: { snapshot: SklandSnapshot }) {
+  const { infrastructure } = snapshot;
   const now = useMinuteTimestamp(infrastructure.currentTs);
   const buildingMetrics = useMemo(() => deriveSklandBuildingMetrics(snapshot, now), [snapshot, now]);
   const controlRooms = infrastructure.rooms.filter((room) => room.group === "control");
@@ -711,11 +782,6 @@ function InfrastructureTab({
   const powerRooms = infrastructure.rooms.filter((room) => room.group === "power");
   const functionRooms = infrastructure.rooms.filter((room) => room.group === "meeting" || room.group === "hire");
   const dormitoryRooms = infrastructure.rooms.filter((room) => room.group === "dormitory");
-
-  function requestApplyLayout() {
-    if (layoutDirty) setConfirmOpen(true);
-    else onApplyLayout();
-  }
 
   return (
     <div className="grid gap-7">
@@ -725,39 +791,6 @@ function InfrastructureTab({
         data-skland-overview-grid
         data-skland-metric-section="building"
       >
-        <OverviewTechnicalCard
-          group="control"
-          className="min-h-40 md:col-span-2 xl:col-span-1"
-          dataSlot="skland-layout-sync"
-          showEmblem={false}
-        >
-          <div className="flex h-full flex-col">
-            <OverviewTechnicalHeading
-              icon={layoutMatches
-                ? <Check className="size-4" aria-hidden="true" />
-                : <AlertTriangle className="size-4" aria-hidden="true" />}
-            >
-              布局同步
-            </OverviewTechnicalHeading>
-            <p className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-[var(--room-accent)]">
-              {layoutMatches ? "当前布局一致" : "布局需要确认"}
-            </p>
-            <p className="mt-2 text-xs leading-5 text-white/58">
-              森空岛识别为 {infrastructure.layoutLabel ?? "未支持的布局"}。
-            </p>
-            {!layoutMatches && infrastructure.layoutSuggestion ? (
-              <Button
-                type="button"
-                className="mt-auto h-9 border-white/22 bg-white/5 text-white hover:bg-white/10 hover:text-white max-sm:h-11"
-                variant="outline"
-                onClick={requestApplyLayout}
-              >
-                <Building2 />应用森空岛布局
-              </Button>
-            ) : null}
-          </div>
-        </OverviewTechnicalCard>
-
         <OverviewTechnicalCard
           group="training"
           className="min-h-40"
@@ -852,28 +885,6 @@ function InfrastructureTab({
         </div>
       </section>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>覆盖当前布局设置？</DialogTitle>
-            <DialogDescription>
-              你已经手动修改过当前布局。继续后会使用森空岛的设施等级、制造配方和贸易订单。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>取消</Button>
-            <Button
-              type="button"
-              onClick={() => {
-                onApplyLayout();
-                setConfirmOpen(false);
-              }}
-            >
-              覆盖并应用
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -1448,22 +1459,25 @@ export function SklandStatus({
       ) : null}
 
       <Tabs defaultValue="overview">
-        <div className="-mx-3 overflow-x-auto px-3 pb-1">
-          <TabsList className="min-w-max" data-skland-view-tabs>
-            <TabsTrigger value="overview">概览</TabsTrigger>
-            <TabsTrigger value="infrastructure">基建</TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="overview" className="pt-5">
-          <OverviewTab snapshot={snapshot} onContinueSetup={onContinueSetup} onOpenCalculator={onOpenCalculator} />
-        </TabsContent>
-        <TabsContent value="infrastructure" className="pt-5">
-          <InfrastructureTab
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3" data-skland-view-header>
+          <div className="-mx-3 min-w-0 overflow-x-auto overflow-y-hidden px-3 pb-1">
+            <TabsList className="min-w-max" data-skland-view-tabs>
+              <TabsTrigger value="overview">概览</TabsTrigger>
+              <TabsTrigger value="infrastructure">基建</TabsTrigger>
+            </TabsList>
+          </div>
+          <LayoutSyncControl
             snapshot={snapshot}
             layoutMatches={layoutMatches}
             layoutDirty={layoutDirty}
             onApplyLayout={onApplyLayout}
           />
+        </div>
+        <TabsContent value="overview" className="pt-5">
+          <OverviewTab snapshot={snapshot} onContinueSetup={onContinueSetup} onOpenCalculator={onOpenCalculator} />
+        </TabsContent>
+        <TabsContent value="infrastructure" className="pt-5">
+          <InfrastructureTab snapshot={snapshot} />
         </TabsContent>
       </Tabs>
     </div>

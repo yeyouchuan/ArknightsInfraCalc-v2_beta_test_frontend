@@ -39,6 +39,7 @@ import {
 import { copyText, downloadJson } from "./download";
 import { ONBOARDING_STORAGE_KEY, initialSetupStep, shouldAutoOpenSetup, type SetupStep } from "./onboarding";
 import { readOperboxFile, readOperboxText } from "./operbox";
+import { normalizeOperboxEntries } from "./operbox-normalization";
 import {
   clearLocalProductData,
   loadPersistedSession,
@@ -264,9 +265,10 @@ function WorkbenchApp() {
       if (restored) {
         const restoredPreset = resolvePreset(PRESETS.find((item) => item.label === restored.presetLabel));
         const restoredLayout = restoreEditableProducts(buildBlueprint(restoredPreset), restored.layout);
+        const restoredOperbox = restored.operbox ? normalizeOperboxEntries(restored.operbox) : null;
         setPreset(restoredPreset);
         setLayout(restoredLayout);
-        setOperbox(restored.operbox);
+        setOperbox(restoredOperbox);
         setFileName(restored.sourceName);
         setBoxSource(restored.boxSource);
         setLayoutDirty(restored.layoutDirty);
@@ -275,7 +277,7 @@ function WorkbenchApp() {
         setActiveShift(restored.activeShift);
         initialLayoutForRestore.current = restoredLayout;
         initialBoxSource.current = restored.boxSource;
-        initialOperbox.current = restored.operbox;
+        initialOperbox.current = restoredOperbox;
         initialLayoutDirty.current = restored.layoutDirty;
       }
     } catch {
@@ -350,7 +352,7 @@ function WorkbenchApp() {
         if (session.authenticated && session.snapshot) {
           setSklandSnapshot(session.snapshot);
           if (initialBoxSource.current === "skland" || !initialOperbox.current) {
-            setOperbox(session.snapshot.operbox);
+            setOperbox(normalizeOperboxEntries(session.snapshot.operbox));
             setFileName(session.snapshot.sourceName);
             setBoxSource("skland");
           }
@@ -389,7 +391,7 @@ function WorkbenchApp() {
 
   function applySklandSnapshot(snapshot: SklandSnapshot, applyLayoutWhenClean = true) {
     setSklandSnapshot(snapshot);
-    setOperbox(snapshot.operbox);
+    setOperbox(normalizeOperboxEntries(snapshot.operbox));
     setFileName(snapshot.sourceName);
     setBoxSource("skland");
     setInputMode("skland");
@@ -500,19 +502,9 @@ function WorkbenchApp() {
     clearIssueState();
 
     try {
-      // 去重：同名保留第一个；阿米娅变体直接删除
-      const seen = new Set<string>();
-      const skipNames = new Set(["阿米娅（近卫）", "阿米娅（医疗）"]);
-      const deduped = operbox.filter((e) => {
-        const n = e.name.trim();
-        if (skipNames.has(n) || seen.has(n)) return false;
-        seen.add(n);
-        return true;
-      });
-
       const response = await runPlan({
         layout,
-        operbox: deduped,
+        operbox: normalizeOperboxEntries(operbox),
         sourceName: fileName,
         rotation: rotationProfile,
       });
@@ -551,7 +543,7 @@ function WorkbenchApp() {
     clearIssueState();
     try {
       const sample = await getSampleOperbox();
-      setOperbox(sample.operbox);
+      setOperbox(normalizeOperboxEntries(sample.operbox));
       setFileName(sample.sourceName);
       setBoxSource("sample");
       return true;

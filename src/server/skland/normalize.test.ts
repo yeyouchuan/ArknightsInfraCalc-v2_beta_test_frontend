@@ -373,6 +373,24 @@ test("treats a zero-progress training task with a concrete target skill as idle"
   assert.equal(snapshot.infrastructure.training, null);
 });
 
+test("merges Skland class forms that share one planner-facing operator name", () => {
+  const info = playerInfo();
+  const alternate = structuredClone(info.chars[0]);
+  alternate.charId = "char_amiya_alternate";
+  alternate.level = 80;
+  info.chars.push(alternate);
+  info.charInfoMap.char_amiya_alternate = {
+    ...info.charInfoMap.char_1,
+    id: "char_amiya_alternate",
+    name: "测试干员",
+  };
+
+  const snapshot = snapshotFromPlayerInfo(info, roles, "123456789", noLayoutSuggestion);
+  assert.equal(snapshot.operbox.length, 1);
+  assert.equal(snapshot.operbox[0]?.id, "char_1");
+  assert.equal(snapshot.operbox[0]?.name, "测试干员");
+});
+
 test("maps every upstream recruitment state to a semantic public state", () => {
   const info = playerInfo();
   info.recruit = [0, 1, 2, 3].map((state, index) => ({

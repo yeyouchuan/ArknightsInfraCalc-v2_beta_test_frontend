@@ -187,9 +187,6 @@ export function TrainingAdvice({ operbox, layout, profile, onOpenCalculator }: T
               <h2 className="mt-4 text-[23px] font-medium leading-tight tracking-[-0.02em]">
                 根据最近排班整理的培养方向
               </h2>
-              <p className="mt-3 max-w-3xl text-pretty text-sm leading-6 text-white/70">
-                这里只展示求解器给出的结构化建议，不在前端重复维护干员组合、技能公式或效率估算。
-              </p>
             </div>
             <div className="grid grid-cols-2 gap-px bg-white/10 sm:grid-cols-4">
               {[

@@ -536,9 +536,14 @@ async function seedPreferences(page: Page) {
 async function seedV4Session(
   page: Page,
   seededResult: unknown = planData,
-  options: { activeShift?: number; rotationProfile?: string } = {}
+  options: {
+    activeShift?: number;
+    rotationProfile?: string;
+    layoutDirty?: boolean;
+    operbox?: Array<Record<string, unknown>>;
+  } = {}
 ) {
-  await page.addInitScript(({ layout, result, savedAt, expiresAt, activeShift, rotationProfile }) => {
+  await page.addInitScript(({ layout, result, savedAt, expiresAt, activeShift, rotationProfile, layoutDirty, operbox }) => {
     window.localStorage.setItem("arknights-infra-calc-beta-onboarding-v1", "1");
     if (!window.localStorage.getItem("arknights-infra-calc-session-v4")) window.localStorage.setItem("arknights-infra-calc-session-v4", JSON.stringify({
       version: 4,
@@ -546,7 +551,7 @@ async function seedV4Session(
       expiresAt,
       presetLabel: "243",
       layout,
-      operbox: [{
+      operbox: operbox ?? [{
         id: "char_002_amiya",
         name: "阿米娅",
         elite: 2,
@@ -557,7 +562,7 @@ async function seedV4Session(
       }],
       sourceName: "243 全精二示例",
       boxSource: "sample",
-      layoutDirty: false,
+      layoutDirty,
       rotationProfile,
       result,
       activeShift,
@@ -569,6 +574,8 @@ async function seedV4Session(
     expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
     activeShift: options.activeShift ?? 0,
     rotationProfile: options.rotationProfile ?? "abc_12_6_6",
+    layoutDirty: options.layoutDirty ?? false,
+    operbox: options.operbox,
   });
 }
 
@@ -604,6 +611,7 @@ test("two-shift output drives labels, teams, metric units, and profile details",
 
   const shiftTabs = page.getByRole("tab", { name: /第 \d 班 · 12h/ });
   await expect(shiftTabs).toHaveCount(2);
+  await expect(page.locator("[data-shift-tabs]")).toHaveCSS("overflow-y", "hidden");
   await expect(page.getByRole("tab", { name: /第 3 班/ })).toHaveCount(0);
   await expect(page.getByText("主力 上班 · 替补 休息", { exact: true })).toBeVisible();
 
@@ -622,6 +630,25 @@ test("two-shift output drives labels, teams, metric units, and profile details",
   await page.getByRole("button", { name: "练卡建议" }).click();
   await expect(page.getByText("练度提升", { exact: true })).toBeVisible();
   await expect(page.getByText("当前 精1 → 目标 精2", { exact: true })).toBeVisible();
+});
+
+test("old sessions normalize duplicate operator names before training advice renders", async ({ page }) => {
+  await mockApis(page);
+  await seedV4Session(page, planData, {
+    operbox: [
+      { id: "char_amiya_guard", name: "阿米娅", elite: 1, level: 70, own: true, potential: 6, rarity: 5 },
+      { id: "char_002_amiya", name: "阿米娅", elite: 2, level: 80, own: true, potential: 6, rarity: 5 },
+    ],
+  });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "练卡建议" }).click();
+  await expect(page.getByText(/干员名称重复：阿米娅/)).toHaveCount(0);
+  await expect.poll(async () => page.evaluate(() => JSON.parse(
+    window.localStorage.getItem("arknights-infra-calc-session-v4") ?? "{}"
+  ).operbox)).toEqual([
+    { id: "char_002_amiya", name: "阿米娅", elite: 2, level: 80, own: true, potential: 6, rarity: 5 },
+  ]);
 });
 
 test("four-shift output persists the fourth tab and migrates an old v4 profile", async ({ page }) => {
@@ -899,7 +926,16 @@ test("setup exposes and persists only worker-supported rotation profiles", async
   await dialog.getByRole("tab", { name: /配置基建/ }).click();
   await dialog.getByText("高级设置", { exact: true }).click();
 
-  await dialog.getByRole("combobox", { name: "换班方式" }).click();
+  const rotationTrigger = dialog.getByRole("combobox", { name: "换班方式" });
+  await rotationTrigger.click();
+  const [triggerBox, popupBox] = await Promise.all([
+    rotationTrigger.boundingBox(),
+    page.locator('[data-slot="select-content"]').boundingBox(),
+  ]);
+  expect(triggerBox).not.toBeNull();
+  expect(popupBox).not.toBeNull();
+  expect(Math.abs((triggerBox?.x ?? 0) - (popupBox?.x ?? 0))).toBeLessThanOrEqual(1);
+  expect(popupBox?.width).toBeCloseTo(triggerBox?.width ?? 0, 0);
   await expect(page.getByRole("option", { name: /自动轮换/ })).toHaveCount(0);
   await expect(page.getByRole("option", { name: /一天两换/ })).toHaveCount(0);
   await expect(page.getByRole("option", { name: /自定义/ })).toHaveCount(0);
@@ -991,6 +1027,7 @@ test("calculator owns scheduling controls and training advice uses a single tech
 
   await page.getByRole("button", { name: "练卡建议" }).click();
   await expect(calculatorControls).toHaveCount(0);
+  await expect(page.getByText("这里只展示求解器给出的结构化建议", { exact: false })).toHaveCount(0);
   await expect(page.locator('[data-slot="training-summary"]')).toHaveClass(/infra-room-surface/);
   await expect(page.locator('[data-slot="training-data-check"]')).toHaveClass(/infra-room-surface/);
   await expect(page.locator('[data-slot="training-summary"] svg')).toHaveCount(1);
@@ -1282,6 +1319,14 @@ test("Skland status center keeps profile and recruitment in overview and support
   await expect(page.getByRole("tab", { name: "进度", exact: true })).toHaveCount(0);
   await expect(page.locator("[data-skland-view-tabs]")).toHaveAttribute("data-variant", "default");
   await expect(page.locator("[data-skland-view-tabs] svg")).toHaveCount(0);
+  const layoutSync = page.locator('[data-slot="skland-layout-sync"]');
+  await expect(layoutSync).toBeVisible();
+  await expect(layoutSync).not.toHaveClass(/infra-room-surface/);
+  const [viewTabsBox, layoutSyncBox] = await Promise.all([
+    page.locator("[data-skland-view-tabs]").boundingBox(),
+    layoutSync.boundingBox(),
+  ]);
+  expect((layoutSyncBox?.x ?? 0)).toBeGreaterThan(viewTabsBox?.x ?? 0);
   const sklandViewTabHeight = await page.getByRole("tab", { name: "概览", exact: true })
     .evaluate((element) => element.getBoundingClientRect().height);
   expect(sklandViewTabHeight).toBe(scheduleViewTabHeight);
@@ -1307,7 +1352,6 @@ test("Skland status center keeps profile and recruitment in overview and support
   await expect(page.locator('[data-skland-metric="clue"]')).toHaveAttribute("data-metric-tone", "orange");
   await expect(page.locator('[data-skland-metric] .infra-room-surface')).toHaveCount(4);
   await expect(page.locator('[data-skland-metric] .infra-room-emblem')).toHaveCount(0);
-  await expect(page.locator('[data-slot="skland-layout-sync"]')).toHaveClass(/infra-room-surface/);
   await expect(page.locator('[data-slot="skland-training-room"]')).toHaveClass(/infra-room-surface/);
   await expect(page.locator('[data-slot="skland-infra-assets"]')).toHaveClass(/infra-room-surface/);
   await expect(page.locator('[data-slot^="skland-"] .infra-room-emblem')).toHaveCount(0);
@@ -1383,6 +1427,28 @@ test("Skland status center keeps profile and recruitment in overview and support
   expect(attendanceRequests).toBe(0);
 });
 
+test("Skland layout sync stays beside the tabs and confirms replacement of dirty settings", async ({ page }) => {
+  await mockApis(page, {
+    sklandConfigured: true,
+    sklandSnapshot: authenticatedSklandSnapshot,
+  });
+  await seedV4Session(page, planData, { layoutDirty: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "森空岛状态", exact: true }).click();
+  const layoutSync = page.locator('[data-slot="skland-layout-sync"]');
+  await expect(layoutSync).toContainText("森空岛布局 243");
+  const applyButton = layoutSync.getByRole("button", { name: "应用布局" });
+  await expect(applyButton).toBeEnabled();
+  await applyButton.click();
+
+  const dialog = page.getByRole("dialog", { name: "覆盖当前布局设置？" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "覆盖并应用" }).click();
+  await expect(layoutSync.getByRole("button", { name: "已同步" })).toBeDisabled();
+});
+
 test("Skland base metrics reuse the existing technical card grid and keyboard tab navigation", async ({ page }) => {
   await mockApis(page, {
     sklandConfigured: true,
@@ -1402,7 +1468,7 @@ test("Skland base metrics reuse the existing technical card grid and keyboard ta
     await page.setViewportSize(viewport);
     const buildingCards = page.locator('[data-skland-metric-section="building"] [data-skland-metric]');
     await expect(buildingCards).toHaveCount(4);
-    await expect(page.locator("[data-skland-overview-grid] > *")).toHaveCount(7);
+    await expect(page.locator("[data-skland-overview-grid] > *")).toHaveCount(6);
     await expect(page.locator("[data-skland-metric-glyph]")).toHaveCount(0);
 
     const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

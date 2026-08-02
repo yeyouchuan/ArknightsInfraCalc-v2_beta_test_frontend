@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { OperBoxEntry } from "./types";
+import { normalizeOperboxEntries } from "./operbox-normalization";
 
 function pickValue(row: Record<string, unknown>, keys: string[]): unknown {
   for (const key of keys) {
@@ -28,7 +29,7 @@ export function assertOperbox(value: unknown): OperBoxEntry[] {
     throw new Error("练度 JSON 需要是非空数组。");
   }
   const seen = new Set<string>();
-  return value.map((entry, index) => {
+  const entries = value.map((entry, index) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       throw new Error(`第 ${index + 1} 项不是有效的干员对象。`);
     }
@@ -57,6 +58,7 @@ export function assertOperbox(value: unknown): OperBoxEntry[] {
     seen.add(id);
     return { id, name, elite, level, own: row.own, potential, rarity };
   });
+  return normalizeOperboxEntries(entries);
 }
 
 export function readOperboxText(text: string): OperBoxEntry[] {

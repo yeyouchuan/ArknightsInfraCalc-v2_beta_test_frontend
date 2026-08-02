@@ -1,5 +1,6 @@
 import type { AppBindingList, BuildingRoom, PlayerInfo, ResidentCharacter } from "skland-kit";
 
+import { normalizeOperboxEntries } from "../../operbox-normalization.ts";
 import type {
   OperBoxEntry,
   SklandControlRoom,
@@ -151,7 +152,7 @@ export function operboxFromPlayerInfo(info: PlayerInfo): { operbox: OperBoxEntry
     }
     return [{ id: character.charId, name, elite, level, own: true, potential, rarity }];
   });
-  return { operbox, warnings };
+  return { operbox: normalizeOperboxEntries(operbox), warnings };
 }
 
 export function factoryProduct(info: PlayerInfo, formulaId: string | number): FactoryProduct {
