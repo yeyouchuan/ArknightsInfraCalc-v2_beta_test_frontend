@@ -2,7 +2,7 @@
 
 ## 产品与工程边界
 
-“明日方舟基建排班助手”是面向用户的三班排班工具。用户导入干员数据、配置基建设施，服务端调用长驻的 `infra-cli serve`，前端展示排班、效率与练卡建议，并可导出到 MAA。
+“明日方舟基建排班助手”是面向用户的多班次排班工具。用户导入干员数据、配置基建设施与求解器支持的换班方式，服务端调用长驻的 `infra-cli serve`，前端展示排班、效率与练卡建议，并可导出到 MAA。
 
 本仓库负责 Next.js 前端、公开 API、CLI 调用适配、运行记录和反馈入口，不在前端实现排班算法、干员技能或效率公式。算法与 CLI 协议变更应进入相邻核心仓库。
 
@@ -42,6 +42,9 @@ npm run test:e2e:webkit
 | `src/api.ts` | 统一解析公开 API envelope，抛出带错误码的 `ApiClientError` |
 | `src/types.ts` | 内部类型、公开 DTO、错误码 |
 | `src/persistence.ts` | v4 本地保存、迁移、过期清理和白名单 |
+| `src/rotation-settings.ts` | Worker 支持的固定换班 profile 与时长元数据 |
+| `src/rotation-result.ts` | Worker rotation 输出到公共 DTO 的严格白名单映射 |
+| `src/rotation-presentation.ts` | 班次标签、队伍名称、单位与相对差值展示换算 |
 | `src/server/api-contract.ts` | requestId、错误响应、同源、大小、限流和并发保护 |
 | `src/server/public-plan.ts` | 内部求解结果到公开排班 DTO 的白名单映射 |
 | `src/server/infra.ts` | CLI 查找、长驻进程、内部运行记录和反馈落盘 |
@@ -172,6 +175,7 @@ v4 只保存：
 
 - 当前布局和预设；
 - 干员数据及安全来源名；
+- 当前换班 profile；
 - 当前班次；
 - 白名单化后的最近排班；
 - `savedAt`与`expiresAt`。
@@ -209,4 +213,4 @@ npm run test:e2e
 npm run test:e2e:webkit
 ```
 
-随后在真实浏览器检查 `/api/health`、Full E2、三班切换、MAA 导出、反馈提交和 v4 恢复。生产部署、回滚和存储目录规则继续以仓库 `AGENTS.md` 为准。
+随后在真实浏览器检查 `/api/health`、Full E2、2/3/4 班切换、MAA 导出、反馈提交和 v4 恢复。生产部署、回滚和存储目录规则继续以仓库 `AGENTS.md` 为准。

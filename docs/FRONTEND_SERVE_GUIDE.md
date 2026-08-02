@@ -32,7 +32,7 @@ The frontend uses `plan.compute` only when all three fields match the contract i
     "pong": true,
     "protocol_version": 1,
     "plan_schema_version": 1,
-    "plan_contract_sha256": "60acbcf154da1f099f717a2952b6aa3d101bca1e7a1c3e237b0c81d9967eb9b6"
+    "plan_contract_sha256": "52b78160b7f3290c6939807af5b7d6d31ee8322ea68de9288773eebca32d5102"
   }
 }
 ```
@@ -105,7 +105,7 @@ Error responses use the normal serve envelope:
 Workers that do not pass the capability gate continue to receive path-based requests:
 
 ```json
-{"id":3,"method":"plan","params":{"layout":"tmp/layout.json","operbox":"tmp/operbox.json","profile_out":"tmp/profile.json","maa_out":"tmp/maa.json","output_dir":"tmp/shifts","top":20,"maa_title":"My schedule"}}
+{"id":3,"method":"plan","params":{"layout":"tmp/layout.json","operbox":"tmp/operbox.json","profile_out":"tmp/profile.json","maa_out":"tmp/maa.json","output_dir":"tmp/shifts","rotation":"abc_12_6_6","top":20,"maa_title":"My schedule"}}
 ```
 
 All paths are selected by the frontend. After a successful response, the frontend reads `profile_out`, `maa_out`, and `team_shift_*.json` from the run directory.
@@ -122,7 +122,7 @@ All paths are selected by the frontend. After a successful response, the fronten
 
 The CLI response is an internal transport object. It must never be returned directly from a Next.js route handler.
 
-`src/server/infra.ts` may retain CLI paths, commands, stdout, stderr, serve requests/responses and run-directory metadata for local diagnostics. `src/server/public-plan.ts` is the required boundary before `/api/plan`: it constructs a new allowlisted DTO containing only profile, MAA, rotation, duration and an opaque diagnostic ID.
+`src/server/infra.ts` may retain CLI paths, commands, stdout, stderr, serve requests/responses and run-directory metadata for local diagnostics. `src/server/public-plan.ts` is the required boundary before `/api/plan`: it constructs a new allowlisted DTO containing only profile, MAA, rotation, duration and an opaque diagnostic ID. Rotation is rebuilt through `src/rotation-result.ts`; only the selected profile, daily summary, normalized shifts, team state, weighted efficiency and normalized room efficiency are public. Raw `efficiencies`, assignments and future unknown Worker fields are not forwarded.
 
 When `BETA_DEBUG_TOOLS_ENABLED=1`, the server may append diagnostic values under `data.debug`. That switch is server-owned; a query parameter cannot enable it. Public contract tests recursively reject internal field names in production responses, and the v4 browser persistence layer strips `data.debug` even in a debug session.
 

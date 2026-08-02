@@ -12,6 +12,7 @@ docs/
 !docs/
 docs/*
 !docs/FRONTEND_PRODUCTION_READINESS_REPORT.md
+!docs/INFRA_CLI_ADVICE_REPORT.md
 !docs/SKLAND_DATA_CAPABILITIES.md
 !docs/UPDATE_SOLVER.md
 *.tsbuildinfo

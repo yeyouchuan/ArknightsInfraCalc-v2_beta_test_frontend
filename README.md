@@ -1,6 +1,6 @@
 # 明日方舟基建排班助手
 
-导入森空岛或 MAA 干员数据，配置基建设施，生成三班排班、效率概览与练卡建议，并可导出到 MAA。求解由服务端长驻的 `infra-cli serve` 完成，本仓库不实现排班算法和效率公式。
+导入森空岛或 MAA 干员数据，配置基建设施和换班方式，生成多班次排班、效率概览与练卡建议，并可导出到 MAA。求解由服务端长驻的 `infra-cli serve` 完成，本仓库不实现排班算法和效率公式。
 
 ## 本地开发
 
@@ -131,4 +131,5 @@ fixtures/operbox_full_e2.json
 - [开发指南](./docs/DEVELOPMENT_GUIDE.md)：API 契约、环境变量、本地调试和质量门禁。
 - [上线产品化报告](./docs/FRONTEND_PRODUCTION_READINESS_REPORT.md)：改造基线、错误码、数据流、验证结果和 DevTools 排查方法。
 - [Frontend Serve Guide](./docs/FRONTEND_SERVE_GUIDE.md)：`infra-cli serve` 协议及公共 DTO 边界。
+- [`infra-cli advice` 输出评估](./docs/INFRA_CLI_ADVICE_REPORT.md)：结构化练卡报告、字段说明、安全边界和未来前端接入方案。
 - [更新线上求解器](./docs/UPDATE_SOLVER.md)：仅在契约或真实求解验证需要时更新服务器 CLI。
