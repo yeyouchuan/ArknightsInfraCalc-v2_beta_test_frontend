@@ -15,6 +15,7 @@ function internalResult(): PlanApiResponse {
     stderr: "secret stderr",
     profileJson: {
       schema_version: 4,
+      rotation_profile: "abc_12_6_6",
       layout_label: "C:\\private\\243",
       operbox_label: "/private/box.json",
       baseline_label: "internal baseline",
@@ -30,8 +31,41 @@ function internalResult(): PlanApiResponse {
         debugBundle: { future: true },
       },
     } as UserProfile & { nestedInternal: { cliPath: string; debugBundle: { future: boolean } } },
-    maaJson: { title: "C:\\private\\title", plans: [] },
-    rotationJson: { shifts: [], daily: { trade: null, manu: null, power: null } },
+    maaJson: {
+      title: "C:\\private\\title",
+      planTimes: 2,
+      plans: [{
+        name: "班次 1",
+        Fiammetta: { enable: true, target: "但书", order: "pre" },
+        drones: { enable: true, room: "manufacture", index: 1, order: "pre" },
+        rooms: {
+          trading: [{ operators: ["龙舌兰"], sort: true, autofill: false }],
+        },
+      }],
+      scheduleType: { planTimes: 2, trading: 2, manufacture: 4, power: 3, dormitory: 4 },
+    },
+    rotationJson: {
+      profile: "abc_12_6_6",
+      shifts: [{
+        index: 0,
+        duration_hours: 12,
+        active_teams: ["alpha", "beta"],
+        resting_team: "gamma",
+        scores: {
+          trade_score: 2.1,
+          manu_prod_sum: 420,
+          power_charge_sum: 110,
+          room_lines: [{ room_id: "trade_1", trade_score: 2.1, future_internal: "secret" }],
+        },
+        weighted_trade: 1.05,
+        weighted_manu: 2.1,
+        weighted_power: 0.55,
+        assignment: { private: true },
+        efficiencies: { raw: true },
+      }],
+      daily: { trade: 4.2, manu: 8.4, power: 2.2 },
+      future_internal: "secret",
+    } as unknown as PlanApiResponse["rotationJson"],
     debugBundle: {
       version: "test",
       startedAt: "2026-07-28T00:00:00.000Z",
@@ -80,10 +114,21 @@ test("production public plan data recursively excludes internal fields", () => {
       "serveResponse",
       "runPath",
       "resultPath",
+      "future_internal",
+      "assignment",
+      "efficiencies",
     ]) {
       assert.equal(keys.has(forbidden), false, `must not expose ${forbidden}`);
     }
     assert.equal(publicData.diagnosticId, "diagnostic-1");
+    assert.equal(publicData.rotation.profile, "abc_12_6_6");
+    assert.deepEqual(publicData.rotation.daily, { trade: 4.2, manu: 8.4, power: 2.2 });
+    assert.equal(publicData.rotation.shifts[0].scores.room_lines[0].trade_score, 2.1);
+    assert.equal(publicData.maa.planTimes, 2);
+    assert.deepEqual(publicData.maa.plans[0].Fiammetta, { enable: true, target: "但书", order: "pre" });
+    assert.equal(publicData.maa.plans[0].drones?.enable, true);
+    assert.equal(publicData.maa.plans[0].rooms.trading?.[0].sort, true);
+    assert.equal(publicData.maa.scheduleType?.planTimes, 2);
     assert.equal(publicData.profile.baseline_label, "产品推荐基准");
     assert.equal(publicData.profile.layout_label.includes("\\"), false);
     assert.equal(publicData.maa.title.includes("\\"), false);

@@ -57,6 +57,14 @@ import {
 import { CompactScheduleView } from "@/components/CompactScheduleView";
 import { manufacturePoolReady, presentRoomEfficiency, profileEfficiency, RoomEfficiencyPresentation } from "./efficiency";
 import { countElite2, countOwned, countSixStar } from "./operbox";
+import {
+  relativeMetricDelta,
+  rotationMetricValue,
+  shiftTabLabel,
+  shiftTeamSummary,
+  type RotationMetricKind,
+} from "./rotation-presentation";
+import { DEFAULT_ROTATION_PROFILE, rotationOption } from "./rotation-settings";
 import { RoomRow } from "./schedule";
 import {
   COMPACT_OPERATOR_SIZE_CLASS,
@@ -605,16 +613,17 @@ export function RunButton({
 
 export function ShiftTabs({
   maaJson,
+  rotation,
   active,
   closest,
   onChange,
 }: {
   maaJson?: MaaJson;
+  rotation?: RotationJson;
   active: number;
   closest?: number;
   onChange: (index: number) => void;
 }) {
-  const labels = ["α 12h", "β 6h", "γ 6h"];
   const plans = maaJson?.plans ?? [];
 
   if (plans.length === 0) {
@@ -626,14 +635,23 @@ export function ShiftTabs({
   }
 
   return (
-    <Tabs value={String(active)} onValueChange={(value) => onChange(Number(value))}>
-      <TabsList className="font-technical tracking-[0.01em]">
-        {plans.map((plan, index) => (
-          <TabsTrigger key={`${plan.name}-${index}`} value={String(index)}>
-            {labels[index] ?? plan.name ?? `班次 ${index + 1}`}
-            {closest === index ? <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">最接近</span> : null}
-          </TabsTrigger>
-        ))}
+    <Tabs value={String(active)} onValueChange={(value) => onChange(Number(value))} className="max-w-full">
+      <TabsList className="font-technical max-w-full justify-start overflow-x-auto tracking-[0.01em]">
+        {plans.map((plan, index) => {
+          const shift = rotation?.shifts[index];
+          const label = shiftTabLabel(shift, index);
+          const teamSummary = shiftTeamSummary(shift, rotation?.profile ?? DEFAULT_ROTATION_PROFILE);
+          return (
+            <TabsTrigger
+              key={`${plan.name}-${index}`}
+              value={String(index)}
+              aria-label={teamSummary ? `${label}，${teamSummary}` : label}
+            >
+              {label}
+              {closest === index ? <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">最接近</span> : null}
+            </TabsTrigger>
+          );
+        })}
       </TabsList>
     </Tabs>
   );
@@ -641,7 +659,7 @@ export function ShiftTabs({
 
 function compactNumber(value: number, digits = 1): string {
   if (!Number.isFinite(value)) return "—";
-  return Number.isInteger(value) ? String(value) : value.toFixed(digits).replace(/\.0$/, "");
+  return Number.isInteger(value) ? String(value) : value.toFixed(digits).replace(/\.?0+$/, "");
 }
 
 function profileSeverityClass(severity: "ok" | "warn" | "critical") {
@@ -664,13 +682,42 @@ export function PlanTelemetry({
   if (!profile && !rotation) return null;
 
   const active = rotation?.shifts?.[activeShift];
+  const rotationProfile = rotation?.profile ?? profile?.rotation_profile ?? DEFAULT_ROTATION_PROFILE;
+  const selectedRotation = rotationOption(rotationProfile);
+  const activeTeamSummary = shiftTeamSummary(active, rotationProfile);
   const summary = profile?.summary;
   const manufactureReady = summary ? manufacturePoolReady(summary) : undefined;
+  const currentProfileRotation = profile?.rotation;
+  const baselineProfileRotation = profile?.baseline_rotation;
   const dailyMetrics = [
-    { label: "24h 贸易", value: rotation?.daily.trade, suffix: "×" },
-    { label: "24h 制造", value: rotation?.daily.manu, suffix: "%" },
-    { label: "24h 发电", value: rotation?.daily.power, suffix: "%" },
-  ].filter((metric): metric is { label: string; value: number; suffix: string } => typeof metric.value === "number");
+    {
+      kind: "trade" as const,
+      label: "24h 贸易",
+      value: rotation?.daily.trade ?? currentProfileRotation?.daily_trade_efficiency ?? currentProfileRotation?.daily_trade,
+      baseline: baselineProfileRotation?.daily_trade_efficiency ?? baselineProfileRotation?.daily_trade,
+      suffix: "×",
+    },
+    {
+      kind: "manu" as const,
+      label: "24h 制造",
+      value: rotation?.daily.manu ?? currentProfileRotation?.daily_manufacture_efficiency ?? currentProfileRotation?.daily_manu,
+      baseline: baselineProfileRotation?.daily_manufacture_efficiency ?? baselineProfileRotation?.daily_manu,
+      suffix: "%",
+    },
+    {
+      kind: "power" as const,
+      label: "24h 发电",
+      value: rotation?.daily.power ?? currentProfileRotation?.daily_power_efficiency ?? currentProfileRotation?.daily_power,
+      baseline: baselineProfileRotation?.daily_power_efficiency ?? baselineProfileRotation?.daily_power,
+      suffix: "%",
+    },
+  ].filter((metric): metric is {
+    kind: RotationMetricKind;
+    label: string;
+    value: number;
+    baseline: number | undefined;
+    suffix: string;
+  } => typeof metric.value === "number");
   const domains = profile?.domains ?? [];
 
   return (
@@ -682,22 +729,46 @@ export function PlanTelemetry({
           <span className="mt-1 text-xs text-white/62">
             {layout.template} · {layout.rooms.length} 个设施
           </span>
+          <span className="mt-0.5 text-xs text-white/62">
+            {selectedRotation.label} · {rotation?.shifts.length ?? 0} 班
+          </span>
         </div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] divide-x divide-[#313131]/10 max-sm:divide-x-0 max-sm:grid-cols-2">
-          {dailyMetrics.map((metric) => (
-            <div key={metric.label} className="px-4 py-3">
-              <span className="block text-xs text-[#313131]/58">{metric.label}</span>
-              <strong className="font-technical mt-0.5 block text-lg font-semibold tabular-nums tracking-[0.01em] text-[#313131]">
-                {compactNumber(metric.value, 2)}{metric.suffix}
-              </strong>
-            </div>
-          ))}
+          {dailyMetrics.map((metric) => {
+            const value = rotationMetricValue(metric.kind, metric.value);
+            const displayDigits = metric.kind === "trade" ? 3 : 1;
+            const baseline = typeof metric.baseline === "number"
+              ? rotationMetricValue(metric.kind, metric.baseline)
+              : undefined;
+            const delta = typeof metric.baseline === "number"
+              ? relativeMetricDelta(metric.value, metric.baseline)
+              : undefined;
+            return (
+              <div key={metric.label} className="px-4 py-3">
+                <span className="block text-xs text-[#313131]/58">{metric.label}</span>
+                <strong className="font-technical mt-0.5 block text-lg font-semibold tabular-nums tracking-[0.01em] text-[#313131]">
+                  {compactNumber(value, displayDigits)}{metric.suffix}
+                </strong>
+                <span className="mt-0.5 block whitespace-nowrap text-[10px] tabular-nums text-[#313131]/52">
+                  参考 {baseline === undefined ? "—" : `${compactNumber(baseline, displayDigits)}${metric.suffix}`}
+                  {delta === undefined ? null : (
+                    <span className={cn("ml-1", delta >= 0 ? "text-emerald-700" : "text-red-700")}>
+                      · {delta >= 0 ? "+" : ""}{compactNumber(delta)}%
+                    </span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
           {active ? (
             <div className="px-4 py-3">
               <span className="block text-xs text-[#313131]/58">当前班次</span>
               <strong className="font-technical mt-0.5 block text-lg font-semibold tabular-nums tracking-[0.01em] text-[#313131]">
                 {compactNumber(active.duration_hours)}h
               </strong>
+              {activeTeamSummary ? (
+                <span className="mt-0.5 block whitespace-nowrap text-[10px] text-[#313131]/52">{activeTeamSummary}</span>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -731,6 +802,17 @@ export function PlanTelemetry({
                       <div className="min-w-0">
                         <strong className="block truncate font-medium text-[#313131]">{domain.label}</strong>
                         {domain.current.operators.length ? <span className="block truncate text-xs text-[#313131]/52">{domain.current.operators.join(" / ")}</span> : null}
+                        {domain.current.mechanic_equivalent_efficiency !== undefined
+                          || domain.baseline.mechanic_equivalent_efficiency !== undefined ? (
+                            <span className="mt-0.5 block truncate text-[10px] tabular-nums text-[#313131]/48">
+                              机制等效 当前 {domain.current.mechanic_equivalent_efficiency === undefined
+                                ? "—"
+                                : compactNumber(domain.current.mechanic_equivalent_efficiency, 3)}
+                              {" · "}参考 {domain.baseline.mechanic_equivalent_efficiency === undefined
+                                ? "—"
+                                : compactNumber(domain.baseline.mechanic_equivalent_efficiency, 3)}
+                            </span>
+                          ) : null}
                       </div>
                       <span className="tabular-nums text-[#313131]">当前 {current === undefined ? "—" : compactNumber(current, 2)}</span>
                       <span className="tabular-nums text-[#313131]/55 max-sm:hidden">基准 {baseline === undefined ? "—" : compactNumber(baseline, 2)}</span>

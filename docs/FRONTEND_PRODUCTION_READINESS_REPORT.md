@@ -147,7 +147,11 @@ flowchart TD
   "data": {
     "profile": { "schema_version": 4, "actions": [] },
     "maa": { "title": "明日方舟基建排班助手 · 243", "plans": [] },
-    "rotation": { "shifts": [], "daily": { "trade": 0, "manu": 0, "power": 0 } },
+    "rotation": {
+      "profile": "abc_12_6_6",
+      "shifts": [],
+      "daily": { "trade": 0, "manu": 0, "power": 0 }
+    },
     "durationMs": 529,
     "diagnosticId": "5f4d8e52-26e3-4ceb-9f31-6cf830ff1a0b"
   },

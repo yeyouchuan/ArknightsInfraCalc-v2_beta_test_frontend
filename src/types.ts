@@ -88,14 +88,24 @@ export interface MaaPlan {
   name: string;
   description?: string;
   rooms: MaaRooms;
-  Fiammetta?: { enable: boolean; target?: string };
-  drones?: { room: string; index: number; order: string };
+  Fiammetta?: { enable: boolean; target?: string | string[]; order?: string };
+  drones?: { enable?: boolean; room: string; index: number; order: string };
 }
 
 export interface MaaJson {
+  author?: string;
+  id?: string | number;
   title: string;
   description?: string;
+  planTimes?: string | number;
   plans: MaaPlan[];
+  scheduleType?: {
+    planTimes: number;
+    trading?: number;
+    manufacture?: number;
+    power?: number;
+    dormitory?: number;
+  };
 }
 
 export interface RoomEfficiency {
@@ -136,6 +146,7 @@ export interface RotationShift {
 }
 
 export interface RotationJson {
+  profile: RotationProfile;
   shifts: RotationShift[];
   daily: {
     trade: number | null;
@@ -544,10 +555,13 @@ export interface UserProfileAction {
   operator: string;
   domain_id: string;
   message: string;
+  current_elite?: number;
+  tier_up_requirement?: string;
 }
 
 export interface UserProfile {
   schema_version: number;
+  rotation_profile?: RotationProfile;
   layout_label: string;
   operbox_label: string;
   baseline_label: string;

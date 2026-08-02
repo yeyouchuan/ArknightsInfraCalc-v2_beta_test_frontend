@@ -4,12 +4,12 @@ import type {
   MaaJson,
   OperBoxEntry,
   PublicPlanData,
-  RotationJson,
   RotationProfile,
   UserProfile,
 } from "./types";
 import { stripInternalFields } from "./internal-field-safety.ts";
 import { normalizeRotationProfile } from "./rotation-settings.ts";
+import { normalizeRotationResult } from "./rotation-result.ts";
 
 export const SESSION_KEY_V4 = "arknights-infra-calc-session-v4";
 export const SESSION_KEY_V3 = "arknights-infra-calc-beta-session-v3";
@@ -76,19 +76,23 @@ function validOperbox(value: unknown): value is OperBoxEntry[] {
     );
 }
 
-function safeResult(value: unknown): PublicPlanData | null {
+function safeResult(value: unknown, fallbackProfile: RotationProfile): PublicPlanData | null {
   if (!isObject(value)) return null;
 
   const profile = (value.profile ?? value.profileJson) as UserProfile | undefined;
   const maa = (value.maa ?? value.maaJson) as MaaJson | undefined;
-  const rotation = (value.rotation ?? value.rotationJson) as RotationJson | undefined;
+  const rotation = value.rotation ?? value.rotationJson;
   if (!isObject(profile) || !isObject(maa) || !isObject(rotation)) return null;
   if (!Array.isArray(maa.plans) || !Array.isArray(rotation.shifts)) return null;
 
   return {
     profile: stripInternalFields(structuredClone(profile)),
     maa: stripInternalFields(structuredClone(maa)),
-    rotation: stripInternalFields(structuredClone(rotation)),
+    rotation: normalizeRotationResult({
+      source: rotation,
+      profile,
+      fallbackProfile,
+    }),
     durationMs: safeDuration(value.durationMs),
     diagnosticId:
       typeof value.diagnosticId === "string"
@@ -97,6 +101,12 @@ function safeResult(value: unknown): PublicPlanData | null {
           ? value.runId.slice(0, 80)
           : "migrated-session",
   };
+}
+
+function clampActiveShift(value: unknown, result: PublicPlanData | null): number {
+  if (!Number.isInteger(value) || !result) return 0;
+  const shiftCount = Math.min(result.maa.plans.length, result.rotation.shifts.length);
+  return Math.max(0, Math.min(Math.max(0, shiftCount - 1), Number(value)));
 }
 
 function normalizeSession(value: unknown, now: number): PersistedSessionV4 | null {
@@ -119,6 +129,8 @@ function normalizeSession(value: unknown, now: number): PersistedSessionV4 | nul
         ? value.fileName.slice(0, 80)
         : null;
   const hasLegacySklandIdentity = boxSource === "skland" && rawSourceName?.startsWith("skland:");
+  const rotationProfile = normalizeRotationProfile(value.rotationProfile);
+  const result = hasLegacySklandIdentity ? null : safeResult(value.result, rotationProfile);
   return {
     version: 4,
     savedAt: new Date(savedAt).toISOString(),
@@ -134,9 +146,9 @@ function normalizeSession(value: unknown, now: number): PersistedSessionV4 | nul
     sourceName: boxSource === "skland" ? SKLAND_SOURCE_NAME : rawSourceName,
     boxSource,
     layoutDirty: Boolean(value.layoutDirty),
-    rotationProfile: normalizeRotationProfile(value.rotationProfile),
-    result: hasLegacySklandIdentity ? null : safeResult(value.result),
-    activeShift: Number.isInteger(value.activeShift) ? Math.max(0, Math.min(2, Number(value.activeShift))) : 0,
+    rotationProfile,
+    result,
+    activeShift: clampActiveShift(value.activeShift, result),
   };
 }
 
@@ -170,13 +182,15 @@ export function persistSession(
 ): PersistedSessionV4 {
   const hasLegacySklandIdentity =
     input.boxSource === "skland" && input.sourceName?.startsWith("skland:");
+  const result = hasLegacySklandIdentity ? null : safeResult(input.result, input.rotationProfile);
   const value: PersistedSessionV4 = {
     ...input,
     sourceName: input.boxSource === "skland" ? SKLAND_SOURCE_NAME : input.sourceName,
     version: 4,
     savedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SESSION_TTL_MS).toISOString(),
-    result: hasLegacySklandIdentity ? null : safeResult(input.result),
+    result,
+    activeShift: clampActiveShift(input.activeShift, result),
   };
   storage.setItem(SESSION_KEY_V4, JSON.stringify(value));
   storage.removeItem(SESSION_KEY_V3);

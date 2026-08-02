@@ -12,6 +12,7 @@ const layout243 = {
 
 const profile = {
   schema_version: 4,
+  rotation_profile: "abc_12_6_6",
   layout_label: "243",
   operbox_label: "243 全精二示例",
   baseline_label: "产品推荐基准",
@@ -41,6 +42,7 @@ const planData = {
     plans: [maaPlan(0), maaPlan(1), maaPlan(2)],
   },
   rotation: {
+    profile: "abc_12_6_6",
     shifts: [0, 1, 2].map((index) => ({
       index,
       duration_hours: index === 0 ? 12 : 6,
@@ -56,6 +58,90 @@ const planData = {
   durationMs: 42,
   diagnosticId,
 };
+
+function rotationResultData({
+  rotationProfile,
+  durations,
+  profileOverrides = {},
+}: {
+  rotationProfile: "abc_12_6_6" | "main_backup_12_12" | "fiammetta_8_8_4_4" | "abyssal_7_5_7_5";
+  durations: number[];
+  profileOverrides?: Record<string, unknown>;
+}) {
+  return {
+    ...planData,
+    profile: {
+      ...profile,
+      rotation_profile: rotationProfile,
+      ...profileOverrides,
+    },
+    maa: {
+      ...planData.maa,
+      plans: durations.map((_, index) => maaPlan(index)),
+    },
+    rotation: {
+      profile: rotationProfile,
+      shifts: durations.map((duration, index) => ({
+        index,
+        duration_hours: duration,
+        active_teams: index % 2 === 0 ? ["alpha"] : ["beta"],
+        resting_team: index % 2 === 0 ? "beta" : "alpha",
+        scores: { trade_score: 0, manu_prod_sum: 0, power_charge_sum: 0, room_lines: [] },
+        weighted_trade: 0,
+        weighted_manu: 0,
+        weighted_power: 0,
+      })),
+      daily: { trade: 5.288, manu: 9.175, power: 3.552 },
+    },
+  };
+}
+
+const twoShiftPlanData = rotationResultData({
+  rotationProfile: "main_backup_12_12",
+  durations: [12, 12],
+  profileOverrides: {
+    rotation: {
+      daily_trade_efficiency: 5.288,
+      daily_manufacture_efficiency: 9.175,
+      daily_power_efficiency: 3.552,
+    },
+    baseline_rotation: {
+      daily_trade_efficiency: 4.968,
+      daily_manufacture_efficiency: 8.5,
+      daily_power_efficiency: 3.2,
+    },
+    domains: [{
+      id: "manufacture",
+      label: "制造站",
+      current: {
+        operators: ["阿米娅"],
+        final_efficiency: 1.55,
+        mechanic_equivalent_efficiency: 1.42,
+      },
+      baseline: {
+        operators: ["基准组合"],
+        final_efficiency: 1.4,
+        mechanic_equivalent_efficiency: 1.31,
+      },
+      gap_ratio: 0.107,
+      severity: "ok",
+    }],
+    actions: [{
+      priority: "中",
+      kind: "promote_tier_up",
+      operator: "阿米娅",
+      domain_id: "manufacture",
+      message: "提升精英阶段以补齐制造轮换。",
+      current_elite: 1,
+      tier_up_requirement: "精2",
+    }],
+  },
+});
+
+const fourShiftPlanData = rotationResultData({
+  rotationProfile: "fiammetta_8_8_4_4",
+  durations: [8, 8, 4, 4],
+});
 
 const scheduleVisualPlanData = {
   ...planData,
@@ -447,10 +533,14 @@ async function seedPreferences(page: Page) {
   });
 }
 
-async function seedV4Session(page: Page, seededResult: unknown = planData) {
-  await page.addInitScript(({ layout, result, savedAt, expiresAt }) => {
+async function seedV4Session(
+  page: Page,
+  seededResult: unknown = planData,
+  options: { activeShift?: number; rotationProfile?: string } = {}
+) {
+  await page.addInitScript(({ layout, result, savedAt, expiresAt, activeShift, rotationProfile }) => {
     window.localStorage.setItem("arknights-infra-calc-beta-onboarding-v1", "1");
-    window.localStorage.setItem("arknights-infra-calc-session-v4", JSON.stringify({
+    if (!window.localStorage.getItem("arknights-infra-calc-session-v4")) window.localStorage.setItem("arknights-infra-calc-session-v4", JSON.stringify({
       version: 4,
       savedAt,
       expiresAt,
@@ -468,14 +558,17 @@ async function seedV4Session(page: Page, seededResult: unknown = planData) {
       sourceName: "243 全精二示例",
       boxSource: "sample",
       layoutDirty: false,
+      rotationProfile,
       result,
-      activeShift: 0,
+      activeShift,
     }));
   }, {
     layout: layout243,
     result: seededResult,
     savedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    activeShift: options.activeShift ?? 0,
+    rotationProfile: options.rotationProfile ?? "abc_12_6_6",
   });
 }
 
@@ -501,6 +594,65 @@ test("restores a v4 schedule without hydration errors and keeps only safe data",
   expect(persisted.result.debug).toBeUndefined();
   expect(JSON.stringify(persisted)).not.toContain("cliPath");
   expect(JSON.stringify(persisted)).not.toContain("stdout");
+});
+
+test("two-shift output drives labels, teams, metric units, and profile details", async ({ page }) => {
+  await mockApis(page);
+  await seedV4Session(page, twoShiftPlanData, { rotationProfile: "main_backup_12_12" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const shiftTabs = page.getByRole("tab", { name: /第 \d 班 · 12h/ });
+  await expect(shiftTabs).toHaveCount(2);
+  await expect(page.getByRole("tab", { name: /第 3 班/ })).toHaveCount(0);
+  await expect(page.getByText("主力 上班 · 替补 休息", { exact: true })).toBeVisible();
+
+  await expect(page.getByText("5.288×", { exact: true })).toBeVisible();
+  await expect(page.getByText("24h 贸易", { exact: true }).locator("..")).toContainText(/参考 4\.968×\s*· \+6\.4%/);
+  await expect(page.getByText("917.5%", { exact: true })).toBeVisible();
+  await expect(page.getByText("24h 制造", { exact: true }).locator("..")).toContainText(/参考 850%\s*· \+7\.9%/);
+  await expect(page.getByText("355.2%", { exact: true })).toBeVisible();
+
+  await page.getByRole("tab", { name: /第 2 班 · 12h/ }).click();
+  await expect(page.getByText("替补 上班 · 主力 休息", { exact: true })).toBeVisible();
+
+  await page.locator("details").filter({ hasText: "效率详情" }).locator("summary").click();
+  await expect(page.getByText("机制等效 当前 1.42 · 参考 1.31", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "练卡建议" }).click();
+  await expect(page.getByText("练度提升", { exact: true })).toBeVisible();
+  await expect(page.getByText("当前 精1 → 目标 精2", { exact: true })).toBeVisible();
+});
+
+test("four-shift output persists the fourth tab and migrates an old v4 profile", async ({ page }) => {
+  const legacyResult = structuredClone(fourShiftPlanData);
+  delete (legacyResult.profile as { rotation_profile?: string }).rotation_profile;
+  delete (legacyResult.rotation as { profile?: string }).profile;
+
+  await mockApis(page);
+  await seedV4Session(page, legacyResult, {
+    activeShift: 0,
+    rotationProfile: "fiammetta_8_8_4_4",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  const fourthShift = page.getByRole("tab", { name: /第 4 班 · 4h/ });
+  await expect(page.getByRole("tab", { name: /第 \d 班 · (?:8|4)h/ })).toHaveCount(4);
+  await fourthShift.click();
+  await expect(fourthShift).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("固定测试班次 4", { exact: true })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => JSON.parse(
+    window.localStorage.getItem("arknights-infra-calc-session-v4") ?? "{}"
+  ).activeShift)).toBe(3);
+
+  await page.reload();
+  await expect(page.getByRole("tab", { name: /第 4 班 · 4h/ })).toHaveAttribute("aria-selected", "true");
+  const persisted = await page.evaluate(() => JSON.parse(
+    window.localStorage.getItem("arknights-infra-calc-session-v4") ?? "{}"
+  ));
+  expect(persisted.activeShift).toBe(3);
+  expect(persisted.result.rotation.profile).toBe("fiammetta_8_8_4_4");
 });
 
 test("ignores root attributes injected by browser extensions during hydration", async ({ page }) => {
@@ -573,7 +725,7 @@ test("Full E2 stays in place and completes generation, shifts, MAA export, and f
 
   await page.getByRole("button", { name: "生成排班" }).click();
   await expect(page.getByText("排班已生成")).toBeVisible();
-  await page.getByRole("tab", { name: /β 6h/ }).click();
+  await page.getByRole("tab", { name: /第 2 班 · 6h/ }).click();
   await expect(page.getByText("固定测试班次 2")).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");

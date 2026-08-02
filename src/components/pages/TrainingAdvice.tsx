@@ -92,6 +92,7 @@ function actionDomainGroup(value: string): string {
 function actionKindLabel(value: string): string {
   const labels: Record<string, string> = {
     promote: "培养优先级",
+    promote_tier_up: "练度提升",
     acquire: "获取建议",
     replace: "阵容调整",
     advice: "培养建议",
@@ -107,7 +108,14 @@ function ActionCard({
   entry?: OperBoxEntry;
 }) {
   const portrait = operatorPortraitFor(action.operator);
-  const state = !entry?.own ? "未拥有" : entry.elite >= 2 ? "已精二" : "待培养";
+  const currentElite = action.current_elite ?? entry?.elite;
+  const state = !entry?.own
+    ? "未拥有"
+    : action.tier_up_requirement && currentElite !== undefined
+      ? `当前 精${currentElite} → 目标 ${action.tier_up_requirement}`
+      : entry.elite >= 2
+        ? "已精二"
+        : "待培养";
 
   return (
     <InfraTechnicalCard

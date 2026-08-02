@@ -175,7 +175,13 @@ export function InfraCalculator(props: InfraCalculatorProps) {
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-between">
-                    <ShiftTabs maaJson={result?.maa} active={activeShift} closest={closestComparison?.planIndex} onChange={onSetActiveShift} />
+                    <ShiftTabs
+                      maaJson={result?.maa}
+                      rotation={result?.rotation}
+                      active={activeShift}
+                      closest={closestComparison?.planIndex}
+                      onChange={onSetActiveShift}
+                    />
                     <Button type="button" size="sm" variant="outline" disabled={!result?.maa} onClick={onDownloadMaa}>
                       <Download />导出到 MAA
                     </Button>

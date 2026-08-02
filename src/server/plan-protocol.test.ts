@@ -9,6 +9,10 @@ import {
 } from "./plan-protocol.ts";
 
 test("accepts the exact plan.compute v1 worker contract", () => {
+  assert.equal(
+    PLAN_CONTRACT_SHA256,
+    "52b78160b7f3290c6939807af5b7d6d31ee8322ea68de9288773eebca32d5102"
+  );
   const capability = inspectPlanComputeCapability({
     ok: true,
     result: {

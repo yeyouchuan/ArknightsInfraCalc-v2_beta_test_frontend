@@ -4,7 +4,7 @@ export type ProtocolRecord = Record<string, unknown>;
 
 export const PLAN_PROTOCOL_VERSION = 1;
 export const PLAN_SCHEMA_VERSION = 1;
-export const PLAN_CONTRACT_SHA256 = "60acbcf154da1f099f717a2952b6aa3d101bca1e7a1c3e237b0c81d9967eb9b6";
+export const PLAN_CONTRACT_SHA256 = "52b78160b7f3290c6939807af5b7d6d31ee8322ea68de9288773eebca32d5102";
 
 export type PlanComputeCapability = {
   supported: boolean;

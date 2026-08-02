@@ -6,7 +6,9 @@ import type {
   UserProfile,
 } from "../types";
 import { stripInternalFields } from "../internal-field-safety.ts";
+import { DEFAULT_ROTATION_PROFILE } from "../rotation-settings.ts";
 import { isDebugToolsEnabled, PublicApiError } from "./api-contract.ts";
+import { normalizeRotationResult, rotationFallbackProfile } from "../rotation-result.ts";
 
 const PATH_SEPARATOR = /[/\\]+/g;
 
@@ -69,7 +71,11 @@ export function toPublicPlanData(
   const data: PublicPlanData = {
     profile: sanitizeProfile(result.profileJson, input.layoutLabel, input.sourceName),
     maa: sanitizeMaa(result.maaJson, input.layoutLabel),
-    rotation: stripInternalFields(structuredClone(result.rotationJson as RotationJson)),
+    rotation: normalizeRotationResult({
+      source: result.rotationJson as RotationJson,
+      profile: result.profileJson,
+      fallbackProfile: rotationFallbackProfile(result.profileJson, DEFAULT_ROTATION_PROFILE),
+    }),
     durationMs: safeDuration(result.durationMs),
     diagnosticId: result.runId ?? requestId,
   };
