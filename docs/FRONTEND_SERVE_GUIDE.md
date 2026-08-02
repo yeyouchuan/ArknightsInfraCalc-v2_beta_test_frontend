@@ -70,7 +70,7 @@ The request contains the complete layout and operbox inline:
 }
 ```
 
-The actual request must contain 1–64 rooms and 1–1000 operators. Room IDs, operator IDs, and operator names must be non-empty and unique. The frontend rejects duplicate operator identities instead of rewriting them.
+The actual request must contain 1–64 rooms and 1–1000 operators. Room IDs, operator IDs, and operator names must be non-empty and unique. Browser imports, Skland snapshots, and restored v4 sessions are normalized to one planner-facing record per operator name before the request is built. The public `/api/plan` boundary still rejects any remaining duplicate IDs or names instead of rewriting an arbitrary API payload.
 
 Successful responses contain all outputs inline:
 

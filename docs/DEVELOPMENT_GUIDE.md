@@ -42,6 +42,7 @@ npm run test:e2e:webkit
 | `src/api.ts` | 统一解析公开 API envelope，抛出带错误码的 `ApiClientError` |
 | `src/types.ts` | 内部类型、公开 DTO、错误码 |
 | `src/persistence.ts` | v4 本地保存、迁移、过期清理和白名单 |
+| `src/operbox-normalization.ts` | 导入、森空岛快照和旧会话的求解器名称归一化；同名保留更高练度记录 |
 | `src/rotation-settings.ts` | Worker 支持的固定换班 profile 与时长元数据 |
 | `src/rotation-result.ts` | Worker rotation 输出到公共 DTO 的严格白名单映射 |
 | `src/rotation-presentation.ts` | 班次标签、队伍名称、单位与相对差值展示换算 |
@@ -180,7 +181,7 @@ v4 只保存：
 - 白名单化后的最近排班；
 - `savedAt`与`expiresAt`。
 
-有效期为 30 天。损坏、过期或类型校验失败的数据会自动删除。v2/v3 仅进行一次白名单迁移，迁移后删除旧 key。严禁保存 debug bundle、路径、CLI 输出、原始异常、反馈草稿或反馈响应。
+有效期为 30 天。损坏、过期或类型校验失败的数据会自动删除；恢复时还会按求解器使用的干员名称归一化旧 Box，同名记录保留练度更高的一条。v2/v3 仅进行一次白名单迁移，迁移后删除旧 key。严禁保存 debug bundle、路径、CLI 输出、原始异常、反馈草稿或反馈响应。
 
 “清除本地数据”会删除 v2/v3/v4、onboarding 和提示偏好并重置页面；森空岛 HttpOnly cookie 不受影响。
 
