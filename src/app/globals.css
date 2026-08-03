@@ -191,10 +191,6 @@
   background-color: color-mix(in oklch, var(--popover) 72%, transparent);
 }
 
-.dialog-acrylic-footer {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.38);
-}
-
 .setup-dialog-footer {
   position: relative;
   z-index: 2;
@@ -272,9 +268,37 @@
   transition-timing-function: ease-out;
 }
 
+:root {
+  --app-content-gutter: 0.75rem;
+  --app-content-track-max: 1600px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --app-content-gutter: clamp(1.75rem, 10vw, 12rem);
+  }
+}
+
+@media (min-width: 900px) {
+  :root {
+    --app-content-gutter: max(1.25rem, calc(clamp(1.75rem, 10vw, 12rem) - 5rem));
+  }
+}
+
+.app-content-track {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--app-content-track-max);
+  margin-inline: auto;
+  padding-inline-start: max(var(--app-content-gutter), env(safe-area-inset-left));
+  padding-inline-end: max(var(--app-content-gutter), env(safe-area-inset-right));
+}
+
 .infra-technical-canvas {
   position: relative;
   isolation: isolate;
+  --infra-room-shadow: oklch(0.12 0.012 220 / 0.14);
+  --infra-room-shadow-soft: oklch(0.12 0.012 220 / 0.06);
 }
 
 .infra-room-surface {

@@ -1,7 +1,7 @@
 "use client";
 
-import { Download, FileJson, FlaskConical, Loader2, Settings2, ShieldCheck, Terminal } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Download, FileJson, FlaskConical, Loader2, Settings2, Terminal } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,13 +25,11 @@ import type {
   FeedbackData,
   IssueReport,
   MaaPlan,
-  OperBoxEntry,
   PublicPlanData,
   ShiftComparison,
 } from "@/types";
 
 interface InfraCalculatorProps {
-  operbox: OperBoxEntry[] | null;
   layout: BaseBlueprint;
   showBetaPanels: boolean;
   result: PublicPlanData | null;
@@ -69,7 +67,7 @@ interface InfraCalculatorProps {
 
 export function InfraCalculator(props: InfraCalculatorProps) {
   const {
-    operbox, layout, showBetaPanels,
+    layout, showBetaPanels,
     result, scheduleResult, activeShift, rows, currentMoraleByOperator,
     activePlan, closestComparison,
     resultClearNotice,
@@ -84,12 +82,6 @@ export function InfraCalculator(props: InfraCalculatorProps) {
   const [scheduleViewMode, setScheduleViewMode] = useState<"list" | "compact">("list");
   const showBetaSidebar = showBetaPanels && scheduleViewMode === "list";
 
-  useEffect(() => {
-    if (rows.length === 0) {
-      setScheduleViewMode("list");
-    }
-  }, [rows.length]);
-
   return (
     <>
       <section
@@ -98,12 +90,10 @@ export function InfraCalculator(props: InfraCalculatorProps) {
       >
         <section className={showBetaSidebar ? "min-w-0 pr-5 max-[1100px]:pr-0" : "min-w-0"}>
           <Panel
-            title="计划安排"
-            icon={<ShieldCheck className="size-4" />}
             className="min-h-[calc(100vh-112px)]"
             action={(
               <div
-                className="grid w-[min(72vw,52rem)] grid-cols-[minmax(12rem,1fr)_auto_auto_auto] items-center gap-2 max-sm:w-full max-sm:grid-cols-2"
+                className="grid w-full grid-cols-[minmax(12rem,1fr)_auto_auto_auto] items-center gap-2 max-sm:grid-cols-2"
                 data-calculator-controls
               >
                 <StatusBar
@@ -117,40 +107,31 @@ export function InfraCalculator(props: InfraCalculatorProps) {
                 />
                 <Button
                   type="button"
+                  size="sm"
                   variant="outline"
-                  className="h-9 max-sm:col-span-2 max-sm:h-11 max-sm:justify-start"
-                  aria-label="配置干员数据与布局"
+                  className="max-sm:col-span-2 max-sm:h-11 max-sm:justify-start"
+                  aria-label="配置Box与布局"
                   onClick={onOpenSetup}
                 >
                   <Settings2 />
-                  配置
+                  配置Box与布局
                 </Button>
                 <Button
                   type="button"
-                  className="h-9 max-sm:h-11 max-sm:text-xs"
+                  size="sm"
+                  className="max-sm:h-11 max-sm:text-xs"
                   disabled={sampleLoading}
-                  aria-label="载入 243 全精二测试干员数据"
+                  aria-label="全角色导入"
                   onClick={() => void onLoadSample()}
                   data-full-e2
                 >
                   {sampleLoading ? <Loader2 className="animate-spin" /> : <FlaskConical />}
-                  {sampleLoading ? "正在载入" : "Full E2 测试"}
+                  {sampleLoading ? "正在载入" : "全角色导入"}
                 </Button>
                 <RunButton canRun={canRun} loading={loading} onRun={onRun} />
               </div>
             )}
           >
-            {!operbox ? (
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-y border-dashed border-border/70 py-6">
-                <div>
-                  <strong className="block text-sm">先导入干员数据</strong>
-                  <p className="mt-1 text-sm text-muted-foreground">使用上方 Full E2 测试入口，或配置自己的干员数据与基建布局。</p>
-                </div>
-                <Button type="button" variant="outline" onClick={onOpenSetup}>
-                  <Settings2 />配置干员数据与布局
-                </Button>
-              </div>
-            ) : null}
             <PlanTelemetry
               profile={scheduleResult?.profile}
               rotation={scheduleResult?.rotation}
@@ -165,28 +146,18 @@ export function InfraCalculator(props: InfraCalculatorProps) {
               activeShift={activeShift}
               activePlan={activePlan}
               shiftInfoSlot={(
-                <>
-                  <div className="min-w-0">
-                    <strong className="block truncate text-sm font-medium">
-                      {result?.maa.title ?? "等待生成排班"}
-                    </strong>
-                    <span className="mt-1 block text-sm text-muted-foreground">
-                      {activePlan?.description ?? "配置干员数据与基建布局后，即可生成三班排班。"}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-between">
-                    <ShiftTabs
-                      maaJson={result?.maa}
-                      rotation={result?.rotation}
-                      active={activeShift}
-                      closest={closestComparison?.planIndex}
-                      onChange={onSetActiveShift}
-                    />
-                    <Button type="button" size="sm" variant="outline" disabled={!result?.maa} onClick={onDownloadMaa}>
-                      <Download />导出到 MAA
-                    </Button>
-                  </div>
-                </>
+                <div className="flex flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-between">
+                  <ShiftTabs
+                    maaJson={result?.maa}
+                    rotation={result?.rotation}
+                    active={activeShift}
+                    closest={closestComparison?.planIndex}
+                    onChange={onSetActiveShift}
+                  />
+                  <Button type="button" size="sm" variant="outline" disabled={!result?.maa} onClick={onDownloadMaa}>
+                    <Download />导出到 MAA
+                  </Button>
+                </div>
               )}
               onIssue={onMarkIssue}
               onFactoryRecipeChange={onFactoryRecipeChange}

@@ -7,7 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { pollSklandQr, startSklandQr, toDisplayError } from "@/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { buildSklandAppOpenUrl } from "@/skland-auth-url";
 import type { ShiftComparison, SklandSessionData } from "@/types";
@@ -160,28 +160,66 @@ export function SklandLoginPanel({
         : scanUrl
           ? "等待森空岛扫码授权…"
           : "二维码不会自动生成，准备好后再开始登录。";
+  const mobileStatusText = scanState === "loading"
+    ? preparingSlow
+      ? "正在连接登录服务…"
+      : "正在生成二维码…"
+    : scanState === "scanned"
+      ? "已扫码，请在 App 中确认。"
+      : scanState === "expired"
+        ? "二维码已过期，请重新生成。"
+        : scanUrl
+          ? "等待扫码确认…"
+          : "点击按钮生成二维码。";
 
   return (
-    <Card className={cn("surface-shadow mx-auto w-full max-w-4xl overflow-hidden ring-0", className)}>
+    <Card
+      className={cn("surface-shadow w-full overflow-hidden rounded-none ring-0", className)}
+      data-skland-login-panel
+    >
       <div className="grid md:grid-cols-[minmax(0,1fr)_22rem]">
-        <CardHeader className="border-b bg-muted/35 px-6 py-7 md:border-r md:border-b-0 md:px-8 md:py-9">
+        <div className="px-6 py-7 md:px-8 md:py-9" data-skland-login-copy>
           <div className="mb-5 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <ScanLine className="size-5" aria-hidden="true" />
           </div>
           <CardTitle className="text-xl">登录森空岛账号</CardTitle>
           <CardDescription className="max-w-md text-pretty leading-6">
-            打开森空岛 App，扫描页面中的二维码完成登录。登录成功后会自动同步当前角色的干员、基建和游戏进度。
+            <span className="md:hidden">打开森空岛 App 扫码登录，成功后自动同步排班所需数据。</span>
+            <span className="hidden md:inline">
+              打开森空岛 App，扫描页面中的二维码完成登录。登录成功后会自动同步当前角色的干员、基建和游戏进度。
+            </span>
           </CardDescription>
           <div className="mt-6 grid gap-3 text-sm text-muted-foreground">
             <p className="flex items-start gap-2">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
-              账号登录信息会加密保存在当前浏览器中，我们不会把它保存到服务器数据库。
+              <span className="md:hidden">登录信息仅加密保存在当前浏览器。</span>
+              <span className="hidden md:inline">
+                账号登录信息会加密保存在当前浏览器中，我们不会把它保存到服务器数据库。
+              </span>
             </p>
-            <p>这里只读取排班需要的游戏数据，不会自动签到，也不会读取社区内容。</p>
+            <p>
+              <span className="md:hidden">仅读取排班所需数据，不会自动签到。</span>
+              <span className="hidden md:inline">这里只读取排班需要的游戏数据，不会自动签到，也不会读取社区内容。</span>
+            </p>
+            <p className="text-xs">
+              森空岛登录能力基于开源项目{" "}
+              <a
+                href="https://github.com/AEtherside/skland-kit"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground"
+              >
+                skland-kit
+              </a>
+              {" "}实现。
+            </p>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="grid min-h-80 place-items-center px-6 py-7 md:px-8">
+        <CardContent
+          className="order-first grid min-h-64 place-items-center px-6 py-7 md:order-none md:min-h-80 md:px-8"
+          data-skland-login-qr
+        >
           {!configured ? (
             <Alert>
               <AlertDescription>
@@ -212,7 +250,8 @@ export function SklandLoginPanel({
               )}
 
               <p className="text-center text-sm leading-6 text-muted-foreground" role="status" aria-live="polite">
-                {statusText}
+                <span className="md:hidden">{mobileStatusText}</span>
+                <span className="hidden md:inline">{statusText}</span>
               </p>
 
               {scanError ? (
@@ -231,7 +270,7 @@ export function SklandLoginPanel({
                     <ExternalLink />打开森空岛 App
                   </Button>
                   <p className="text-pretty text-center text-xs leading-5 text-muted-foreground">
-                    按钮只负责打开 App。请使用森空岛扫码功能扫描上方二维码，必要时在另一台设备展示二维码。
+                    请用森空岛扫描上方二维码；必要时可在另一台设备展示。
                   </p>
                 </div>
               ) : null}
@@ -245,7 +284,12 @@ export function SklandLoginPanel({
                   onClick={() => void createQr()}
                 >
                   {scanState === "loading" ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
-                  {scanState === "idle" && !scanError ? "生成登录二维码" : "重新生成二维码"}
+                  <span className="md:hidden">
+                    {scanState === "idle" && !scanError ? "生成二维码" : "重新生成"}
+                  </span>
+                  <span className="hidden md:inline">
+                    {scanState === "idle" && !scanError ? "生成登录二维码" : "重新生成二维码"}
+                  </span>
                 </Button>
               ) : null}
             </div>

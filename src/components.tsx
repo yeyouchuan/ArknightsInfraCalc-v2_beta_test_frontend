@@ -16,7 +16,7 @@ import {
   Smile,
   Upload,
 } from "lucide-react";
-import { CSSProperties, ChangeEvent, ReactNode, useEffect, useState } from "react";
+import { CSSProperties, ChangeEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -196,7 +196,7 @@ export function Panel({
   action,
   description,
 }: {
-  title: string;
+  title?: string;
   icon?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -206,14 +206,20 @@ export function Panel({
   return (
     <section className={cn("min-w-0 py-5", className)}>
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-2">
-          {icon ? <div className="mt-0.5 text-primary">{icon}</div> : null}
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-            {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+        {title || icon || description ? (
+          <div className="flex min-w-0 items-start gap-2">
+            {icon ? <div className="mt-0.5 text-primary">{icon}</div> : null}
+            <div className="min-w-0">
+              {title ? <h2 className="text-sm font-semibold tracking-tight">{title}</h2> : null}
+              {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+            </div>
           </div>
-        </div>
-        {action ? <div className="min-w-0 max-sm:w-full">{action}</div> : null}
+        ) : null}
+        {action ? (
+          <div className={cn("ms-auto min-w-0 max-sm:w-full", !title && !icon && !description && "w-full")}>
+            {action}
+          </div>
+        ) : null}
       </header>
       <div>{children}</div>
     </section>
@@ -615,7 +621,7 @@ export function StatusBar({
   return (
     <div
       className={cn(
-        "surface-shadow flex min-h-9 min-w-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-1 text-sm max-sm:min-h-11 max-sm:px-2",
+        "surface-shadow flex h-7 min-w-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-0 text-sm max-sm:h-11 max-sm:px-2",
         content.className,
         className
       )}
@@ -651,7 +657,8 @@ export function RunButton({
 }) {
   return (
     <Button
-      className="h-9 min-w-0 px-3 max-sm:h-11 max-sm:px-3 max-sm:text-xs"
+      size="sm"
+      className="min-w-0 max-sm:h-11 max-sm:px-3 max-sm:text-xs"
       aria-label={loading ? "计算中" : canRun ? "生成排班" : "请先导入干员数据"}
       title={!canRun ? "请先导入干员数据，并等待排班服务就绪。" : undefined}
       onClick={onRun}
@@ -1214,17 +1221,21 @@ export function ScheduleBoard({
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [hiddenGroups, setHiddenGroups] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<"list" | "compact">("list");
-  const [isDesktop, setIsDesktop] = useState(true);
+  const [supportsCompactLayout, setSupportsCompactLayout] = useState(false);
+  const preferredViewMode = useRef<"list" | "compact" | null>(null);
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => {
-      setIsDesktop(e.matches);
-      if (!e.matches) {
-        setViewMode("list");
-        onViewModeChange?.("list");
-      }
+    const mq = window.matchMedia("(min-width: 768px)");
+    const syncViewMode = (canUseCompactLayout: boolean) => {
+      setSupportsCompactLayout(canUseCompactLayout);
+      const nextViewMode = canUseCompactLayout
+        ? (preferredViewMode.current ?? "compact")
+        : "list";
+      setViewMode(nextViewMode);
+      onViewModeChange?.(nextViewMode);
     };
+
+    syncViewMode(mq.matches);
+    const handler = (event: MediaQueryListEvent) => syncViewMode(event.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [onViewModeChange]);
@@ -1284,27 +1295,25 @@ export function ScheduleBoard({
 
   return (
     <div className="flex flex-col gap-7">
-      {shiftInfoSlot ? (
-        <div className="flex items-start justify-between gap-3 max-sm:flex-col">{shiftInfoSlot}</div>
-      ) : null}
-      <Tabs
-        value={viewMode}
-        onValueChange={(value) => {
-          const nextViewMode = value as "list" | "compact";
-          setViewMode(nextViewMode);
-          onViewModeChange?.(nextViewMode);
-        }}
-      >
-        <TabsList>
-          <TabsTrigger value="list">列表式布局</TabsTrigger>
-          <TabsTrigger value="compact" disabled={!isDesktop} className={!isDesktop ? "line-through" : ""}>
-            一图流布局
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-      {viewMode === "list" ? (
-        <>
-          {auxiliaryGroups.length ? (
+      <div className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs
+            value={viewMode}
+            onValueChange={(value) => {
+              const nextViewMode = value as "list" | "compact";
+              preferredViewMode.current = nextViewMode;
+              setViewMode(nextViewMode);
+              onViewModeChange?.(nextViewMode);
+            }}
+          >
+            <TabsList>
+              <TabsTrigger value="compact" disabled={!supportsCompactLayout} className={!supportsCompactLayout ? "line-through" : ""}>
+                一图流布局
+              </TabsTrigger>
+              <TabsTrigger value="list">列表式布局</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {viewMode === "list" && auxiliaryGroups.length ? (
             <div className="flex flex-wrap justify-end gap-2">
               {hiddenAuxiliaryCount ? (
                 <Button type="button" variant="ghost" size="sm" onClick={restoreHiddenAuxiliaryGroups}>
@@ -1317,6 +1326,11 @@ export function ScheduleBoard({
               </Button>
             </div>
           ) : null}
+        </div>
+        {shiftInfoSlot ? <div className="min-w-0 max-sm:w-full">{shiftInfoSlot}</div> : null}
+      </div>
+      {viewMode === "list" ? (
+        <>
           {rowGroups.map((group) => {
         const visual = roomVisualFor(group.rows[0]?.group ?? "default");
         const groupStyle = {
@@ -1575,6 +1589,61 @@ export function IssueNoteModal({
           <Button className="max-sm:min-h-11" onClick={onSave} disabled={!note.trim() || note.trim().length > 1000 || !consented || saving}>
             {saving ? <Loader2 className="animate-spin" /> : <Save />}
             {saving ? "提交中" : "提交反馈"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function ProductChangeConfirmModal({
+  open,
+  roomLabel,
+  changeKind,
+  nextValueLabel,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  roomLabel: string;
+  changeKind: "制造配方" | "贸易策略";
+  nextValueLabel: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !busy) onCancel();
+      }}
+    >
+      <DialogContent
+        role="alertdialog"
+        aria-busy={busy}
+        showCloseButton={!busy}
+        className="max-w-[min(520px,calc(100vw-2rem))] sm:max-w-lg"
+        data-product-change-confirm
+      >
+        <DialogHeader className="gap-3">
+          <AlertTriangle className="size-6 text-destructive" aria-hidden="true" />
+          <div>
+            <DialogTitle>更改配置并重新排班？</DialogTitle>
+            <DialogDescription className="mt-2 leading-6">
+              {roomLabel} 的{changeKind}将切换为「{nextValueLabel}」。当前排班结果会被替换，并立即使用新配置重新排班。
+            </DialogDescription>
+          </div>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">重新排班完成前，配置修改会暂时锁定。</p>
+        <DialogFooter>
+          <Button type="button" variant="outline" disabled={busy} autoFocus onClick={onCancel}>
+            取消
+          </Button>
+          <Button type="button" variant="destructive" disabled={busy} onClick={onConfirm}>
+            {busy ? <Loader2 className="animate-spin" /> : <RotateCcw />}
+            {busy ? "重新排班中" : "确认并重新排班"}
           </Button>
         </DialogFooter>
       </DialogContent>

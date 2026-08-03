@@ -171,7 +171,7 @@ export function TrainingAdvice({ operbox, layout, profile, onOpenCalculator }: T
   const eliteTotal = entries.filter((entry) => entry.own && entry.elite >= 2).length;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-5">
+    <div className="flex w-full flex-col gap-5">
       <section className="min-w-0" aria-label="训练建议概览">
         <div className="mb-2 flex min-w-0 items-center gap-2.5">
           <span className="h-7 w-1.5 shrink-0 bg-[#FFD501]" aria-hidden="true" />

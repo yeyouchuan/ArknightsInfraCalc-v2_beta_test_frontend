@@ -54,7 +54,7 @@ test("keeps compact operators responsive, left aligned, and eight pixels apart",
 test("widens the compact two-column stack and includes processing", () => {
   assert.equal(
     presentation.COMPACT_GRID_CLASS,
-    "-mx-[80px] flex items-stretch gap-3",
+    "flex items-stretch gap-3",
   );
   assert.equal(
     presentation.COMPACT_COLUMN_CLASS,

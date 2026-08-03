@@ -38,7 +38,7 @@ export const COMPACT_OPERATOR_SIZE_CLASS =
 export const COMPACT_OPERATOR_ROW_CLASS =
   "flex items-start justify-start gap-2";
 
-export const COMPACT_GRID_CLASS = "-mx-[80px] flex items-stretch gap-3";
+export const COMPACT_GRID_CLASS = "flex items-stretch gap-3";
 export const COMPACT_COLUMN_CLASS = "flex min-w-0 flex-col gap-3";
 export const COMPACT_DORM_WRAPPER_CLASS = "flex min-h-0 flex-1";
 export const COMPACT_DORM_OPERATOR_AREA_CLASS =

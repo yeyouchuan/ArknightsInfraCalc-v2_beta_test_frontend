@@ -909,7 +909,7 @@ function InfrastructureTab({ snapshot }: { snapshot: SklandSnapshot }) {
         </div>
 
         <div
-          className="grid items-stretch gap-3 xl:-mx-[80px] xl:grid-cols-[minmax(0,55fr)_minmax(19rem,45fr)]"
+          className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,55fr)_minmax(19rem,45fr)]"
           data-skland-compact-layout
         >
           <div

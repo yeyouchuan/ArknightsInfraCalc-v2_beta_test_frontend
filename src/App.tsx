@@ -35,6 +35,7 @@ import {
 } from "./blueprint";
 import {
   IssueNoteModal,
+  ProductChangeConfirmModal,
 } from "./components";
 import { copyText, downloadJson } from "./download";
 import { ONBOARDING_STORAGE_KEY, initialSetupStep, shouldAutoOpenSetup, type SetupStep } from "./onboarding";
@@ -69,6 +70,12 @@ import {
 type ProductChange =
   | { type: "factory"; roomId: string; recipe: FactoryRecipe }
   | { type: "trade"; roomId: string; order: TradeOrder };
+
+function layoutWithProductChange(layout: BaseBlueprint, change: ProductChange): BaseBlueprint {
+  return change.type === "factory"
+    ? updateFactoryRecipe(layout, change.roomId, change.recipe)
+    : updateTradeOrder(layout, change.roomId, change.order);
+}
 
 function displayError(code: DisplayError["code"], message: string, retryable = false): DisplayError {
   return { code, message, retryable };
@@ -219,6 +226,7 @@ function WorkbenchApp() {
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [resultClearNotice, setResultClearNotice] = useState<string | null>(null);
   const [resultClearWarningDismissed, setResultClearWarningDismissed] = useState(false);
+  const [pendingProductChange, setPendingProductChange] = useState<ProductChange | null>(null);
 
   // 公开排班结果只包含产品页面需要的效率、MAA 与轮换数据。
   const scheduleResult = result;
@@ -482,9 +490,9 @@ function WorkbenchApp() {
     clearPlanResult();
   }
 
-  async function handleRun() {
+  async function runPlanForLayout(planLayout: BaseBlueprint) {
     if (!operbox) return;
-    const layoutError = layoutValidationError(layout);
+    const layoutError = layoutValidationError(planLayout);
     if (layoutError) {
       setApiError(displayError("AIC-LAYOUT-1201", layoutError));
       return;
@@ -503,7 +511,7 @@ function WorkbenchApp() {
 
     try {
       const response = await runPlan({
-        layout,
+        layout: planLayout,
         operbox: normalizeOperboxEntries(operbox),
         sourceName: fileName,
         rotation: rotationProfile,
@@ -534,6 +542,10 @@ function WorkbenchApp() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleRun() {
+    await runPlanForLayout(layout);
   }
 
   async function handleLoadSample(): Promise<boolean> {
@@ -644,11 +656,7 @@ function WorkbenchApp() {
   }
 
   function applyProductChange(change: ProductChange) {
-    if (change.type === "factory") {
-      setLayout((current) => updateFactoryRecipe(current, change.roomId, change.recipe));
-    } else {
-      setLayout((current) => updateTradeOrder(current, change.roomId, change.order));
-    }
+    setLayout((current) => layoutWithProductChange(current, change));
     setLayoutDirty(true);
     clearPlanResult();
   }
@@ -668,6 +676,29 @@ function WorkbenchApp() {
   function requestProductChange(change: ProductChange) {
     showResultClearNotice(productChangeLabel(change));
     applyProductChange(change);
+  }
+
+  function requestScheduleProductChange(change: ProductChange) {
+    if (loading || pendingProductChange) return;
+    if (!result) {
+      requestProductChange(change);
+      return;
+    }
+    setResultClearNotice(null);
+    setPendingProductChange(change);
+  }
+
+  async function confirmScheduleProductChange() {
+    if (!pendingProductChange || loading) return;
+    const nextLayout = layoutWithProductChange(layout, pendingProductChange);
+    setLayout(nextLayout);
+    setLayoutDirty(true);
+    clearPlanResult();
+    try {
+      await runPlanForLayout(nextLayout);
+    } finally {
+      setPendingProductChange(null);
+    }
   }
 
   function dismissResultClearWarning() {
@@ -703,6 +734,14 @@ function WorkbenchApp() {
 
   function handleTradeOrderChange(roomId: string, order: TradeOrder) {
     requestProductChange({ type: "trade", roomId, order });
+  }
+
+  function handleScheduleFactoryRecipeChange(roomId: string, recipe: FactoryRecipe) {
+    requestScheduleProductChange({ type: "factory", roomId, recipe });
+  }
+
+  function handleScheduleTradeOrderChange(roomId: string, order: TradeOrder) {
+    requestScheduleProductChange({ type: "trade", roomId, order });
   }
 
   function handleRoomLevelChange(roomId: string, level: number) {
@@ -837,10 +876,9 @@ function WorkbenchApp() {
           onOpenSkland={() => setPage("skland")}
         />
 
-      <div className="px-3 py-4 sm:px-[clamp(1.75rem,10vw,12rem)]">
+      <div className="app-content-track py-4">
       {page === "calculator" ? (
         <InfraCalculator
-          operbox={operbox}
           layout={layout}
           showBetaPanels={showBetaPanels}
           result={result}
@@ -869,8 +907,8 @@ function WorkbenchApp() {
           }}
           onSetActiveShift={setActiveShift}
           onMarkIssue={handleMarkIssue}
-          onFactoryRecipeChange={handleFactoryRecipeChange}
-          onTradeOrderChange={handleTradeOrderChange}
+          onFactoryRecipeChange={handleScheduleFactoryRecipeChange}
+          onTradeOrderChange={handleScheduleTradeOrderChange}
           onDownloadMaa={handleDownloadMaa}
           onDownloadBundle={handleDownloadBundle}
           onCopyCommand={handleCopyCommand}
@@ -951,6 +989,15 @@ function WorkbenchApp() {
         onNoteChange={setIssueDraftNote}
         onSave={handleSaveIssue}
         onCancel={handleCancelIssue}
+      />
+      <ProductChangeConfirmModal
+        open={Boolean(pendingProductChange)}
+        roomLabel={rows.find((row) => row.roomId === pendingProductChange?.roomId)?.title ?? pendingProductChange?.roomId ?? "当前设施"}
+        changeKind={pendingProductChange?.type === "trade" ? "贸易策略" : "制造配方"}
+        nextValueLabel={pendingProductChange ? productChangeLabel(pendingProductChange) ?? "新配置" : "新配置"}
+        busy={loading && Boolean(pendingProductChange)}
+        onConfirm={() => void confirmScheduleProductChange()}
+        onCancel={() => setPendingProductChange(null)}
       />
       </SidebarInset>
     </SidebarProvider>

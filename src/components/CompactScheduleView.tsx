@@ -134,6 +134,12 @@ function CompactRoomCard({
       )}
     </div>
   ) : null;
+  const emptyWorkstationState = !efficiency && (row.group === "trading" || row.group === "manufacture") ? (
+    <div className="font-technical text-xs tracking-[0.01em] text-white/38">
+      等待排班
+    </div>
+  ) : null;
+  const efficiencyContent = efficiencyBlock ?? emptyWorkstationState;
 
   const operators = slots.map((slot, index) => (
     <OperatorSlot
@@ -164,7 +170,7 @@ function CompactRoomCard({
         {backgroundLayers}
         <div className="relative z-10 min-w-0">
           {header}
-          <div className="mt-2">{efficiencyBlock}</div>
+          <div className="mt-2">{efficiencyContent}</div>
         </div>
         <div className={`relative z-10 ${COMPACT_POWER_OPERATOR_ROW_CLASS}`}>
           {operators}
@@ -177,8 +183,8 @@ function CompactRoomCard({
     <div className={`${COMPACT_CARD_CLASS} ${className}`} style={{ ...rowStyle, ...style }}>
       {backgroundLayers}
       <div className="relative z-10">{header}</div>
-      {efficiencyBlock ? (
-        <div className="relative z-10">{efficiencyBlock}</div>
+      {efficiencyContent ? (
+        <div className="relative z-10">{efficiencyContent}</div>
       ) : null}
       <div
         className={`relative z-10 ${

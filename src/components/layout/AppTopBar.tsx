@@ -23,7 +23,7 @@ export function AppTopBar({ snapshot, sessionLoading, onOpenSkland }: AppTopBarP
       data-app-topbar
     >
       <h1 className="sr-only">明日方舟基建排班助手</h1>
-      <div className="flex h-[65px] items-center px-[max(0.5rem,env(safe-area-inset-left))] pe-[max(0.75rem,env(safe-area-inset-right))] sm:px-5">
+      <div className="app-content-track flex h-[65px] items-center">
         <SidebarTrigger className="size-11 shrink-0 md:hidden" />
         <div className="ms-auto flex h-11 min-w-11 items-center justify-end">
           {sessionLoading && !snapshot ? (
