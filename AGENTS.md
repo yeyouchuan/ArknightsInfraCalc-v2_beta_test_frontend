@@ -6,7 +6,7 @@
 
 本仓库是“明日方舟基建排班助手”的 Next.js 前端与轻量服务端，不是核心求解器仓库。产品主流程包括：
 
-- 通过森空岛二维码登录同步干员与基建状态，或导入 MAA JSON / 兼容的一图流 xlsx。
+- 线上环境导入 MAA JSON / 兼容的一图流 xlsx；dev 环境还可通过森空岛二维码登录同步干员与基建状态。
 - 配置 243、153、333、252、342 布局、设施等级、制造配方和贸易订单。
 - 调用长驻的 `infra-cli serve` 生成三班排班、效率概览和练卡建议。
 - 展示森空岛当前基建状态，比较当前进驻与排班计划，并导出 MAA JSON。
@@ -100,6 +100,8 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - 所有公开写请求必须保留同源校验、请求体大小限制和适当限流。只有在明确的本地测试中关闭限流；不要用重复请求压测线上实例。
 - 反馈必须要求用户同意，并保持最小化：公开响应只有 `feedbackId` 和 `savedAt`，不要把文件路径、Box、debug bundle 或内部诊断内容回传给浏览器。
 - 森空岛只提供二维码授权流程，不添加账号密码、短信验证码代填或绕过官方授权的登录方式。
+- `APP_DEPLOYMENT_ENV=production`必须从页面、客户端请求、健康检查字段和公开 API 访问面强制移除森空岛能力；该限制不能被`SKLAND_FEATURE_ENABLED=1`覆盖。dev 使用`APP_DEPLOYMENT_ENV=development`保留森空岛能力。
+- production 必须强制关闭调试工具并启用限流，不能被`BETA_DEBUG_TOOLS_ENABLED=1`或`BETA_RATE_LIMIT_ENABLED=0`覆盖；dev 可由部署环境集中管理这两个开关，调试入口仍需`?beta`二次门控。
 - `SKLAND_SESSION_SECRET` 必须至少 32 字节且长期稳定。森空岛会话使用 AES-256-GCM 封装在 HttpOnly Cookie 中；凭据不得进入 localStorage、CLI 运行记录、反馈包、console 或公开响应。
 - 非 localhost 的森空岛请求默认要求 HTTPS。`SKLAND_ALLOW_INSECURE_HTTP=1` 仅允许临时、可信的本地或内网测试，绝不能作为生产默认值。
 - 森空岛凭证从扫码成功起固定 7 天到期，刷新 token、读取会话和切换角色都不得续期；完整状态必须按账号独立授权，基础响应只返回排班白名单。
@@ -140,6 +142,8 @@ CLI 查找以当前平台文件名为优先，覆盖仓库 `bin/`、仓库根目
 | `SKLAND_PUBLIC_ORIGIN` | 森空岛会话流的可信 Origin |
 | `BETA_TRUST_PROXY_HEADERS` | 为 `1` 时信任反向代理的来源/IP 头 |
 | `SKLAND_ALLOW_INSECURE_HTTP` | 仅可信临时测试允许非 HTTPS 森空岛请求 |
+| `APP_DEPLOYMENT_ENV` | `production`或`development`；production 强制关闭森空岛 |
+| `SKLAND_FEATURE_ENABLED` | dev/local 可设为`0`关闭；不能在 production 开启 |
 | `LEGAL_OPERATOR_NAME` | 覆盖服务条款和隐私政策中的运营者署名 |
 | `LEGAL_CONTACT_EMAIL` | 可选的法律联系邮箱 |
 | `LEGAL_CONTACT_URL` | 覆盖法律页面中的联系链接 |
@@ -167,6 +171,7 @@ npm run test:api-contract
 npm run check
 npm run build
 npm run test:e2e
+npm run test:e2e:production-profile
 npm run test:e2e:webkit
 npm start
 ```
@@ -203,6 +208,7 @@ npm run dev
 - Full E2、配置流程、生成排班、三班切换和 MAA 下载。
 - 键盘焦点、Dialog 关闭后焦点恢复、`role="status"` / `role="alert"` 和移动端约 44px 触控目标。
 - “一图流布局”仍可见且保持当前禁用状态；加工站“暂不显示”和恢复交互不丢失。
+- dev 保持森空岛一级导航、登录和状态中心；production 不显示任何森空岛入口、不发起相关请求，法律页和健康检查也不暴露相关文案或字段。
 - v5 会话及旧版本迁移刷新后无 hydration 错误，持久化数据不含内部字段。
 
 真实 CLI 冒烟还要确认：
@@ -215,7 +221,7 @@ npm run dev
 
 ## Git、PR 与评审
 
-- 默认不要直推 `origin/main`；除非用户明确要求，否则使用功能分支和 PR。
+- 默认不要直推 `origin/main`或`origin/develop`；除非用户明确要求，否则使用功能分支和 PR。
 - 开始提交前先 `git fetch origin main`，确认基线没有落后；若 main 已前进，先安全同步再继续。
 - 只暂存本任务文件，提交前检查 `git diff --check`、`git diff --cached` 和 `git status --short`。
 - commit message 使用简短的中文或英文 `<type>: <summary>`。
@@ -234,20 +240,24 @@ npm run dev
 
 除非用户明确要求，不执行服务器部署、服务重启、线上求解器替换或数据清理。
 
-当前生产约定：
+当前双环境约定：
 
 ```text
-host: 114.66.55.78
-app root: /opt/arknights-infra
-current: /opt/arknights-infra/current
-releases: /opt/arknights-infra/releases/<timestamp>-<sha>
-systemd: arknights-infra
-internal Next: 127.0.0.1:4175
-public nginx: 4174
-persistent storage: /var/lib/arknights-infra
+production branch: main
+production app root: /opt/arknights-infra
+production systemd: arknights-infra
+production internal Next: 127.0.0.1:4175
+production public nginx: 4174
+production persistent storage: /var/lib/arknights-infra
+
+development branch: develop
+development app root: /opt/arknights-infra-dev
+development systemd: arknights-infra-dev
+development internal Next: 127.0.0.1:4275
+development persistent storage: /var/lib/arknights-infra-dev
 ```
 
-发布前必须基于已合并且已验证的 `origin/main`。发布包只包含 Git 跟踪内容；新 release 继承现有 `.env.local` 和 `bin/data`，以 `arkinfra` 用户执行 `npm ci` / `npm run build`，再原子切换 `current` 并重启 systemd。不得把服务器密码写入文件或命令；使用 SSH key 或交互式认证。
+`main`和`develop` push 必须先通过`Frontend quality`，随后由`Deploy verified branch`从已验证 SHA 自动发布到各自 GitHub Environment。发布包只包含 Git 跟踪内容；新 release 从应用根目录的`shared/.env.local`和`shared/bin-data`继承环境配置，以`arkinfra`用户执行`npm ci`/`npm run build`，再原子切换`current`并重启对应 systemd。不得把服务器密码写入文件或命令；只使用受保护的 SSH key 与 known_hosts。手动发布仍必须基于对应已合并、已验证的远端分支。
 
 发布后至少验证：
 

@@ -25,9 +25,9 @@ export async function POST(request: Request) {
   const startedAt = performance.now();
   let previous: SklandAccountStore | null = null;
   try {
+    assertSklandAvailable(request);
     assertSameOrigin(request);
     enforceRateLimit("skland-action", requestClientIp(request), 30, 60 * 60_000);
-    assertSklandAvailable(request);
     previous = await readSklandAccountStore();
     const account = activeSklandAccount(previous);
     if (!account) throw new SklandServiceError("AUTH_EXPIRED", "请先登录森空岛。", 401);

@@ -1,5 +1,6 @@
 import WorkbenchApp from "@/App";
+import { isSklandFeatureEnabled } from "@/deployment";
 
 export default function Page() {
-  return <WorkbenchApp />;
+  return <WorkbenchApp sklandEnabled={isSklandFeatureEnabled()} />;
 }

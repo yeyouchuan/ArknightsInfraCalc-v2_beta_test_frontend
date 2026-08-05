@@ -9,7 +9,7 @@
 以下产品约束必须作为 UI 回归项保留：
 
 - “全角色导入”保持在计算器顶部操作栏，并维持主按钮层级。
-- “基建计算器 / 练卡建议 / 森空岛状态”保持三个同级导航。
+- dev 保持“基建计算器 / 练卡建议 / 森空岛状态”三个同级导航；production 只显示前两个导航，且不得请求森空岛 API。
 - 桌面与平板默认使用“一图流布局”；手机端默认“列表式布局”，并继续显示禁用态的“一图流布局”。
 - 加工站继续使用现有“暂不显示”按钮和交互。
 
@@ -28,6 +28,7 @@ npm run dev
 npm run check
 npm run build
 npm run test:e2e
+npm run test:e2e:production-profile
 npm run test:e2e:webkit
 ```
 
@@ -137,6 +138,8 @@ POST 和 DELETE 路由执行同源检查。生产部署在 Nginx 后时启用受
 | `SKLAND_SESSION_SECRET` | 森空岛 HttpOnly 会话加密密钥，至少 32 字节 |
 | `SKLAND_PUBLIC_ORIGIN` | 森空岛会话写请求的公开 HTTP(S) Origin |
 | `SKLAND_ALLOW_INSECURE_HTTP` | 仅限可信临时环境；允许非 localhost 使用不安全 HTTP |
+| `APP_DEPLOYMENT_ENV` | `production`或`development`；production 强制移除森空岛访问面 |
+| `SKLAND_FEATURE_ENABLED` | dev/local 可设为`0`主动关闭；不能在 production 开启 |
 
 建议的生产配置：
 
@@ -145,8 +148,11 @@ BETA_DEBUG_TOOLS_ENABLED=0
 BETA_RATE_LIMIT_ENABLED=1
 BETA_TRUST_PROXY_HEADERS=1
 BETA_PUBLIC_ORIGIN=https://你的公开域名
-SKLAND_PUBLIC_ORIGIN=https://你的公开域名
+APP_DEPLOYMENT_ENV=production
+SKLAND_FEATURE_ENABLED=0
 ```
+
+dev 站点使用`APP_DEPLOYMENT_ENV=development`与`SKLAND_FEATURE_ENABLED=1`，并额外配置`SKLAND_SESSION_SECRET`、`SKLAND_PUBLIC_ORIGIN`。两个站点必须使用不同的应用根目录、systemd 服务、内部端口、公开 Origin 和持久化目录。
 
 ## 调试模式
 
@@ -164,7 +170,7 @@ npm run dev
 http://127.0.0.1:5174/?beta
 ```
 
-调试 UI 只有在服务端 feature flag 为 true 且 URL 同时带 `?beta` 时出现。单独添加 `?beta`不能开启调试工具。调试字段也不得写入 v5 本地数据。
+调试 UI 只有在服务端 feature flag 为 true 且 URL 同时带 `?beta` 时出现。dev 开关启用后，页脚提供“开启/退出调试工具”入口；production 无论环境变量如何都强制隐藏入口并禁止调试字段。单独添加 `?beta`不能开启调试工具。调试字段也不得写入 v5 本地数据。
 
 详细的 DevTools 排查顺序、接口泄露检查和错误模拟方法见[上线产品化报告的开发调试环境使用指南](./FRONTEND_PRODUCTION_READINESS_REPORT.md#开发调试环境使用指南)。
 
@@ -197,6 +203,9 @@ GitHub Actions 在面向 `main` 的 PR 和 `main` push 上使用 Node 22，顺�
 5. `npm run build`
 6. `npx playwright install --with-deps chromium`
 7. `npm run test:e2e`
+8. `npm run test:e2e:production-profile`
+
+`main`和`develop`都执行相同质量门禁。通过 push 门禁后，部署工作流分别使用 GitHub Environments `production`和`development`中的 SSH Secrets 与部署 Variables 发布对应站点；PR 不部署。`DEPLOY_DEBUG_TOOLS_ENABLED`和`DEPLOY_RATE_LIMIT_ENABLED`集中管理 dev 的调试入口与限流，production 则固定为调试关闭、限流开启。production-profile 门禁会故意反向设置森空岛、调试和限流变量，确认 production 的强制策略不可被误配置绕过。
 
 E2E 使用固定数据和接口拦截，不要求 CI 中存在真实 CLI。每次 UI 修改至少检查 390px、768px、1440px、三个一级导航和两处锁定区域。错误码新增或修改必须同步更新：
 

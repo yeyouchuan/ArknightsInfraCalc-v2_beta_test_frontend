@@ -743,6 +743,7 @@ export type AppErrorCode =
   | "AIC-AUTH-2004"
   | "AIC-AUTH-2005"
   | "AIC-AUTH-2006"
+  | "AIC-AUTH-2007"
   | "AIC-PLAN-3001"
   | "AIC-PLAN-3002"
   | "AIC-PLAN-3003"
@@ -786,7 +787,7 @@ export interface PublicFeatureFlags {
 export interface PublicHealthData {
   status: "ready" | "unavailable";
   plannerReady: boolean;
-  skland: {
+  skland?: {
     available: boolean;
     message: string | null;
   };

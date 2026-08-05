@@ -183,7 +183,7 @@ function buildIssueReport(
   };
 }
 
-function WorkbenchApp() {
+function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
   const defaultPreset = PRESETS[0];
   const defaultLayout = buildBlueprint(defaultPreset);
   const [page, setPage] = useState<AppPage>("calculator");
@@ -200,7 +200,7 @@ function WorkbenchApp() {
   const [layoutSource, setLayoutSource] = useState<"local" | "skland">("local");
   const [localLayoutBackup, setLocalLayoutBackup] = useState<BaseBlueprint | null>(null);
   const [rotationProfile, setRotationProfile] = useState<RotationProfile>(DEFAULT_ROTATION_PROFILE);
-  const [inputMode, setInputMode] = useState<"skland" | "maa">("skland");
+  const [inputMode, setInputMode] = useState<"skland" | "maa">(sklandEnabled ? "skland" : "maa");
   const [maaPaste, setMaaPaste] = useState("");
   const [sklandScheduleSnapshot, setSklandScheduleSnapshot] = useState<SklandScheduleSnapshot | null>(null);
   const [sklandStatusSnapshot, setSklandStatusSnapshot] = useState<SklandStatusSnapshot | null>(null);
@@ -208,7 +208,7 @@ function WorkbenchApp() {
   const [sklandActiveAccountId, setSklandActiveAccountId] = useState<string | null>(null);
   const [sklandConfigured, setSklandConfigured] = useState(false);
   const [sklandDisabledReason, setSklandDisabledReason] = useState<string | null>(null);
-  const [sklandSessionLoading, setSklandSessionLoading] = useState(true);
+  const [sklandSessionLoading, setSklandSessionLoading] = useState(sklandEnabled);
   const [sklandError, setSklandError] = useState<DisplayError | null>(null);
   const [sklandBusy, setSklandBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -293,28 +293,32 @@ function WorkbenchApp() {
         const restoredOperbox = restored.operbox ? normalizeOperboxEntries(restored.operbox) : null;
         setPreset(restoredPreset);
         setLayout(restoredLayout);
+        const restoreAsLocalImport = !sklandEnabled && restored.boxSource === "skland";
+        const restoredBoxSource = restoreAsLocalImport ? "maa" : restored.boxSource;
+        const restoredSourceName = restoreAsLocalImport ? "已保存的干员数据" : restored.sourceName;
+        const restoredLayoutSource = sklandEnabled ? restored.layoutSource : "local";
         setOperbox(restoredOperbox);
-        setFileName(restored.sourceName);
-        setBoxSource(restored.boxSource);
+        setFileName(restoredSourceName);
+        setBoxSource(restoredBoxSource);
         setLayoutDirty(restored.layoutDirty);
-        setLayoutSource(restored.layoutSource);
-        setLocalLayoutBackup(restored.localLayoutBackup);
+        setLayoutSource(restoredLayoutSource);
+        setLocalLayoutBackup(sklandEnabled ? restored.localLayoutBackup : null);
         setRotationProfile(restored.rotationProfile);
         setResult(restored.result);
         setActiveShift(restored.activeShift);
         initialLayoutForRestore.current = restoredLayout;
-        initialBoxSource.current = restored.boxSource;
+        initialBoxSource.current = restoredBoxSource;
         initialOperbox.current = restoredOperbox;
         initialLayoutDirty.current = restored.layoutDirty;
-        initialLayoutSource.current = restored.layoutSource;
-        initialLocalLayoutBackup.current = restored.localLayoutBackup;
+        initialLayoutSource.current = restoredLayoutSource;
+        initialLocalLayoutBackup.current = sklandEnabled ? restored.localLayoutBackup : null;
       }
     } catch {
       setStorageNotice(displayError("AIC-LOCAL-7001", "浏览器无法读取本地数据，但仍可继续生成排班。"));
     } finally {
       setHasRestoredSession(true);
     }
-  }, []);
+  }, [sklandEnabled]);
 
   useEffect(() => {
     if (!hasRestoredSession || typeof window === "undefined") return;
@@ -353,13 +357,14 @@ function WorkbenchApp() {
   useEffect(() => {
     let cancelled = false;
     if (!hasRestoredSession) return;
-    setSklandSessionLoading(true);
-    void Promise.allSettled([getHealth(), getSklandSession()]).then(([healthResult, sessionResult]) => {
+    setSklandSessionLoading(sklandEnabled);
+    const sessionRequest = sklandEnabled ? getSklandSession() : Promise.resolve(null);
+    void Promise.allSettled([getHealth(), sessionRequest]).then(([healthResult, sessionResult]) => {
       if (cancelled) return;
       if (healthResult.status === "fulfilled") {
         const health = healthResult.value;
-        setSklandConfigured(health.skland.available);
-        setSklandDisabledReason(health.skland.message);
+        setSklandConfigured(Boolean(sklandEnabled && health.skland?.available));
+        setSklandDisabledReason(sklandEnabled ? health.skland?.message ?? null : null);
         setDebugToolsEnabled(health.features.debugTools);
         if (health.plannerReady) {
           setCliReady(true);
@@ -373,7 +378,7 @@ function WorkbenchApp() {
         setApiError(toDisplayError(healthResult.reason, "排班服务暂不可用，请稍后重试。"));
       }
 
-      if (sessionResult.status === "fulfilled") {
+      if (sklandEnabled && sessionResult.status === "fulfilled" && sessionResult.value) {
         const session = sessionResult.value;
         setSklandError(null);
         setSklandConfigured(session.configured);
@@ -403,7 +408,7 @@ function WorkbenchApp() {
             setPreset(resolvePreset(PRESETS.find((item) => item.label === session.scheduleSnapshot?.infrastructure.layoutLabel)));
           }
         }
-      } else {
+      } else if (sklandEnabled && sessionResult.status === "rejected") {
         setSklandError(toDisplayError(sessionResult.reason, "森空岛会话恢复失败，请稍后刷新。"));
       }
       setSklandSessionLoading(false);
@@ -411,11 +416,12 @@ function WorkbenchApp() {
     return () => {
       cancelled = true;
     };
-  }, [hasRestoredSession]);
+  }, [hasRestoredSession, sklandEnabled]);
 
   useEffect(() => {
     if (
-      page !== "skland"
+      !sklandEnabled
+      || page !== "skland"
       || !activeSklandAccount?.statusAuthorized
       || sklandStatusSnapshot
       || statusLoadingAccount.current === activeSklandAccount.accountId
@@ -441,7 +447,7 @@ function WorkbenchApp() {
     return () => {
       cancelled = true;
     };
-  }, [activeSklandAccount, page, sklandStatusSnapshot]);
+  }, [activeSklandAccount, page, sklandEnabled, sklandStatusSnapshot]);
 
   async function handleFile(file: File): Promise<boolean> {
     setInputError(null);
@@ -1068,9 +1074,10 @@ function WorkbenchApp() {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <AppSidebar page={page} onPageChange={setPage} />
+      <AppSidebar page={page} sklandEnabled={sklandEnabled} onPageChange={setPage} />
       <SidebarInset>
         <AppTopBar
+          sklandEnabled={sklandEnabled}
           account={activeSklandAccount}
           statusSnapshot={sklandStatusSnapshot}
           sessionLoading={sklandSessionLoading}
@@ -1116,7 +1123,7 @@ function WorkbenchApp() {
           onClearResultNotice={() => setResultClearNotice(null)}
           onDismissResultClearWarning={dismissResultClearWarning}
         />
-      ) : page === "skland" ? (
+      ) : sklandEnabled && page === "skland" ? (
         <SklandStatus
           scheduleSnapshot={sklandScheduleSnapshot}
           snapshot={sklandStatusSnapshot}
@@ -1152,9 +1159,19 @@ function WorkbenchApp() {
         <span>非官方、小范围测试中的排班辅助工具</span>
         <Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/terms">本站服务条款</Link>
         <Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/privacy">本站隐私政策</Link>
+        {debugToolsEnabled ? (
+          <Link
+            className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground"
+            href={betaRequested ? "/" : "/?beta"}
+            onClick={() => setBetaRequested((current) => !current)}
+          >
+            {betaRequested ? "退出调试工具" : "开启调试工具"}
+          </Link>
+        ) : null}
       </footer>
 
       <SetupDialog
+        sklandEnabled={sklandEnabled}
         open={setupOpen}
         initialStep={setupInitialStep}
         onOpenChange={handleSetupOpenChange}

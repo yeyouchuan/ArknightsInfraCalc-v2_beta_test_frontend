@@ -21,8 +21,8 @@ export async function DELETE(request: Request) {
   const requestId = createRequestId();
   const startedAt = performance.now();
   try {
-    assertSameOrigin(request);
     assertSklandAvailable(request);
+    assertSameOrigin(request);
     await assertEmptyBody(request, 1024);
     enforceRateLimit("skland-delete", requestClientIp(request), 5, 60 * 60_000);
     const previous = await readSklandAccountStore();

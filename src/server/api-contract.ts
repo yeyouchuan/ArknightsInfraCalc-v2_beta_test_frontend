@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server.js";
 
+import {
+  areRequestRateLimitsEnabled,
+  isDebugToolsFeatureEnabled,
+} from "../deployment.ts";
 import type {
   ApiFailure,
   ApiFieldError,
@@ -27,6 +31,7 @@ export const ERROR_DEFINITIONS: Record<AppErrorCode, ErrorDefinition> = {
   "AIC-AUTH-2004": { status: 409, message: "同一浏览器最多可登录 5 个森空岛账号，请先退出一个账号。", retryable: false },
   "AIC-AUTH-2005": { status: 400, message: "请先阅读并同意本站服务条款和隐私政策。", retryable: false },
   "AIC-AUTH-2006": { status: 403, message: "请先授权状态中心读取附加游戏状态。", retryable: false },
+  "AIC-AUTH-2007": { status: 404, message: "当前站点不提供此功能。", retryable: false },
   "AIC-PLAN-3001": { status: 503, message: "排班服务暂不可用，请稍后重试。", retryable: true },
   "AIC-PLAN-3002": { status: 429, message: "已有排班任务或请求过于频繁，请稍后重试。", retryable: true },
   "AIC-PLAN-3003": { status: 504, message: "排班计算超时，请稍后重试。", retryable: true },
@@ -70,12 +75,11 @@ export function createRequestId(): string {
 }
 
 export function isDebugToolsEnabled(): boolean {
-  return process.env.BETA_DEBUG_TOOLS_ENABLED === "1";
+  return isDebugToolsFeatureEnabled();
 }
 
 export function areRateLimitsEnabled(): boolean {
-  if (process.env.BETA_RATE_LIMIT_ENABLED === "0") return false;
-  return process.env.BETA_RATE_LIMIT_ENABLED === "1" || process.env.NODE_ENV === "production";
+  return areRequestRateLimitsEnabled();
 }
 
 export function healthHttpStatus(plannerReady: boolean): 200 | 503 {

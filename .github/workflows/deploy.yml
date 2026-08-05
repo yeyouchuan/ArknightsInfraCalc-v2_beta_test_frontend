@@ -1,0 +1,111 @@
+name: Deploy verified branch
+
+on:
+  workflow_run:
+    workflows: [Frontend quality]
+    types: [completed]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'development' }}
+    concurrency:
+      group: deploy-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
+    env:
+      DEPLOYMENT_ENV: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'development' }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+      DEPLOY_APP_ROOT: ${{ vars.DEPLOY_APP_ROOT }}
+      DEPLOY_SERVICE: ${{ vars.DEPLOY_SERVICE }}
+      DEPLOY_RUN_USER: ${{ vars.DEPLOY_RUN_USER || 'arkinfra' }}
+      DEPLOY_INTERNAL_PORT: ${{ vars.DEPLOY_INTERNAL_PORT }}
+      DEPLOY_PUBLIC_HEALTH_URL: ${{ vars.DEPLOY_PUBLIC_HEALTH_URL }}
+      DEPLOY_DEBUG_TOOLS_ENABLED: ${{ vars.DEPLOY_DEBUG_TOOLS_ENABLED || '0' }}
+      DEPLOY_RATE_LIMIT_ENABLED: ${{ vars.DEPLOY_RATE_LIMIT_ENABLED || '1' }}
+
+    steps:
+      - name: Checkout verified commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_SSH_USER"
+          test -n "$DEPLOY_SSH_PRIVATE_KEY"
+          test -n "$DEPLOY_SSH_KNOWN_HOSTS"
+          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9._-]+$ ]]
+          [[ "$DEPLOY_SSH_USER" =~ ^[A-Za-z0-9_-]+$ ]]
+          [[ "$DEPLOY_APP_ROOT" =~ ^/opt/arknights-infra(-[A-Za-z0-9._-]+)?$ ]]
+          [[ "$DEPLOY_SERVICE" =~ ^arknights-infra(-[A-Za-z0-9_.@-]+)?$ ]]
+          [[ "$DEPLOY_RUN_USER" =~ ^[A-Za-z0-9_-]+$ ]]
+          test "$DEPLOY_RUN_USER" != "root"
+          [[ "$DEPLOY_INTERNAL_PORT" =~ ^[0-9]{2,5}$ ]]
+          [[ "$DEPLOY_DEBUG_TOOLS_ENABLED" =~ ^[01]$ ]]
+          [[ "$DEPLOY_RATE_LIMIT_ENABLED" =~ ^[01]$ ]]
+          if [[ "$DEPLOYMENT_ENV" == "production" ]]; then
+            test "$DEPLOY_APP_ROOT" = "/opt/arknights-infra"
+            test "$DEPLOY_SERVICE" = "arknights-infra"
+          else
+            [[ "$DEPLOY_APP_ROOT" =~ ^/opt/arknights-infra-[A-Za-z0-9._-]+$ ]]
+            [[ "$DEPLOY_SERVICE" =~ ^arknights-infra-[A-Za-z0-9_.@-]+$ ]]
+          fi
+          if [[ -n "$DEPLOY_PUBLIC_HEALTH_URL" ]]; then
+            [[ "$DEPLOY_PUBLIC_HEALTH_URL" =~ ^https?://[A-Za-z0-9._:/?&=%-]+$ ]]
+          fi
+
+      - name: Create tracked release archive
+        shell: bash
+        run: git archive --format=tar.gz --output="release-${DEPLOY_SHA}.tar.gz" HEAD
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: Upload release archive
+        shell: bash
+        run: >-
+          scp -o BatchMode=yes
+          "release-${DEPLOY_SHA}.tar.gz"
+          "${DEPLOY_SSH_USER}@${DEPLOY_HOST}:/tmp/arknights-infra-${DEPLOY_SHA}.tar.gz"
+
+      - name: Deploy and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes "${DEPLOY_SSH_USER}@${DEPLOY_HOST}" \
+            "sudo -n bash -s -- \
+            '$DEPLOYMENT_ENV' \
+            '$DEPLOY_SHA' \
+            '/tmp/arknights-infra-${DEPLOY_SHA}.tar.gz' \
+            '$DEPLOY_APP_ROOT' \
+            '$DEPLOY_SERVICE' \
+            '$DEPLOY_RUN_USER' \
+            '$DEPLOY_INTERNAL_PORT' \
+            '$DEPLOY_PUBLIC_HEALTH_URL' \
+            '$DEPLOY_DEBUG_TOOLS_ENABLED' \
+            '$DEPLOY_RATE_LIMIT_ENABLED'" \
+            < scripts/deploy-release.sh

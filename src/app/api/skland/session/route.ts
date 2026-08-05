@@ -9,6 +9,7 @@ import {
 } from "@/server/api-contract";
 import {
   assertSklandAvailable,
+  assertSklandFeatureEnabled,
   loadActiveSklandAccount,
   readSklandAccountStore,
   setSklandAccountStoreCookies,
@@ -24,6 +25,11 @@ const authMethods = { qr: true as const };
 export async function GET(request: Request) {
   const requestId = createRequestId();
   const startedAt = performance.now();
+  try {
+    assertSklandFeatureEnabled();
+  } catch (error) {
+    return sklandErrorResponse(error, requestId, "/api/skland/session", startedAt);
+  }
   if (!isSklandConfigured() || !isSecureSklandRequest(request)) {
     return successResponse({
       authenticated: false,
@@ -56,9 +62,9 @@ export async function DELETE(request: Request) {
   const requestId = createRequestId();
   const startedAt = performance.now();
   try {
+    assertSklandAvailable(request);
     assertSameOrigin(request);
     enforceRateLimit("skland-action", requestClientIp(request), 30, 60 * 60_000);
-    assertSklandAvailable(request);
     const previous = await readSklandAccountStore();
     let next = previous;
     if (request.body) {

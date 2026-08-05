@@ -17,8 +17,8 @@ export async function POST(request: Request) {
   const requestId = createRequestId();
   const startedAt = performance.now();
   try {
-    assertSameOrigin(request);
     assertSklandAvailable(request);
+    assertSameOrigin(request);
     const ip = requestClientIp(request);
     enforceRateLimit("skland-qr", ip, 10, 10 * 60_000);
     const body = await readJsonBody(request, 16 * 1024) as { consent?: unknown } | null;

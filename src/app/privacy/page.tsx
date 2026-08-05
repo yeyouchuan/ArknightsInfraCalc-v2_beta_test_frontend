@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
 
 import { LegalDocument } from "@/components/legal/LegalDocument";
+import { isSklandFeatureEnabled } from "@/deployment";
 import { legalIdentity } from "@/legal";
 import { LEGAL_EFFECTIVE_DATE } from "@/legal-policy";
 
 export const metadata: Metadata = {
   title: "隐私政策 · 可露希尔基建终端",
-  description: "可露希尔基建终端如何处理森空岛凭证、排班数据与状态中心数据。",
+  description: "可露希尔基建终端如何处理排班数据。",
 };
 
 export default function PrivacyPage() {
   const identity = legalIdentity();
+  const sklandEnabled = isSklandFeatureEnabled();
   return (
     <LegalDocument eyebrow="可露希尔基建终端" title="隐私政策" effectiveDate={LEGAL_EFFECTIVE_DATE}>
+      {sklandEnabled ? <>
       <section>
         <h2 className="font-number">1. 适用范围与运营者</h2>
         <p>本政策适用于“可露希尔基建终端”（以下简称“本站”）。本站是非官方、非商业的排班辅助工具，与鹰角网络、森空岛及《明日方舟》官方不存在隶属、代理或背书关系。</p>
@@ -77,6 +80,52 @@ export default function PrivacyPage() {
         <h2 className="font-number">8. 安全与变更</h2>
         <p>本站采用 HTTPS、HttpOnly Cookie、同源校验、限流、字段白名单和最小日志等措施降低风险。互联网服务无法保证绝对安全；如政策内容或处理目的发生实质变化，本站会更新版本，并在下一次生成二维码前重新取得同意。</p>
       </section>
+      </> : <>
+        <section>
+          <h2 className="font-number">1. 适用范围与运营者</h2>
+          <p>本政策适用于“可露希尔基建终端”（以下简称“本站”）。本站是非官方、非商业的排班辅助工具，与鹰角网络及《明日方舟》官方不存在隶属、代理或背书关系。</p>
+          <p>运营者：{identity.operatorName}。你可以通过<a href={identity.contactUrl}>项目问题反馈渠道</a>{identity.contactEmail ? <>或邮箱 <a href={`mailto:${identity.contactEmail}`}>{identity.contactEmail}</a></> : null}联系我们。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">2. 我们处理哪些信息</h2>
+          <ul>
+            <li>你导入的 MAA JSON、兼容表格、布局设置和生成的排班结果。</li>
+            <li>你主动提交的最小问题反馈，包括诊断编号、房间摘要和说明。</li>
+            <li>保障接口安全和排查故障所需的请求 ID、时间、路由、错误码、响应状态和经代理传递的网络地址。</li>
+          </ul>
+          <p>日志不记录请求正文或完整干员数据。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">3. 处理方式与目的</h2>
+          <p>干员和布局数据会发送给本站部署的排班求解器，用于生成轮班、效率概览、练卡建议和 MAA 导出。浏览器只保存继续使用产品所需的白名单字段。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">4. 保存期限</h2>
+          <ul>
+            <li>服务端 CLI 运行记录最多保存 <span className="font-number">7</span> 天。</li>
+            <li>浏览器中的布局、干员 Box 和最近排班通常最多保存 <span className="font-number">30</span> 天。</li>
+            <li>你可以随时使用页面中的清除功能删除浏览器本地数据。</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="font-number">5. 你的选择与权利</h2>
+          <p>你可以不提交问题反馈，并可随时清除浏览器数据。如需查询、更正或处理无法通过页面删除的信息，请通过本政策列明的联系渠道提交请求。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">6. 未成年人</h2>
+          <p>如果你属于法律规定的未成年人，请在监护人阅读并同意本政策后使用本站。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">7. 安全与变更</h2>
+          <p>本站采用 HTTPS、同源校验、限流、字段白名单和最小日志等措施降低风险。互联网服务无法保证绝对安全；如政策内容或处理目的发生实质变化，本站会更新版本。</p>
+        </section>
+      </>}
     </LegalDocument>
   );
 }

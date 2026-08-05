@@ -17,10 +17,11 @@ export type AppPage = "calculator" | "training" | "skland";
 
 interface AppSidebarProps {
   page: AppPage;
+  sklandEnabled: boolean;
   onPageChange: (page: AppPage) => void;
 }
 
-export function AppSidebar({ page, onPageChange }: AppSidebarProps) {
+export function AppSidebar({ page, sklandEnabled, onPageChange }: AppSidebarProps) {
   const { isMobile, setOpenMobile } = useSidebar();
 
   function handlePageChange(nextPage: AppPage) {
@@ -56,16 +57,18 @@ export function AppSidebar({ page, onPageChange }: AppSidebarProps) {
                 <span>练卡建议</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={page === "skland"}
-                onClick={() => handlePageChange("skland")}
-                tooltip="森空岛状态"
-              >
-                <Cloud className="size-5" />
-                <span>森空岛状态</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {sklandEnabled ? (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={page === "skland"}
+                  onClick={() => handlePageChange("skland")}
+                  tooltip="森空岛状态"
+                >
+                  <Cloud className="size-5" />
+                  <span>森空岛状态</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ) : null}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

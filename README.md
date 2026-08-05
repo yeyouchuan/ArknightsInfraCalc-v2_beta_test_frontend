@@ -1,6 +1,6 @@
 # 明日方舟基建排班助手
 
-导入森空岛或 MAA 干员数据，配置基建设施和换班方式，生成多班次排班、效率概览与练卡建议，并可导出到 MAA。求解由服务端长驻的 `infra-cli serve` 完成，本仓库不实现排班算法和效率公式。
+导入干员数据，配置基建设施和换班方式，生成多班次排班、效率概览与练卡建议，并可导出到 MAA。求解由服务端长驻的 `infra-cli serve` 完成，本仓库不实现排班算法和效率公式。线上环境只提供 MAA/兼容文件导入；dev 环境额外提供森空岛同步。
 
 ## 本地开发
 
@@ -23,6 +23,7 @@ http://127.0.0.1:5174
 npm run check
 npm run build
 npm run test:e2e
+npm run test:e2e:production-profile
 npm run test:e2e:webkit
 ```
 
@@ -50,11 +51,11 @@ npm run dev
 http://127.0.0.1:5174/?beta
 ```
 
-调试 UI 只有在服务端 `BETA_DEBUG_TOOLS_ENABLED=1` 且 URL 同时带 `?beta` 时出现。单独添加 `?beta` 不会开启调试字段；生产环境应保持该开关关闭。hydration、接口泄露、错误码、限流和响应式排查流程见[开发指南](./docs/DEVELOPMENT_GUIDE.md#调试模式)和[上线产品化报告](./docs/FRONTEND_PRODUCTION_READINESS_REPORT.md#开发调试环境使用指南)。
+调试 UI 只有在服务端 `BETA_DEBUG_TOOLS_ENABLED=1` 且 URL 同时带 `?beta` 时出现。开关打开后页脚会显示“开启/退出调试工具”入口；production 会强制关闭入口和调试字段，即使误设为`1`也不会开放。单独添加 `?beta` 不会开启调试字段。hydration、接口泄露、错误码、限流和响应式排查流程见[开发指南](./docs/DEVELOPMENT_GUIDE.md#调试模式)和[上线产品化报告](./docs/FRONTEND_PRODUCTION_READINESS_REPORT.md#开发调试环境使用指南)。
 
-## Box 导入与森空岛登录
+## Box 导入与 dev 森空岛登录
 
-页面支持两种主要 Box 来源：森空岛同步，以及上传或粘贴 MAA 的 `Arknights_OperBox_Export.json`。桌面端使用森空岛二维码登录；手机端可通过鹰角官方 `u-link` 包装二维码接口返回的 `scanUrl`，尝试拉起森空岛完成同一授权流程。移动端兼容性取决于森空岛 App 是否转交登录载荷，失败时应改用桌面二维码；本项目不提供账号密码登录。旧的一图流 xlsx 仍保留为兼容入口，243 全精二样例可从首页的“全角色导入”直接载入。
+所有环境均支持上传或粘贴 MAA 的 `Arknights_OperBox_Export.json`。dev 环境还支持森空岛同步：桌面端使用二维码登录，手机端可通过鹰角官方 `u-link` 包装二维码接口返回的 `scanUrl`，尝试拉起森空岛完成同一授权流程。移动端兼容性取决于森空岛 App 是否转交登录载荷，失败时应改用桌面二维码；本项目不提供账号密码登录。旧的一图流 xlsx 仍保留为兼容入口，243 全精二样例可从首页的“全角色导入”直接载入。
 
 登录、添加账号、账号/角色切换和退出统一位于侧边栏的“森空岛状态”页面；同一浏览器最多保留 5 个森空岛账号。生成二维码前必须分别同意[本站服务条款](./src/app/terms/page.tsx)与[本站隐私政策](./src/app/privacy/page.tsx)。基础登录只返回排班所需的 Box、设施、当前进驻与心情；头像、理智、任务、公招、皮肤、活动和游戏进度等完整状态需要按账号单独授权，撤回不影响排班同步。具体范围与排除项见 [森空岛数据能力矩阵](docs/SKLAND_DATA_CAPABILITIES.md)。
 
@@ -62,6 +63,7 @@ http://127.0.0.1:5174/?beta
 
 ```powershell
 $env:SKLAND_SESSION_SECRET = "请替换为随机生成的长期密钥"
+$env:APP_DEPLOYMENT_ENV = "development"
 npm run dev
 ```
 
@@ -74,6 +76,8 @@ $env:BETA_TRUST_PROXY_HEADERS = "1"
 ```
 
 `BETA_PUBLIC_ORIGIN`保护全部公开写接口，`SKLAND_PUBLIC_ORIGIN`继续保护森空岛会话流。每个森空岛账号的凭证会使用 AES-256-GCM 加密后写入独立的 HttpOnly Cookie，另有一个加密索引 Cookie 记录当前账号；凭证从扫码成功起固定保存 7 天，刷新、读取会话或切换角色不会续期。扫码临时凭据和登录凭证都不会写入浏览器存储、运行记录或反馈包。状态中心提供撤回授权和“删除全部森空岛数据”，后者同时清除可关联的服务端运行记录与反馈，并保留独立导入的 MAA 数据和手动布局。localhost 可使用 HTTP 开发；非 localhost 环境默认必须通过 HTTPS 访问，否则只禁用森空岛入口，MAA 导入和求解仍可使用。仅在临时、可信的 HTTP 测试环境中可以显式设置 `SKLAND_ALLOW_INSECURE_HTTP=1`；此时登录流量不会受到 HTTPS 保护。
+
+`APP_DEPLOYMENT_ENV=production`会强制关闭森空岛，不能被`SKLAND_FEATURE_ENABLED=1`覆盖。线上构建不会渲染相关入口、不会发起会话请求，公开健康检查不含相关能力字段，`/api/skland/*`统一返回 404。未声明部署目标的`next build`同样按 production 关闭；本地`next dev`默认保持兼容。
 
 法律页面默认以“明日方舟基建排班助手项目维护者”署名并链接仓库 Issues，可通过 `LEGAL_OPERATOR_NAME`、`LEGAL_CONTACT_EMAIL`、`LEGAL_CONTACT_URL` 覆盖。修改政策正文时还应同步更新 `src/legal-policy.ts` 中的政策版本，使旧同意失效并要求重新确认。
 
@@ -97,7 +101,39 @@ chmod +x bin/infra-cli
 
 `infra-cli serve` 的内部响应不得直接作为公共 API 数据返回，必须经过 `src/server/public-plan.ts` 的白名单映射。协议与公共边界见[Frontend Serve Guide](./docs/FRONTEND_SERVE_GUIDE.md)。
 
-## 生产运行
+## 双环境自动部署
+
+分支与站点一一对应：
+
+| 分支 | GitHub Environment | 部署目标 | 森空岛 |
+| --- | --- | --- | --- |
+| `main` | `production` | 线上站点 | 强制关闭 |
+| `develop` | `development` | dev 站点 | 开启，可由环境变量主动关闭 |
+
+推送到两个分支都会先执行`Frontend quality`。只有 push 门禁成功后，`Deploy verified branch`才会打包该次通过验证的 SHA，并调用`scripts/deploy-release.sh`发布；PR 检查不会触发部署。发布脚本使用独立 release 目录、原子切换`current`软链、内部/公网健康检查和失败回滚。
+
+需要在 GitHub 仓库创建`production`与`development`两个 Environment，并在每个 Environment 中配置同名、不同值的项目：
+
+Secrets：
+
+- `DEPLOY_HOST`
+- `DEPLOY_SSH_USER`
+- `DEPLOY_SSH_PRIVATE_KEY`
+- `DEPLOY_SSH_KNOWN_HOSTS`
+
+Variables：
+
+- `DEPLOY_APP_ROOT`：例如线上`/opt/arknights-infra`、dev `/opt/arknights-infra-dev`
+- `DEPLOY_SERVICE`：例如`arknights-infra`、`arknights-infra-dev`
+- `DEPLOY_RUN_USER`：默认`arkinfra`
+- `DEPLOY_INTERNAL_PORT`：例如线上`4175`、dev `4275`
+- `DEPLOY_PUBLIC_HEALTH_URL`：对应站点的完整`/api/health`地址
+- `DEPLOY_DEBUG_TOOLS_ENABLED`：dev 可设为`1`，production 会强制改为`0`
+- `DEPLOY_RATE_LIMIT_ENABLED`：通常保持`1`；production 会强制开启
+
+服务器需要预先创建两套 systemd 服务、Nginx 站点和独立持久化目录。每套应用根目录的`shared/.env.local`保存该环境的非仓库配置；dev 在其中配置森空岛密钥和 Origin，production 不需要森空岛密钥。SSH 部署账号只应获得运行发布脚本所需的最小免密 sudo 权限。`develop`首次启用前应从已验证的`main`创建，并为两个分支启用必须通过`Frontend quality`的保护规则。
+
+## 手动运行
 
 ```bash
 npm ci

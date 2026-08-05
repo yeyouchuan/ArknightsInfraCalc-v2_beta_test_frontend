@@ -21,6 +21,7 @@ import type { BaseBlueprint, BoxSource, DisplayError, OperBoxEntry, PresetDef, R
 type LayoutSection = "basics" | "facilities";
 
 type SetupDialogProps = {
+  sklandEnabled: boolean;
   open: boolean;
   initialStep: SetupStep;
   onOpenChange: (open: boolean) => void;
@@ -72,6 +73,7 @@ function formatSyncTime(timestamp: number | null | undefined): string {
 }
 
 export function SetupDialog({
+  sklandEnabled,
   open,
   initialStep,
   onOpenChange,
@@ -283,12 +285,14 @@ export function SetupDialog({
                 {showImportOptions ? (
                   <section id="setup-import-options" className="setup-config-panel p-4 sm:p-5" aria-labelledby="setup-import-title">
                     <h3 id="setup-import-title" className="sr-only">选择干员数据来源</h3>
-                    <Tabs value={inputMode} onValueChange={(value) => onInputModeChange(value as "skland" | "maa")}>
-                      <TabsList className="h-auto w-full rounded-[4px] sm:w-auto" aria-label="干员数据来源">
-                        <TabsTrigger value="skland" className="rounded-[4px]"><Database />森空岛</TabsTrigger>
-                        <TabsTrigger value="maa" className="rounded-[4px]"><FileJson />MAA</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="skland" className="pt-4">
+                    <Tabs value={sklandEnabled ? inputMode : "maa"} onValueChange={(value) => onInputModeChange(value as "skland" | "maa")}>
+                      {sklandEnabled ? (
+                        <TabsList className="h-auto w-full rounded-[4px] sm:w-auto" aria-label="干员数据来源">
+                          <TabsTrigger value="skland" className="rounded-[4px]"><Database />森空岛</TabsTrigger>
+                          <TabsTrigger value="maa" className="rounded-[4px]"><FileJson />MAA</TabsTrigger>
+                        </TabsList>
+                      ) : null}
+                      {sklandEnabled ? <TabsContent value="skland" className="pt-4">
                         <div className="setup-import-action flex flex-wrap items-center justify-between gap-4 px-4 py-4">
                           <div className="min-w-0">
                             <strong className="block truncate text-sm">
@@ -326,7 +330,7 @@ export function SetupDialog({
                             {sklandSnapshot.warnings.map((warning) => <li key={warning}>· {warning}</li>)}
                           </ul>
                         ) : null}
-                      </TabsContent>
+                      </TabsContent> : null}
                       <TabsContent value="maa" className="grid gap-3 pt-4">
                         <FileDrop fileName={boxSource === "maa" ? fileName : null} onFile={(file) => void importMaaFile(file)} />
                         <Button
@@ -515,7 +519,9 @@ export function SetupDialog({
           <DialogHeader>
             <DialogTitle>清除本地数据？</DialogTitle>
             <DialogDescription>
-              将删除此浏览器中的布局、干员数据、最近排班和提示偏好。森空岛登录状态不会退出。
+              {sklandEnabled
+                ? "将删除此浏览器中的布局、干员数据、最近排班和提示偏好。森空岛登录状态不会退出。"
+                : "将删除此浏览器中的布局、干员数据、最近排班和提示偏好。"}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

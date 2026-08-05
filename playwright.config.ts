@@ -5,6 +5,7 @@ const webServerPort = new URL(baseURL).port || "80";
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: "production-profile.spec.ts",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

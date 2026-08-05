@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { isSklandFeatureEnabled } from "../../deployment.ts";
 import type { SklandAccountSummary, SklandScheduleSnapshot } from "../../types.ts";
 import { failureResponse, PublicApiError } from "../api-contract";
 import { loadSessionSnapshot, SklandServiceError } from "./adapter";
@@ -235,8 +236,13 @@ export function withUpdatedSklandSession(
 }
 
 export function assertSklandAvailable(request: Request): void {
+  assertSklandFeatureEnabled();
   if (!isSklandConfigured()) throw new PublicApiError("AIC-AUTH-2003");
   if (!isSecureSklandRequest(request)) throw new PublicApiError("AIC-AUTH-2002");
+}
+
+export function assertSklandFeatureEnabled(): void {
+  if (!isSklandFeatureEnabled()) throw new PublicApiError("AIC-AUTH-2007");
 }
 
 export function sklandErrorResponse(

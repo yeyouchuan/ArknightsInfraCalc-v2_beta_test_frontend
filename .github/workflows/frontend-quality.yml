@@ -3,9 +3,9 @@ name: Frontend quality
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -49,3 +49,6 @@ jobs:
 
       - name: End-to-end tests
         run: npm run test:e2e
+
+      - name: Production profile isolation
+        run: npm run test:e2e:production-profile

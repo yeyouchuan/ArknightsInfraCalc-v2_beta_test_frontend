@@ -8,6 +8,7 @@ import {
   successResponse,
 } from "@/server/api-contract";
 import type { PublicHealthData } from "@/types";
+import { isSklandFeatureEnabled } from "@/deployment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,14 +19,17 @@ export async function GET() {
   try {
     const health = await getHealth();
     const plannerReady = Boolean(health.ok && health.cliReady);
-    const sklandAvailable = Boolean(health.sklandConfigured && !health.sklandDisabledReason);
+    const sklandEnabled = isSklandFeatureEnabled();
+    const sklandAvailable = Boolean(sklandEnabled && health.sklandConfigured && !health.sklandDisabledReason);
     const data: PublicHealthData = {
       status: plannerReady ? "ready" : "unavailable",
       plannerReady,
-      skland: {
-        available: sklandAvailable,
-        message: sklandAvailable ? null : "当前未开放森空岛登录，可使用 MAA 导入。",
-      },
+      ...(sklandEnabled ? {
+        skland: {
+          available: sklandAvailable,
+          message: sklandAvailable ? null : "当前未开放森空岛登录，可使用 MAA 导入。",
+        },
+      } : {}),
       features: {
         debugTools: isDebugToolsEnabled(),
         rateLimit: areRateLimitsEnabled(),

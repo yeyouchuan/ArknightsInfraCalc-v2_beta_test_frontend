@@ -27,9 +27,9 @@ export async function POST(request: Request) {
   let previous: SklandAccountStore | null = null;
   let targetAccountId: string | null = null;
   try {
+    assertSklandAvailable(request);
     assertSameOrigin(request);
     enforceRateLimit("skland-action", requestClientIp(request), 30, 60 * 60_000);
-    assertSklandAvailable(request);
     previous = await readSklandAccountStore();
     const body = await readJsonBody(request, 16 * 1024) as { accountId?: unknown; uid?: unknown } | null;
     if (typeof body?.uid !== "string") throw new PublicApiError("AIC-REQ-1001");

@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
 
 import { LegalDocument } from "@/components/legal/LegalDocument";
+import { isSklandFeatureEnabled } from "@/deployment";
 import { legalIdentity } from "@/legal";
 import { LEGAL_EFFECTIVE_DATE } from "@/legal-policy";
 
 export const metadata: Metadata = {
   title: "服务条款 · 可露希尔基建终端",
-  description: "使用可露希尔基建终端及森空岛同步功能的约定。",
+  description: "使用可露希尔基建终端的约定。",
 };
 
 export default function TermsPage() {
   const identity = legalIdentity();
+  const sklandEnabled = isSklandFeatureEnabled();
   return (
     <LegalDocument eyebrow="可露希尔基建终端" title="服务条款" effectiveDate={LEGAL_EFFECTIVE_DATE}>
+      {sklandEnabled ? <>
       <section>
         <h2 className="font-number">1. 服务说明</h2>
         <p>本站由{identity.operatorName}维护，为《明日方舟》玩家提供基建排班、练卡建议、森空岛数据同步和 MAA 导出。本站处于小范围测试阶段，是非官方、非商业工具，与鹰角网络、森空岛和 MAA 项目不存在隶属、代理或背书关系。</p>
@@ -57,6 +60,37 @@ export default function TermsPage() {
         <h2 className="font-number">8. 联系与争议</h2>
         <p>如对本条款有疑问，请通过<a href={identity.contactUrl}>项目问题反馈渠道</a>{identity.contactEmail ? <>或邮箱 <a href={`mailto:${identity.contactEmail}`}>{identity.contactEmail}</a></> : null}联系我们。双方应先友好协商；协商不成的，按照适用法律处理。</p>
       </section>
+      </> : <>
+        <section>
+          <h2 className="font-number">1. 服务说明</h2>
+          <p>本站由{identity.operatorName}维护，为《明日方舟》玩家提供基建排班、练卡建议、文件导入和 MAA 导出。本站是非官方、非商业工具，与鹰角网络及 MAA 项目不存在隶属、代理或背书关系。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">2. 条款接受</h2>
+          <p>你可以在阅读并接受本条款后使用本站。若不同意本条款，请停止提交数据或使用排班服务。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">3. 使用规则</h2>
+          <p>你不得利用本站破坏服务稳定性、批量滥用接口、传播违法内容，或侵犯他人合法权益。出现明显滥用或安全风险时，本站可以限制相关功能。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">4. 排班结果与责任限制</h2>
+          <p>排班、效率和练卡建议由输入数据及求解器生成，仅供游戏辅助参考。你应在导入 MAA 或调整游戏内设施前自行核对结果。对于测试功能中断、输入错误、设备故障或依据建议进行操作造成的间接损失，本站在法律允许范围内不承担超出合理范围的责任。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">5. 服务变更与终止</h2>
+          <p>本站可能为修复安全问题、改进排班能力或结束测试而调整功能。你可以随时停止使用并清除浏览器中的本地数据。</p>
+        </section>
+
+        <section>
+          <h2 className="font-number">6. 联系与争议</h2>
+          <p>如对本条款有疑问，请通过<a href={identity.contactUrl}>项目问题反馈渠道</a>{identity.contactEmail ? <>或邮箱 <a href={`mailto:${identity.contactEmail}`}>{identity.contactEmail}</a></> : null}联系我们。双方应先友好协商；协商不成的，按照适用法律处理。</p>
+        </section>
+      </>}
     </LegalDocument>
   );
 }

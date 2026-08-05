@@ -818,15 +818,23 @@ test("?beta cannot enable debug tools without the server feature flag", async ({
   await expect(page.getByText("排班服务已就绪")).toBeVisible();
   await expect(page.getByText("调试输出")).toHaveCount(0);
   await expect(page.getByText("问题上下文")).toHaveCount(0);
+  await expect(page.getByText("开启调试工具", { exact: true })).toHaveCount(0);
 });
 
-test("the server flag plus ?beta enables the debug panels", async ({ page }) => {
+test("the development debug entry manages the URL and debug panels", async ({ page }) => {
   await mockApis(page, { debugTools: true });
   await seedPreferences(page);
-  await page.goto("/?beta");
+  await page.goto("/");
+  await expect(page.getByText("调试输出")).toHaveCount(0);
+  await page.getByText("开启调试工具", { exact: true }).click();
+  await expect(page).toHaveURL(/\?beta$/);
   await page.getByRole("tab", { name: "列表式布局" }).click();
   await expect(page.getByText("调试输出")).toBeVisible();
   await expect(page.getByText("问题上下文")).toBeVisible();
+  await page.getByText("退出调试工具", { exact: true }).click();
+  await expect(page).not.toHaveURL(/\?beta/);
+  await expect(page.getByText("调试输出")).toHaveCount(0);
+  await expect(page.getByText("开启调试工具", { exact: true })).toBeVisible();
 });
 
 test("shows the solving orb only while a plan request is running", async ({ page }) => {
