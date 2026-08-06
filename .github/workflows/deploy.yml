@@ -9,7 +9,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     environment:
       name: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     concurrency:
@@ -84,6 +84,8 @@ jobs:
         shell: bash
         run: >-
           scp -o BatchMode=yes
+          -o ServerAliveInterval=30
+          -o ServerAliveCountMax=6
           "release-${DEPLOY_SHA}.tar.gz"
           "${DEPLOY_SSH_USER}@${DEPLOY_HOST}:/tmp/arknights-infra-${DEPLOY_SHA}.tar.gz"
 
