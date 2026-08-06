@@ -2,6 +2,7 @@
 
 import { Calculator, Cloud, GraduationCap } from "lucide-react";
 
+import { CLIENT_SKLAND_ENABLED } from "@/client-features";
 import {
   Sidebar,
   SidebarContent,
@@ -17,11 +18,10 @@ export type AppPage = "calculator" | "training" | "skland";
 
 interface AppSidebarProps {
   page: AppPage;
-  sklandEnabled: boolean;
   onPageChange: (page: AppPage) => void;
 }
 
-export function AppSidebar({ page, sklandEnabled, onPageChange }: AppSidebarProps) {
+export function AppSidebar({ page, onPageChange }: AppSidebarProps) {
   const { isMobile, setOpenMobile } = useSidebar();
 
   function handlePageChange(nextPage: AppPage) {
@@ -57,7 +57,7 @@ export function AppSidebar({ page, sklandEnabled, onPageChange }: AppSidebarProp
                 <span>练卡建议</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            {sklandEnabled ? (
+            {CLIENT_SKLAND_ENABLED ? (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={page === "skland"}

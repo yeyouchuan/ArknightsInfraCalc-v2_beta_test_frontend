@@ -44,6 +44,9 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Production client isolation
+        run: npm run test:production-client
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

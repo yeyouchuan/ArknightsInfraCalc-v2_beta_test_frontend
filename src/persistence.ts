@@ -7,6 +7,7 @@ import type {
   RotationProfile,
   UserProfile,
 } from "./types";
+import { CLIENT_SKLAND_ENABLED } from "./client-features.ts";
 import { stripInternalFields } from "./internal-field-safety.ts";
 import { normalizeRotationProfile } from "./rotation-settings.ts";
 import { normalizeRotationResult } from "./rotation-result.ts";
@@ -17,7 +18,7 @@ export const SESSION_KEY_V3 = "arknights-infra-calc-beta-session-v3";
 export const SESSION_KEY_V2 = "arknights-infra-calc-beta-session-v2";
 export const RESULT_CLEAR_WARNING_DISMISSED_KEY = "arknights-infra-calc-result-clear-warning-dismissed";
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const SKLAND_SOURCE_NAME = "森空岛同步";
+const SKLAND_SOURCE_NAME = CLIENT_SKLAND_ENABLED ? "森空岛同步" : "已保存的干员数据";
 
 export interface PersistedSessionV5 {
   version: 5;

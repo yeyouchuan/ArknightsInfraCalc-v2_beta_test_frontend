@@ -27,6 +27,7 @@ npm run dev
 ```powershell
 npm run check
 npm run build
+npm run test:production-client
 npm run test:e2e
 npm run test:e2e:production-profile
 npm run test:e2e:webkit
@@ -201,11 +202,13 @@ GitHub Actions 在面向 `main` 的 PR 和 `main` push 上使用 Node 22，顺�
 3. `npm test`
 4. `npm run test:api-contract`
 5. `npm run build`
-6. `npx playwright install --with-deps chromium`
-7. `npm run test:e2e`
-8. `npm run test:e2e:production-profile`
+6. `npm run test:production-client`
+7. `npx playwright install --with-deps chromium`
+8. `npm run test:e2e`
+9. `npm run test:e2e:production-profile`
 
 `main`和`develop`都执行相同质量门禁。通过 push 门禁后，部署工作流分别使用 GitHub Environments `production`和`development`中的 SSH Secrets 与部署 Variables 发布对应站点；PR 不部署。`DEPLOY_DEBUG_TOOLS_ENABLED`和`DEPLOY_RATE_LIMIT_ENABLED`集中管理 dev 的调试入口与限流，production 则固定为调试关闭、限流开启。production-profile 门禁会故意反向设置森空岛、调试和限流变量，确认 production 的强制策略不可被误配置绕过。
+Production client isolation scans static JavaScript and public HTML/RSC; production-profile separately verifies hidden UI, absent requests and health fields, and the API 404 boundary. Both gates are required.
 
 E2E 使用固定数据和接口拦截，不要求 CI 中存在真实 CLI。每次 UI 修改至少检查 390px、768px、1440px、三个一级导航和两处锁定区域。错误码新增或修改必须同步更新：
 

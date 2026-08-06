@@ -17,7 +17,7 @@ import {
   ShiftTabs,
   StatusBar,
 } from "@/components";
-import { ShiftComparisonCard } from "@/skland-components";
+import { ShiftComparisonCard } from "@/components/ShiftComparisonCard";
 import type { RoomRow } from "@/schedule";
 import type {
   BaseBlueprint,

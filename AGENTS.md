@@ -101,6 +101,7 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - 反馈必须要求用户同意，并保持最小化：公开响应只有 `feedbackId` 和 `savedAt`，不要把文件路径、Box、debug bundle 或内部诊断内容回传给浏览器。
 - 森空岛只提供二维码授权流程，不添加账号密码、短信验证码代填或绕过官方授权的登录方式。
 - `APP_DEPLOYMENT_ENV=production`必须从页面、客户端请求、健康检查字段和公开 API 访问面强制移除森空岛能力；该限制不能被`SKLAND_FEATURE_ENABLED=1`覆盖。dev 使用`APP_DEPLOYMENT_ENV=development`保留森空岛能力。
+- Production browser artifacts must not contain Skland UI copy, `/api/skland` URLs, or the `skland://` app scheme; run `npm run test:production-client` after changing client boundaries.
 - production 必须强制关闭调试工具并启用限流，不能被`BETA_DEBUG_TOOLS_ENABLED=1`或`BETA_RATE_LIMIT_ENABLED=0`覆盖；dev 可由部署环境集中管理这两个开关，调试入口仍需`?beta`二次门控。
 - `SKLAND_SESSION_SECRET` 必须至少 32 字节且长期稳定。森空岛会话使用 AES-256-GCM 封装在 HttpOnly Cookie 中；凭据不得进入 localStorage、CLI 运行记录、反馈包、console 或公开响应。
 - 非 localhost 的森空岛请求默认要求 HTTPS。`SKLAND_ALLOW_INSECURE_HTTP=1` 仅允许临时、可信的本地或内网测试，绝不能作为生产默认值。
@@ -170,6 +171,7 @@ npm test
 npm run test:api-contract
 npm run check
 npm run build
+npm run test:production-client
 npm run test:e2e
 npm run test:e2e:production-profile
 npm run test:e2e:webkit
@@ -178,6 +180,7 @@ npm start
 
 - `npm run check` 依次运行 lint、单元测试和 API 契约测试。
 - `npm run build` 进行 Next 生产构建并覆盖 TypeScript 集成检查。
+- `npm run test:production-client` checks the production browser build for forbidden Skland login content.
 - `npm run test:e2e` 默认在 5184 端口自动启动 Next，并用 Playwright 拦截外部 API；通常不需要真实 CLI 或森空岛凭据。
 - `npm run test:e2e:webkit` 使用同一套 E2E 场景执行独立 WebKit 兼容性门禁。
 - `npm start` 默认监听 `0.0.0.0:5174`。

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { CLIENT_SKLAND_ENABLED } from "@/client-features";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, type AppPage } from "@/components/layout/AppSidebar";
 import { AppTopBar } from "@/components/layout/AppTopBar";
@@ -183,7 +184,7 @@ function buildIssueReport(
   };
 }
 
-function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
+function WorkbenchApp() {
   const defaultPreset = PRESETS[0];
   const defaultLayout = buildBlueprint(defaultPreset);
   const [page, setPage] = useState<AppPage>("calculator");
@@ -200,7 +201,7 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
   const [layoutSource, setLayoutSource] = useState<"local" | "skland">("local");
   const [localLayoutBackup, setLocalLayoutBackup] = useState<BaseBlueprint | null>(null);
   const [rotationProfile, setRotationProfile] = useState<RotationProfile>(DEFAULT_ROTATION_PROFILE);
-  const [inputMode, setInputMode] = useState<"skland" | "maa">(sklandEnabled ? "skland" : "maa");
+  const [inputMode, setInputMode] = useState<"skland" | "maa">(CLIENT_SKLAND_ENABLED ? "skland" : "maa");
   const [maaPaste, setMaaPaste] = useState("");
   const [sklandScheduleSnapshot, setSklandScheduleSnapshot] = useState<SklandScheduleSnapshot | null>(null);
   const [sklandStatusSnapshot, setSklandStatusSnapshot] = useState<SklandStatusSnapshot | null>(null);
@@ -208,7 +209,7 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
   const [sklandActiveAccountId, setSklandActiveAccountId] = useState<string | null>(null);
   const [sklandConfigured, setSklandConfigured] = useState(false);
   const [sklandDisabledReason, setSklandDisabledReason] = useState<string | null>(null);
-  const [sklandSessionLoading, setSklandSessionLoading] = useState(sklandEnabled);
+  const [sklandSessionLoading, setSklandSessionLoading] = useState(CLIENT_SKLAND_ENABLED);
   const [sklandError, setSklandError] = useState<DisplayError | null>(null);
   const [sklandBusy, setSklandBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -247,7 +248,7 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
   const activeRotationShift = scheduleResult?.rotation.shifts?.[activeShift];
   const rows = useMemo(() => planToRows(activePlan, activeRotationShift, layout), [activePlan, activeRotationShift, layout]);
   const currentMoraleByOperator = useMemo(() => {
-    if (boxSource !== "skland" || !sklandScheduleSnapshot) return undefined;
+    if (!CLIENT_SKLAND_ENABLED || boxSource !== "skland" || !sklandScheduleSnapshot) return undefined;
 
     return new Map(
       sklandScheduleSnapshot.infrastructure.rooms.flatMap((room) =>
@@ -256,18 +257,26 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
     );
   }, [boxSource, sklandScheduleSnapshot]);
   const shiftComparisons = useMemo(
-    () => compareShifts(scheduleResult?.maa, sklandScheduleSnapshot?.infrastructure),
+    () => CLIENT_SKLAND_ENABLED
+      ? compareShifts(scheduleResult?.maa, sklandScheduleSnapshot?.infrastructure)
+      : [],
     [scheduleResult?.maa, sklandScheduleSnapshot?.infrastructure]
   );
-  const closestComparison = useMemo(() => closestShift(shiftComparisons), [shiftComparisons]);
+  const closestComparison = useMemo(
+    () => CLIENT_SKLAND_ENABLED ? closestShift(shiftComparisons) : null,
+    [shiftComparisons]
+  );
   const sklandLayoutMatches = useMemo(() => {
+    if (!CLIENT_SKLAND_ENABLED) return false;
     const suggestion = sklandScheduleSnapshot?.infrastructure.layoutSuggestion;
     if (!suggestion) return false;
     const compact = (value: BaseBlueprint) => value.rooms.map((room) => [room.id, room.kind, room.level, room.product]);
     return JSON.stringify(compact(layout)) === JSON.stringify(compact(suggestion));
   }, [layout, sklandScheduleSnapshot?.infrastructure.layoutSuggestion]);
   const activeSklandAccount = useMemo(
-    () => sklandAccounts.find((account) => account.accountId === sklandActiveAccountId) ?? null,
+    () => CLIENT_SKLAND_ENABLED
+      ? sklandAccounts.find((account) => account.accountId === sklandActiveAccountId) ?? null
+      : null,
     [sklandAccounts, sklandActiveAccountId]
   );
   const canRun = Boolean(operbox && operbox.length > 0 && cliReady);
@@ -293,16 +302,16 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
         const restoredOperbox = restored.operbox ? normalizeOperboxEntries(restored.operbox) : null;
         setPreset(restoredPreset);
         setLayout(restoredLayout);
-        const restoreAsLocalImport = !sklandEnabled && restored.boxSource === "skland";
+        const restoreAsLocalImport = !CLIENT_SKLAND_ENABLED && restored.boxSource === "skland";
         const restoredBoxSource = restoreAsLocalImport ? "maa" : restored.boxSource;
         const restoredSourceName = restoreAsLocalImport ? "已保存的干员数据" : restored.sourceName;
-        const restoredLayoutSource = sklandEnabled ? restored.layoutSource : "local";
+        const restoredLayoutSource = CLIENT_SKLAND_ENABLED ? restored.layoutSource : "local";
         setOperbox(restoredOperbox);
         setFileName(restoredSourceName);
         setBoxSource(restoredBoxSource);
         setLayoutDirty(restored.layoutDirty);
         setLayoutSource(restoredLayoutSource);
-        setLocalLayoutBackup(sklandEnabled ? restored.localLayoutBackup : null);
+        setLocalLayoutBackup(CLIENT_SKLAND_ENABLED ? restored.localLayoutBackup : null);
         setRotationProfile(restored.rotationProfile);
         setResult(restored.result);
         setActiveShift(restored.activeShift);
@@ -311,14 +320,14 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
         initialOperbox.current = restoredOperbox;
         initialLayoutDirty.current = restored.layoutDirty;
         initialLayoutSource.current = restoredLayoutSource;
-        initialLocalLayoutBackup.current = sklandEnabled ? restored.localLayoutBackup : null;
+        initialLocalLayoutBackup.current = CLIENT_SKLAND_ENABLED ? restored.localLayoutBackup : null;
       }
     } catch {
       setStorageNotice(displayError("AIC-LOCAL-7001", "浏览器无法读取本地数据，但仍可继续生成排班。"));
     } finally {
       setHasRestoredSession(true);
     }
-  }, [sklandEnabled]);
+  }, []);
 
   useEffect(() => {
     if (!hasRestoredSession || typeof window === "undefined") return;
@@ -357,14 +366,14 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
   useEffect(() => {
     let cancelled = false;
     if (!hasRestoredSession) return;
-    setSklandSessionLoading(sklandEnabled);
-    const sessionRequest = sklandEnabled ? getSklandSession() : Promise.resolve(null);
+    setSklandSessionLoading(CLIENT_SKLAND_ENABLED);
+    const sessionRequest = CLIENT_SKLAND_ENABLED ? getSklandSession() : Promise.resolve(null);
     void Promise.allSettled([getHealth(), sessionRequest]).then(([healthResult, sessionResult]) => {
       if (cancelled) return;
       if (healthResult.status === "fulfilled") {
         const health = healthResult.value;
-        setSklandConfigured(Boolean(sklandEnabled && health.skland?.available));
-        setSklandDisabledReason(sklandEnabled ? health.skland?.message ?? null : null);
+        setSklandConfigured(Boolean(CLIENT_SKLAND_ENABLED && health.skland?.available));
+        setSklandDisabledReason(CLIENT_SKLAND_ENABLED ? health.skland?.message ?? null : null);
         setDebugToolsEnabled(health.features.debugTools);
         if (health.plannerReady) {
           setCliReady(true);
@@ -378,7 +387,7 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
         setApiError(toDisplayError(healthResult.reason, "排班服务暂不可用，请稍后重试。"));
       }
 
-      if (sklandEnabled && sessionResult.status === "fulfilled" && sessionResult.value) {
+      if (CLIENT_SKLAND_ENABLED && sessionResult.status === "fulfilled" && sessionResult.value) {
         const session = sessionResult.value;
         setSklandError(null);
         setSklandConfigured(session.configured);
@@ -408,7 +417,7 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
             setPreset(resolvePreset(PRESETS.find((item) => item.label === session.scheduleSnapshot?.infrastructure.layoutLabel)));
           }
         }
-      } else if (sklandEnabled && sessionResult.status === "rejected") {
+      } else if (CLIENT_SKLAND_ENABLED && sessionResult.status === "rejected") {
         setSklandError(toDisplayError(sessionResult.reason, "森空岛会话恢复失败，请稍后刷新。"));
       }
       setSklandSessionLoading(false);
@@ -416,11 +425,11 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [hasRestoredSession, sklandEnabled]);
+  }, [hasRestoredSession]);
 
   useEffect(() => {
     if (
-      !sklandEnabled
+      !CLIENT_SKLAND_ENABLED
       || page !== "skland"
       || !activeSklandAccount?.statusAuthorized
       || sklandStatusSnapshot
@@ -447,7 +456,7 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [activeSklandAccount, page, sklandEnabled, sklandStatusSnapshot]);
+  }, [activeSklandAccount, page, sklandStatusSnapshot]);
 
   async function handleFile(file: File): Promise<boolean> {
     setInputError(null);
@@ -1074,14 +1083,15 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <AppSidebar page={page} sklandEnabled={sklandEnabled} onPageChange={setPage} />
+      <AppSidebar page={page} onPageChange={setPage} />
       <SidebarInset>
         <AppTopBar
-          sklandEnabled={sklandEnabled}
-          account={activeSklandAccount}
-          statusSnapshot={sklandStatusSnapshot}
-          sessionLoading={sklandSessionLoading}
-          onOpenSkland={() => setPage("skland")}
+          {...(CLIENT_SKLAND_ENABLED ? {
+            account: activeSklandAccount,
+            statusSnapshot: sklandStatusSnapshot,
+            sessionLoading: sklandSessionLoading,
+            onOpenSkland: () => setPage("skland" as const),
+          } : {})}
         />
 
       <div className="app-content-track py-4">
@@ -1123,7 +1133,7 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
           onClearResultNotice={() => setResultClearNotice(null)}
           onDismissResultClearWarning={dismissResultClearWarning}
         />
-      ) : sklandEnabled && page === "skland" ? (
+      ) : CLIENT_SKLAND_ENABLED && page === "skland" ? (
         <SklandStatus
           scheduleSnapshot={sklandScheduleSnapshot}
           snapshot={sklandStatusSnapshot}
@@ -1171,7 +1181,13 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
       </footer>
 
       <SetupDialog
-        sklandEnabled={sklandEnabled}
+        {...(CLIENT_SKLAND_ENABLED ? {
+          sklandSnapshot: sklandScheduleSnapshot,
+          sklandConfigured,
+          sklandDisabledReason,
+          onOpenSkland: openSklandFromSetup,
+          onUseSklandSnapshot: useSklandSnapshotFromSetup,
+        } : {})}
         open={setupOpen}
         initialStep={setupInitialStep}
         onOpenChange={handleSetupOpenChange}
@@ -1184,11 +1200,6 @@ function WorkbenchApp({ sklandEnabled }: { sklandEnabled: boolean }) {
         onMaaPasteChange={setMaaPaste}
         inputError={inputError}
         resultClearWarningDismissed={resultClearWarningDismissed}
-        sklandSnapshot={sklandScheduleSnapshot}
-        sklandConfigured={sklandConfigured}
-        sklandDisabledReason={sklandDisabledReason}
-        onOpenSkland={openSklandFromSetup}
-        onUseSklandSnapshot={useSklandSnapshotFromSetup}
         onMaaFile={handleFile}
         onMaaPaste={handleMaaPaste}
         presets={PRESETS}
