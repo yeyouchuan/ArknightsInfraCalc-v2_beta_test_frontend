@@ -11,6 +11,7 @@ internal_port="${7:-}"
 public_health_url="${8:-}"
 debug_tools_enabled="${9:-0}"
 rate_limit_enabled="${10:-1}"
+expected_script_sha256="${11:-}"
 
 if [[ "$deployment_environment" != "production" && "$deployment_environment" != "development" ]]; then
   echo "APP_DEPLOYMENT_ENV must be production or development." >&2
@@ -47,6 +48,15 @@ if [[ ! "$internal_port" =~ ^[0-9]{2,5}$ ]]; then
 fi
 if [[ ! "$debug_tools_enabled" =~ ^[01]$ || ! "$rate_limit_enabled" =~ ^[01]$ ]]; then
   echo "Debug and rate-limit flags must be 0 or 1." >&2
+  exit 2
+fi
+if [[ ! "$expected_script_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "Deployment script hash must be a SHA-256 digest." >&2
+  exit 2
+fi
+actual_script_sha256="$(sha256sum "$0" | cut -d ' ' -f 1)"
+if [[ "$actual_script_sha256" != "$expected_script_sha256" ]]; then
+  echo "The reviewed deployment script does not match the server-installed runner." >&2
   exit 2
 fi
 if [[ ! -f "$archive_path" ]]; then
@@ -102,8 +112,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-install -d -m 0755 "$release_dir"
-tar -xzf "$archive_path" -C "$release_dir"
+install -d -m 0750 -o "$run_user" -g "$run_user" "$release_dir"
+runuser -u "$run_user" -- tar --no-same-owner --no-same-permissions -xzf "$archive_path" -C "$release_dir"
 
 if [[ ! -f "$shared_root/.env.local" && -n "$previous_release" && -f "$previous_release/.env.local" ]]; then
   install -m 0600 "$previous_release/.env.local" "$shared_root/.env.local"
@@ -193,4 +203,5 @@ if [[ -n "$public_health_url" ]] && ! curl -fsS --max-time 10 "$public_health_ur
   exit 1
 fi
 
+systemctl enable "$service_name"
 echo "Deployed $release_sha to $deployment_environment at $release_dir"

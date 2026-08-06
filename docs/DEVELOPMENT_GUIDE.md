@@ -210,6 +210,8 @@ GitHub Actions 在面向 `main` 的 PR 和 `main` push 上使用 Node 22，顺�
 `main`和`develop`都执行相同质量门禁。通过 push 门禁后，部署工作流分别使用 GitHub Environments `production`和`development`中的 SSH Secrets 与部署 Variables 发布对应站点；PR 不部署。`DEPLOY_DEBUG_TOOLS_ENABLED`和`DEPLOY_RATE_LIMIT_ENABLED`集中管理 dev 的调试入口与限流，production 则固定为调试关闭、限流开启。production-profile 门禁会故意反向设置森空岛、调试和限流变量，确认 production 的强制策略不可被误配置绕过。
 Production client isolation scans static JavaScript and public HTML/RSC; production-profile separately verifies hidden UI, absent requests and health fields, and the API 404 boundary. Both gates are required.
 
+没有 dev 域名时，dev Nginx 只监听`127.0.0.1:4274`，通过 SSH 本地转发访问；不要为了扫码登录把未加密的 dev 端口暴露到公网。Actions 部署用户使用独立密钥，sudo 只允许固定的`/usr/local/sbin/arknights-infra-deploy`，且固定 runner 的 SHA-256 必须与已验证提交中的脚本一致。
+
 E2E 使用固定数据和接口拦截，不要求 CI 中存在真实 CLI。每次 UI 修改至少检查 390px、768px、1440px、三个一级导航和两处锁定区域。错误码新增或修改必须同步更新：
 
 - `src/types.ts`

@@ -135,6 +135,10 @@ Variables：
 
 服务器需要预先创建两套 systemd 服务、Nginx 站点和独立持久化目录。每套应用根目录的`shared/.env.local`保存该环境的非仓库配置；dev 在其中配置森空岛密钥和 Origin，production 不需要森空岛密钥。SSH 部署账号只应获得运行发布脚本所需的最小免密 sudo 权限。`develop`首次启用前应从已验证的`main`创建，并为两个分支启用必须通过`Frontend quality`的保护规则。
 
+当前没有 dev 域名时，dev Nginx 仅监听服务器回环地址`127.0.0.1:4274`，`DEPLOY_PUBLIC_HEALTH_URL`留空，部署仍会通过 SSH 检查内部`4275`健康状态。使用`ssh -L 4274:127.0.0.1:4274 root@114.66.55.78`建立加密隧道后访问`http://127.0.0.1:4274`。`SKLAND_ALLOW_INSECURE_HTTP=1`只允许用于这条回环隧道，不得把 dev 端口改成公网 HTTP 监听。
+
+Actions 使用独立`arkdeploy`密钥，并且 sudo 仅允许调用服务器上 root 所有的`/usr/local/sbin/arknights-infra-deploy`。工作流会校验该固定 runner 与仓库中已评审脚本的 SHA-256；不匹配时拒绝发布，现有 root SSH 私钥不会进入 GitHub。
+
 ## 手动运行
 
 ```bash

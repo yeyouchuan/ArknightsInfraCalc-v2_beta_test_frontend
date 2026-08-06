@@ -257,6 +257,7 @@ development branch: develop
 development app root: /opt/arknights-infra-dev
 development systemd: arknights-infra-dev
 development internal Next: 127.0.0.1:4275
+development loopback nginx: 127.0.0.1:4274 (SSH tunnel only until a dev domain is available)
 development persistent storage: /var/lib/arknights-infra-dev
 ```
 
