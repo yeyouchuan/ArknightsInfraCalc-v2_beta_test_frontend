@@ -63,7 +63,8 @@ jobs:
             [[ "$DEPLOY_SERVICE" =~ ^arknights-infra-[A-Za-z0-9_.@-]+$ ]]
           fi
           if [[ -n "$DEPLOY_PUBLIC_HEALTH_URL" ]]; then
-            [[ "$DEPLOY_PUBLIC_HEALTH_URL" =~ ^https?://[A-Za-z0-9._:/?&=%-]+$ ]]
+            public_health_url_pattern='^https?://[A-Za-z0-9._:/?&=%-]+$'
+            [[ "$DEPLOY_PUBLIC_HEALTH_URL" =~ $public_health_url_pattern ]]
           fi
 
       - name: Create tracked release archive
