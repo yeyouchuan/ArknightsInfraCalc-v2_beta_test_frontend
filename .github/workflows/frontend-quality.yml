@@ -55,3 +55,9 @@ jobs:
 
       - name: Production profile isolation
         run: npm run test:e2e:production-profile
+
+  deploy:
+    needs: quality
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'develop')
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
