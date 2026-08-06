@@ -63,7 +63,7 @@ if [[ ! -f "$archive_path" ]]; then
   echo "Release archive does not exist: $archive_path" >&2
   exit 2
 fi
-expected_archive_path="/tmp/arknights-infra-${release_sha}.tar.gz"
+expected_archive_path="/tmp/arknights-infra-${deployment_environment}-${release_sha}.tar.gz"
 if [[ "$archive_path" != "$expected_archive_path" ]]; then
   echo "Release archive path does not match the verified commit." >&2
   exit 2

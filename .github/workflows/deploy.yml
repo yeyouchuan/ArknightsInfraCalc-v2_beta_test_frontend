@@ -87,7 +87,7 @@ jobs:
           -o ServerAliveInterval=30
           -o ServerAliveCountMax=6
           "release-${DEPLOY_SHA}.tar.gz"
-          "${DEPLOY_SSH_USER}@${DEPLOY_HOST}:/tmp/arknights-infra-${DEPLOY_SHA}.tar.gz"
+          "${DEPLOY_SSH_USER}@${DEPLOY_HOST}:/tmp/arknights-infra-${DEPLOYMENT_ENV}-${DEPLOY_SHA}.tar.gz"
 
       - name: Deploy and verify
         shell: bash
@@ -98,7 +98,7 @@ jobs:
             "sudo -n /usr/local/sbin/arknights-infra-deploy \
             '$DEPLOYMENT_ENV' \
             '$DEPLOY_SHA' \
-            '/tmp/arknights-infra-${DEPLOY_SHA}.tar.gz' \
+            '/tmp/arknights-infra-${DEPLOYMENT_ENV}-${DEPLOY_SHA}.tar.gz' \
             '$DEPLOY_APP_ROOT' \
             '$DEPLOY_SERVICE' \
             '$DEPLOY_RUN_USER' \
