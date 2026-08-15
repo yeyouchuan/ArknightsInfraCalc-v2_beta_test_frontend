@@ -96,6 +96,20 @@ export function operatorPortraitFor(name: string, id?: string): string | undefin
   return operatorPresentationFor({ name, id }).portrait;
 }
 
+export function operatorBuildingSkillsFor(operator: OperatorAssetRecord): BuildingSkillPresentation[] {
+  return operator.buildingSkills.flatMap((skillRef) => {
+    const skill = BUILDING_SKILL_CATALOG[skillRef.id];
+    return skill
+      ? [{
+          ...skill,
+          index: skillRef.index,
+          elite: skillRef.elite,
+          level: skillRef.level,
+        }]
+      : [];
+  });
+}
+
 export const PROFESSION_LABELS: Readonly<Record<number, string>> = {
   1: "近卫",
   2: "狙击",

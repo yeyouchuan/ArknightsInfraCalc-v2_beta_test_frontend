@@ -8,6 +8,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, type AppPage } from "@/components/layout/AppSidebar";
 import { AppTopBar } from "@/components/layout/AppTopBar";
 import { InfraCalculator } from "@/components/pages/InfraCalculator";
+import { SkillLookup } from "@/components/pages/SkillLookup";
 import { SklandStatus } from "@/components/pages/SklandStatus";
 import { TrainingAdvice } from "@/components/pages/TrainingAdvice";
 
@@ -1133,6 +1134,8 @@ function WorkbenchApp() {
           onClearResultNotice={() => setResultClearNotice(null)}
           onDismissResultClearWarning={dismissResultClearWarning}
         />
+      ) : page === "skills" ? (
+        <SkillLookup />
       ) : CLIENT_SKLAND_ENABLED && page === "skland" ? (
         <SklandStatus
           scheduleSnapshot={sklandScheduleSnapshot}
