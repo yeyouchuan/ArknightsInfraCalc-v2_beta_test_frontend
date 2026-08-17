@@ -1,5 +1,5 @@
-import WorkbenchApp from "@/App";
+import AppLoader from "@/AppLoader";
 
 export default function Page() {
-  return <WorkbenchApp />;
+  return <AppLoader />;
 }

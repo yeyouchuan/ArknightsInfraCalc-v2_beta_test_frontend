@@ -51,7 +51,13 @@ jobs:
         run: npm run test:deploy
 
       - name: Production build
+        env:
+          APP_DEPLOYMENT_ENV: production
+          SKLAND_FEATURE_ENABLED: "0"
         run: npm run build
+
+      - name: Initial bundle budget
+        run: npm run test:bundle-budget
 
       - name: Production output tracing
         run: npm run test:build-traces

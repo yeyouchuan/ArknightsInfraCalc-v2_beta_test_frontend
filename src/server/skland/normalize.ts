@@ -457,27 +457,41 @@ export function scheduleSnapshotFromPlayerInfo(
   return {
     roles,
     operbox,
-    infrastructure: {
-      storeTs: infrastructure.storeTs,
-      layoutLabel: infrastructure.layoutLabel,
-      layoutSuggestion: infrastructure.layoutSuggestion,
-      layoutWarning: infrastructure.layoutWarning,
-      tiredOperators: [...infrastructure.tiredOperators],
-      rooms: infrastructure.rooms.map((room) => ({
-        key: room.key,
-        group: room.group,
-        index: room.index,
-        level: room.level,
-        operators: room.operators.map((operator) => ({
-          id: operator.id,
-          name: operator.name,
-          morale: operator.morale,
-        })),
-        ...("product" in room ? { product: room.product } : {}),
-      })),
-    },
+    infrastructure: scheduleInfrastructure(infrastructure),
     sourceName: "森空岛同步",
     warnings,
+  };
+}
+
+function scheduleInfrastructure(infrastructure: SklandInfrastructure): SklandScheduleSnapshot["infrastructure"] {
+  return {
+    storeTs: infrastructure.storeTs,
+    layoutLabel: infrastructure.layoutLabel,
+    layoutSuggestion: infrastructure.layoutSuggestion,
+    layoutWarning: infrastructure.layoutWarning,
+    tiredOperators: [...infrastructure.tiredOperators],
+    rooms: infrastructure.rooms.map((room) => ({
+      key: room.key,
+      group: room.group,
+      index: room.index,
+      level: room.level,
+      operators: room.operators.map((operator) => ({
+        id: operator.id,
+        name: operator.name,
+        morale: operator.morale,
+      })),
+      ...("product" in room ? { product: room.product } : {}),
+    })),
+  };
+}
+
+export function scheduleSnapshotFromStatusSnapshot(snapshot: SklandStatusSnapshot): SklandScheduleSnapshot {
+  return {
+    roles: snapshot.roles,
+    operbox: snapshot.operbox,
+    infrastructure: scheduleInfrastructure(snapshot.infrastructure),
+    sourceName: snapshot.sourceName,
+    warnings: snapshot.warnings,
   };
 }
 
@@ -536,5 +550,18 @@ export function snapshotFromPlayerInfo(
     progress: progressFromPlayerInfo(info),
     sourceName: "森空岛同步",
     warnings,
+  };
+}
+
+export function snapshotsFromPlayerInfo(
+  info: PlayerInfo,
+  roles: SklandRole[],
+  selectedUid: string,
+  suggestion: Pick<SklandInfrastructure, "layoutLabel" | "layoutSuggestion" | "layoutWarning">
+): { scheduleSnapshot: SklandScheduleSnapshot; statusSnapshot: SklandStatusSnapshot } {
+  const statusSnapshot = snapshotFromPlayerInfo(info, roles, selectedUid, suggestion);
+  return {
+    scheduleSnapshot: scheduleSnapshotFromStatusSnapshot(statusSnapshot),
+    statusSnapshot,
   };
 }

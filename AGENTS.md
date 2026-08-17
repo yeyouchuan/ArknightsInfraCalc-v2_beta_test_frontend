@@ -93,7 +93,7 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - `POST /api/skland/auth/qr/status`
 - `POST /api/skland/sync`
 - `POST /api/skland/role`
-- `GET`、`POST`、`DELETE /api/skland/status`
+- `GET /api/skland/status`
 - `DELETE /api/skland/data`
 
 所有公共响应使用 `ApiSuccess<T> | ApiFailure` 信封并返回 `X-Request-Id`。健康检查的公开就绪字段是 `data.plannerReady`，不是内部 `HealthApiResponse` 的 `ok` / `cliReady`。
@@ -113,7 +113,7 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - production 必须强制关闭调试工具并启用限流，不能被`BETA_DEBUG_TOOLS_ENABLED=1`或`BETA_RATE_LIMIT_ENABLED=0`覆盖；dev 可由部署环境集中管理这两个开关，调试入口仍需`?beta`二次门控。
 - `SKLAND_SESSION_SECRET` 必须至少 32 字节且长期稳定。森空岛会话使用 AES-256-GCM 封装在 HttpOnly Cookie 中；凭据不得进入 localStorage、CLI 运行记录、反馈包、console 或公开响应。
 - 非 localhost 的森空岛请求默认要求 HTTPS。`SKLAND_ALLOW_INSECURE_HTTP=1` 仅允许临时、可信的本地或内网测试，绝不能作为生产默认值。
-- 森空岛凭证从扫码成功起固定 7 天到期，刷新 token、读取会话和切换角色都不得续期；完整状态必须按账号独立授权，基础响应只返回排班白名单。
+- 森空岛凭证从扫码成功起固定 7 天到期，刷新 token、读取会话和切换角色都不得续期；用户同意当前条款与隐私政策并登录后，状态中心默认返回完整状态白名单，排班链路仍只使用最小排班字段。
 - 浏览器 v5 持久化可以保存布局、Box、来源标记和经过清理的最近排班，但必须继续剔除 debug、路径、stdout、stderr、请求/响应内部字段和森空岛凭据。
 
 ## 环境变量
@@ -277,12 +277,11 @@ development branch: develop
 development app root: /opt/arknights-infra-dev
 development systemd: arknights-infra-dev
 development internal Next: 127.0.0.1:4275
-development loopback nginx: 127.0.0.1:4274
-development public HTTPS: https://instance-pi2ohhfj.tail2dca9.ts.net (Tailscale Funnel to loopback nginx)
+development loopback nginx: 127.0.0.1:4274 (SSH tunnel only until a dev domain is available)
 development persistent storage: /var/lib/arknights-infra-dev
 ```
 
-`main`和`develop` push 必须先通过`Frontend quality`，随后由`Deploy verified branch`从已验证 SHA 自动发布到各自 GitHub Environment。发布包只包含 Git 跟踪内容；服务器优先通过`/usr/local/sbin/arknights-infra-prepare-release`和`/var/cache/arknights-infra-deploy/repository.git`增量准备准确 SHA，仅在 helper 返回临时故障码`75`时回退完整 SCP。SHA、tree、路径或 helper 契约错误必须直接失败。新 release 从应用根目录的`shared/.env.local`继承环境配置；`shared/bin-data`只有包含当前 Worker 所需的完整数据文件集时才注入 release，不完整的旧数据保留但不得覆盖制品内置数据。随后以`arkinfra`用户执行`npm ci`/`npm run build`，再原子切换`current`并重启对应 systemd。部署锁内只允许清理命名和提交标记均合法的 release 直属目录；每个环境保留当前 release 加两个回滚版本，失败半成品必须移除，清理后可用空间少于 3 GiB 时必须在创建新 release 前失败。`shared`和`/var/lib`永不进入 release 淘汰范围。不得把服务器密码写入文件或命令；只使用受保护的 SSH key 与 known_hosts。手动发布仍必须基于对应已合并、已验证的远端分支。
+`main`和`develop` push 必须先通过`Frontend quality`，随后由`Deploy verified branch`从已验证 SHA 自动发布到各自 GitHub Environment。发布包只包含 Git 跟踪内容；服务器优先通过`/usr/local/sbin/arknights-infra-prepare-release`和`/var/cache/arknights-infra-deploy/repository.git`增量准备准确 SHA。helper 返回临时故障码`75`时，Runner 优先读取对应服务器缓存 ref，并发送从该 ref 到已验证 SHA 的增量 Git bundle；缓存 ref 不可用时才使用上一次 push SHA。helper 校验路径、HEAD、前置对象、tree、完整对象图后导入，仅在 bundle 不可用时回退完整 SCP。SHA、tree、路径、bundle 或 helper 契约错误必须直接失败。新 release 从应用根目录的`shared/.env.local`继承环境配置；`shared/bin-data`只有包含当前 Worker 所需的完整数据文件集时才注入 release，不完整的旧数据保留但不得覆盖制品内置数据。随后以`arkinfra`用户执行`npm ci`/`npm run build`，再原子切换`current`并重启对应 systemd。部署锁内只允许清理命名和提交标记均合法的 release 直属目录；每个环境保留当前 release 加两个回滚版本，失败半成品必须移除，清理后可用空间少于 3 GiB 时必须在创建新 release 前失败。`shared`和`/var/lib`永不进入 release 淘汰范围。不得把服务器密码写入文件或命令；只使用受保护的 SSH key 与 known_hosts。手动发布仍必须基于对应已合并、已验证的远端分支。
 
 两个固定 helper 必须是`root:root 0755`普通文件并支持`--contract-version`；当前 prepare/deploy 契约均为`1`。工作流以契约版本做兼容握手，并把服务器文件 SHA-256只作为审计信息。内部实现保持参数、退出码和权限语义兼容时不得随意升级版本；任何不兼容修改必须成套更新脚本、工作流、测试和文档，先通过完整 PR 门禁，再在合并前原子安装并复核新 helper。不得通过跳过 owner/mode/version 检查让部署通过。
 

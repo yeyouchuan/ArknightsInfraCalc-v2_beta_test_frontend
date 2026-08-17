@@ -1,6 +1,6 @@
-export const LEGAL_EFFECTIVE_DATE = "2026-08-05";
-export const TERMS_VERSION = "2026-08-05";
-export const PRIVACY_VERSION = "2026-08-05-r2";
+export const LEGAL_EFFECTIVE_DATE = "2026-08-07";
+export const TERMS_VERSION = "2026-08-07";
+export const PRIVACY_VERSION = "2026-08-07";
 
 export interface SklandPolicyConsentRequest {
   termsAccepted: true;

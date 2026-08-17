@@ -1,6 +1,5 @@
-import * as XLSX from "xlsx";
-import { OperBoxEntry } from "./types";
-import { normalizeOperboxEntries } from "./operbox-normalization";
+import type { OperBoxEntry } from "./types.ts";
+import { normalizeOperboxEntries } from "./operbox-normalization.ts";
 
 function pickValue(row: Record<string, unknown>, keys: string[]): unknown {
   for (const key of keys) {
@@ -73,9 +72,15 @@ export function readOperboxText(text: string): OperBoxEntry[] {
   return assertOperbox(parsed);
 }
 
-export async function readOperboxFile(file: File): Promise<OperBoxEntry[]> {
+type XlsxModule = typeof import("xlsx");
+
+export async function readOperboxFile(
+  file: File,
+  loadXlsx: () => Promise<XlsxModule> = () => import("xlsx"),
+): Promise<OperBoxEntry[]> {
   const lower = file.name.toLowerCase();
   if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+    const XLSX = await loadXlsx();
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];

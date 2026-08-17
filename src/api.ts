@@ -47,7 +47,8 @@ async function requestData<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(path, init);
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw networkError();
   }
 
@@ -85,11 +86,12 @@ export function runPlan(payload: {
   sourceName: string | null;
   boxSource: "skland" | "maa" | "sample";
   rotation: RotationProfile;
-}): Promise<PublicPlanData> {
+}, signal?: AbortSignal): Promise<PublicPlanData> {
   return requestData("/api/plan", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal,
   });
 }
 
@@ -111,14 +113,6 @@ export function startSklandQr(consent: SklandPolicyConsentRequest): Promise<Skla
 
 export function getSklandStatus(): Promise<SklandStatusData> {
   return requestData("/api/skland/status");
-}
-
-export function authorizeSklandStatus(): Promise<SklandStatusData> {
-  return requestData("/api/skland/status", { method: "POST" });
-}
-
-export function revokeSklandStatus(): Promise<SklandStatusData> {
-  return requestData("/api/skland/status", { method: "DELETE" });
 }
 
 export function pollSklandQr(scanId: string): Promise<SklandQrStatusData> {

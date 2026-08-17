@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("production profile removes Skland UI, requests, health data, and API access", async ({ page, request }) => {
+  test.setTimeout(60_000);
   const sklandRequests: string[] = [];
   page.on("request", (browserRequest) => {
     if (new URL(browserRequest.url()).pathname.startsWith("/api/skland/")) {

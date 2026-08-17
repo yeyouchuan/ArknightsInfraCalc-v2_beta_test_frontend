@@ -39,14 +39,25 @@ function internalResult(): PlanApiResponse {
       planTimes: 2,
       plans: [{
         name: "班次 1",
+        description_post: "换班后说明",
+        period: [["08:00", "20:00"]],
+        duration: 720,
+        groups: [{ name: "贸易组", operators: ["龙舌兰", "但书"] }],
         Fiammetta: { enable: true, target: "但书", order: "pre" },
-        drones: { enable: true, room: "manufacture", index: 1, order: "pre" },
+        drones: { enable: true, room: "manufacture", index: 1, rule: "all", order: "pre" },
         rooms: {
-          trading: [{ operators: ["龙舌兰"], sort: true, autofill: false }],
+          trading: [{
+            operators: ["龙舌兰"],
+            sort: true,
+            autofill: false,
+            candidates: ["但书", "巫恋"],
+            use_operator_groups: true,
+          }],
         },
       }],
       scheduleType: { planTimes: 2, trading: 2, manufacture: 4, power: 3, dormitory: 4 },
       nestedInternal: {
+        candidates: ["C:\\secret\\infra-cli.exe"],
         solver: { future: true },
         plan_contract_sha256: "a".repeat(64),
         solver_executable_sha256: "b".repeat(64),
@@ -152,7 +163,18 @@ test("production public plan data recursively excludes internal fields", () => {
     assert.equal(publicData.maa.planTimes, 2);
     assert.deepEqual(publicData.maa.plans[0].Fiammetta, { enable: true, target: "但书", order: "pre" });
     assert.equal(publicData.maa.plans[0].drones?.enable, true);
+    assert.equal(publicData.maa.plans[0].drones?.rule, "all");
+    assert.deepEqual(publicData.maa.plans[0].period, [["08:00", "20:00"]]);
+    assert.equal(publicData.maa.plans[0].duration, 720);
+    assert.equal(publicData.maa.plans[0].description_post, "换班后说明");
+    assert.deepEqual(publicData.maa.plans[0].groups, [{ name: "贸易组", operators: ["龙舌兰", "但书"] }]);
     assert.equal(publicData.maa.plans[0].rooms.trading?.[0].sort, true);
+    assert.deepEqual(publicData.maa.plans[0].rooms.trading?.[0].candidates, ["但书", "巫恋"]);
+    assert.equal(publicData.maa.plans[0].rooms.trading?.[0].use_operator_groups, true);
+    assert.equal(
+      "candidates" in (publicData.maa as typeof publicData.maa & { nestedInternal: Record<string, unknown> }).nestedInternal,
+      false
+    );
     assert.equal(publicData.maa.scheduleType?.planTimes, 2);
     assert.equal(publicData.profile.baseline_label, "产品推荐基准");
     assert.equal(publicData.profile.layout_label.includes("\\"), false);

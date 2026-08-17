@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       const response = successResponse({
         status: result.response.status,
         scheduleSnapshot: result.response.scheduleSnapshot,
+        statusSnapshot: result.response.statusSnapshot,
         accounts: sklandAccountSummaries(next),
         activeAccountId: next.activeAccountId,
       }, requestId);
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
     const response = successResponse({
       status: result.response.status,
       scheduleSnapshot: result.response.scheduleSnapshot,
+      statusSnapshot: result.response.statusSnapshot,
     }, requestId);
     return response;
   } catch (error) {

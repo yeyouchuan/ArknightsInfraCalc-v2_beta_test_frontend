@@ -19,7 +19,7 @@ if [[ "${1:-}" == "--contract-version" ]]; then
 fi
 
 legacy_caller=0
-if (( $# == 5 )) && [[ "${5:-}" =~ ^[0-9a-f]{64}$ ]]; then
+if (( $# == 5 || $# == 6 )) && [[ "${5:-}" =~ ^[0-9a-f]{64}$ ]]; then
   case "$5" in
     "$legacy_develop_caller_sha256"|"$legacy_main_caller_sha256") legacy_caller=1 ;;
     *)
@@ -27,8 +27,8 @@ if (( $# == 5 )) && [[ "${5:-}" =~ ^[0-9a-f]{64}$ ]]; then
       exit 2
       ;;
   esac
-elif (( $# != 4 )); then
-  echo "Usage: $0 <environment> <release-sha> <tree-sha> <archive-path>" >&2
+elif (( $# < 4 || $# > 5 )); then
+  echo "Usage: $0 <environment> <release-sha> <tree-sha> <archive-path> [bundle-path]" >&2
   exit 2
 fi
 
@@ -36,6 +36,11 @@ deployment_environment="${1:-}"
 release_sha="${2:-}"
 expected_tree_sha="${3:-}"
 archive_path="${4:-}"
+if (( legacy_caller == 1 )); then
+  bundle_path="${6:-}"
+else
+  bundle_path="${5:-}"
+fi
 
 fail_validation() {
   echo "$1" >&2
@@ -67,6 +72,8 @@ export GIT_HTTP_LOW_SPEED_TIME=20
 test_mode="${ARKNIGHTS_INFRA_PREPARE_TEST_MODE:-0}"
 seed_release_dir="${ARKNIGHTS_INFRA_SEED_RELEASE_DIR:-}"
 retry_delay_seconds=5
+fetch_attempts=1
+fetch_timeout_seconds=45
 
 if [[ "$test_mode" == "1" ]]; then
   if [[ "$(realpath "$0")" == "/usr/local/sbin/arknights-infra-prepare-release" ]]; then
@@ -98,6 +105,7 @@ if [[ "$test_mode" == "1" ]]; then
     esac
   fi
   expected_archive_path="$test_root/arknights-infra-${deployment_environment}-${release_sha}.tar.gz"
+  expected_bundle_path="$test_root/arknights-infra-${deployment_environment}-${release_sha}.bundle"
 elif [[ "$test_mode" == "0" ]]; then
   if [[ -n "${ARKNIGHTS_INFRA_PREPARE_TEST_ROOT:-}${ARKNIGHTS_INFRA_PREPARE_TEST_REPOSITORY_URL:-}${ARKNIGHTS_INFRA_PREPARE_TEST_CACHE_ROOT:-}${ARKNIGHTS_INFRA_PREPARE_TEST_RETRY_DELAY_SECONDS:-}" ]]; then
     fail_validation "Test overrides require ARKNIGHTS_INFRA_PREPARE_TEST_MODE=1."
@@ -105,6 +113,7 @@ elif [[ "$test_mode" == "0" ]]; then
   repository_url="$production_repository_url"
   cache_root="$production_cache_root"
   expected_archive_path="/tmp/arknights-infra-${deployment_environment}-${release_sha}.tar.gz"
+  expected_bundle_path="/tmp/arknights-infra-${deployment_environment}-${release_sha}.bundle"
   if [[ -n "$seed_release_dir" && "$seed_release_dir" != "/opt/arknights-infra/current" ]]; then
     fail_validation "Production cache seeding may only use /opt/arknights-infra/current."
   fi
@@ -114,6 +123,9 @@ fi
 
 if [[ "$archive_path" != "$expected_archive_path" ]]; then
   fail_validation "Release archive path does not match the verified commit and environment."
+fi
+if [[ -n "$bundle_path" && "$bundle_path" != "$expected_bundle_path" ]]; then
+  fail_validation "Release bundle path does not match the verified commit and environment."
 fi
 if [[ ! -d "$cache_root" || -L "$cache_root" ]]; then
   fail_validation "Deployment cache root must be provisioned as a real directory: $cache_root"
@@ -132,10 +144,14 @@ lock_path="$cache_root/prepare.lock"
 incoming_ref="refs/arknights-infra/incoming/${deployment_environment}"
 environment_ref="refs/arknights-infra/environments/${deployment_environment}"
 temporary_archive=""
+temporary_bundle="$bundle_path"
 
 cleanup() {
   if [[ -n "$temporary_archive" ]]; then
     rm -f -- "$temporary_archive"
+  fi
+  if [[ -n "$temporary_bundle" ]]; then
+    rm -f -- "$temporary_bundle"
   fi
 }
 trap cleanup EXIT
@@ -184,8 +200,8 @@ fetch_release() {
     filter_args=(--refetch --no-filter)
   fi
 
-  for attempt in 1 2 3; do
-    if timeout 90 git --git-dir="$repository_path" -c protocol.version=2 fetch \
+  for ((attempt = 1; attempt <= fetch_attempts; attempt += 1)); do
+    if timeout --kill-after=5s "${fetch_timeout_seconds}s" git --git-dir="$repository_path" -c protocol.version=2 fetch \
       --no-tags \
       --force \
       --depth="$fetch_depth" \
@@ -194,7 +210,7 @@ fetch_release() {
       "$release_sha:$incoming_ref"; then
       return 0
     fi
-    if (( attempt < 3 && retry_delay_seconds > 0 )); then
+    if (( attempt < fetch_attempts && retry_delay_seconds > 0 )); then
       sleep "$retry_delay_seconds"
     fi
   done
@@ -216,12 +232,56 @@ validate_tree() {
   fi
 }
 
+validate_bundle_input() {
+  local bundle_head
+  local bundle_ref
+  local bundle_mode
+
+  [[ -f "$bundle_path" && ! -L "$bundle_path" ]] || fail_temporarily "Incremental release bundle is unavailable."
+  if [[ "$(stat -c '%U' "$bundle_path")" != "$(id -un)" ]]; then
+    fail_validation "Incremental release bundle must be owned by the deployment user."
+  fi
+  bundle_mode="$(stat -c '%a' "$bundle_path")"
+  if (( (8#$bundle_mode & 0022) != 0 )); then
+    fail_validation "Incremental release bundle must not be writable by group or other users."
+  fi
+  if ! read -r bundle_head bundle_ref < <(git bundle list-heads "$bundle_path" HEAD); then
+    fail_temporarily "Unable to read the incremental release bundle."
+  fi
+  if [[ "$bundle_head" != "$release_sha" || "$bundle_ref" != "HEAD" ]]; then
+    fail_validation "Incremental release bundle does not advertise the verified commit as HEAD."
+  fi
+}
+
+import_release_bundle() {
+  if ! git --git-dir="$repository_path" bundle verify "$bundle_path" >/dev/null; then
+    fail_temporarily "Deployment cache is missing an incremental bundle prerequisite."
+  fi
+  if ! timeout --kill-after=5s "${fetch_timeout_seconds}s" git --git-dir="$repository_path" fetch \
+    --no-tags \
+    --force \
+    "$bundle_path" \
+    "HEAD:$incoming_ref"; then
+    fail_temporarily "Unable to import the incremental release bundle."
+  fi
+  if ! commit_is_complete; then
+    fail_temporarily "Incremental release bundle did not complete the verified release object graph."
+  fi
+  echo "Imported incremental release bundle for $release_sha"
+}
+
+if [[ -n "$bundle_path" ]]; then
+  validate_bundle_input
+fi
+
 cache_hit=0
 cache_seeded=0
 if commit_is_complete; then
   cache_hit=1
 else
-  if [[ -n "$seed_release_dir" ]]; then
+  if [[ -n "$bundle_path" ]]; then
+    import_release_bundle
+  elif [[ -n "$seed_release_dir" ]]; then
     if [[ "$test_mode" == "0" ]]; then
       resolved_seed_release_dir="$(readlink -f "$seed_release_dir")"
       case "$resolved_seed_release_dir" in

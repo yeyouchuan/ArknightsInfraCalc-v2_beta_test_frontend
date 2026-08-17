@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { Buffer } from "node:buffer";
+import { mkdtemp, mkdir, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -8,6 +9,7 @@ import sharp from "sharp";
 
 import {
   ARKNIGHTS_GAME_RESOURCE_REPOSITORY,
+  GENERATED_VERSION,
   checkGeneratedAssets,
   generateAssets,
   parseUnlock,
@@ -25,6 +27,41 @@ async function makeTemp(t) {
 
 async function png(filePath, width, height, color) {
   await sharp({ create: { width, height, channels: 4, background: color } }).png().toFile(filePath);
+}
+
+async function boundedPng(filePath, width, height, { left, top, right, bottom }) {
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = top; y <= bottom; y += 1) {
+    for (let x = left; x <= right; x += 1) {
+      const offset = (y * width + x) * 4;
+      pixels[offset] = 190;
+      pixels[offset + 1] = 110;
+      pixels[offset + 2] = 45;
+      pixels[offset + 3] = 255;
+    }
+  }
+  await sharp(pixels, { raw: { width, height, channels: 4 } }).png().toFile(filePath);
+}
+
+async function alphaBounds(filePath) {
+  const { data, info } = await sharp(await readFile(filePath)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const alphaChannel = info.channels - 1;
+  let left = info.width;
+  let top = info.height;
+  let right = -1;
+  let bottom = -1;
+  let visiblePixels = 0;
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      if (data[(y * info.width + x) * info.channels + alphaChannel] === 0) continue;
+      left = Math.min(left, x);
+      top = Math.min(top, y);
+      right = Math.max(right, x);
+      bottom = Math.max(bottom, y);
+      visiblePixels += 1;
+    }
+  }
+  return { width: info.width, height: info.height, left, top, right, bottom, visiblePixels };
 }
 
 async function createSource(root, operatorIds = ["001_alpha", "002_beta"]) {
@@ -97,21 +134,60 @@ test("generates deterministic catalogs and normalizes the known 35px icon input"
   assert.deepEqual(manifest.counts, { operators: 2, buildingSkills: 2, portraits: 2, buildingSkillIcons: 2 });
   assert.equal(manifest.portraitsSource.repository, ARKNIGHTS_GAME_RESOURCE_REPOSITORY);
   assert.equal(manifest.portraitsSource.commit, PORTRAITS_SHA);
+  const operators = JSON.parse(await readFile(path.join(first, "src/generated/arkntools/operator-catalog.json"), "utf8"));
+  assert.equal(operators[0].portrait, `/images/operator-portraits/001_alpha.webp?v=${GENERATED_VERSION}-${PORTRAITS_SHA.slice(0, 12)}`);
 
   const relativeFiles = [
     "src/generated/arkntools/operator-catalog.json",
     "src/generated/arkntools/building-skill-catalog.json",
     "src/generated/arkntools/source.json",
     "public/images/building-skills/icon_shared.png",
-    "public/images/operator-portraits/001_alpha.png",
+    "public/images/operator-portraits/001_alpha.webp",
   ];
   for (const relative of relativeFiles) {
     assert.deepEqual(await readFile(path.join(first, relative)), await readFile(path.join(second, relative)));
   }
-  const normalized = await sharp(path.join(first, "public/images/building-skills/icon_shared.png")).metadata();
+  const normalized = await sharp(await readFile(path.join(first, "public/images/building-skills/icon_shared.png"))).metadata();
   assert.deepEqual([normalized.width, normalized.height], [36, 36]);
-  const portrait = await sharp(path.join(first, "public/images/operator-portraits/001_alpha.png")).metadata();
+  const portrait = await sharp(await readFile(path.join(first, "public/images/operator-portraits/001_alpha.webp"))).metadata();
   assert.deepEqual([portrait.width, portrait.height], [180, 180]);
+  assert.equal(portrait.format, "webp");
+  const [webpSize, pngSize] = await Promise.all([
+    stat(path.join(first, "public/images/operator-portraits/001_alpha.webp")),
+    stat(path.join(source, "portraits/avatar/char_001_alpha.png")),
+  ]);
+  assert.ok(webpSize.size < pngSize.size, "WebP 头像应比源 PNG 更小。");
+});
+
+test("centers asymmetric visible portrait pixels without scaling or cropping", async (t) => {
+  const root = await makeTemp(t);
+  const source = path.join(root, "source");
+  const output = path.join(root, "output");
+  await createSource(source, ["001_alpha"]);
+  const portraitSource = path.join(source, "portraits/avatar/char_001_alpha.png");
+  await boundedPng(portraitSource, 180, 180, { left: 5, top: 30, right: 143, bottom: 166 });
+  const before = await alphaBounds(portraitSource);
+
+  await generateAssets({ sourceRoot: source, sourceSha: SOURCE_SHA, portraitsRoot: path.join(source, "portraits"), portraitsSha: PORTRAITS_SHA, outputRoot: output, allowRemovals: true });
+  const after = await alphaBounds(path.join(output, "public/images/operator-portraits/001_alpha.webp"));
+
+  assert.deepEqual([after.width, after.height], [180, 180]);
+  assert.deepEqual([after.right - after.left, after.bottom - after.top], [before.right - before.left, before.bottom - before.top]);
+  assert.equal(after.visiblePixels, before.visiblePixels);
+  assert.ok(Math.abs(after.left - (after.width - after.right - 1)) <= 1, "水平透明边距应居中。");
+  assert.ok(Math.abs(after.top - (after.height - after.bottom - 1)) <= 1, "垂直透明边距应居中。");
+});
+
+test("rejects fully transparent portraits before installing output", async (t) => {
+  const root = await makeTemp(t);
+  const source = path.join(root, "source");
+  await createSource(source, ["001_alpha"]);
+  await png(path.join(source, "portraits/avatar/char_001_alpha.png"), 180, 180, { r: 0, g: 0, b: 0, alpha: 0 });
+
+  await assert.rejects(
+    generateAssets({ sourceRoot: source, sourceSha: SOURCE_SHA, portraitsRoot: path.join(source, "portraits"), portraitsSha: PORTRAITS_SHA, outputRoot: path.join(root, "output"), allowRemovals: true }),
+    /不得是全透明图片/
+  );
 });
 
 test("rejects duplicate names and missing referenced images before installing output", async (t) => {

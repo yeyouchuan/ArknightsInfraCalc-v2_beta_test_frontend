@@ -2,9 +2,11 @@
 
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { motion, type HTMLMotionProps } from "motion/react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { MOTION_DURATION, MOTION_EASE_OUT } from "@/motion"
 import { XIcon } from "lucide-react"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
@@ -34,8 +36,19 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       data-dialog-layer={layer}
+      render={(renderProps, state) => (
+        <motion.div
+          {...(renderProps as unknown as HTMLMotionProps<"div">)}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: state.open ? 1 : 0 }}
+          transition={{
+            duration: state.open ? 0.2 : MOTION_DURATION.fast,
+            ease: MOTION_EASE_OUT,
+          }}
+        />
+      )}
       className={cn(
-        "fixed inset-0 isolate z-50 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50",
         layer === "nested"
           ? "bg-black/[0.08] supports-backdrop-filter:max-sm:backdrop-blur-[1px] supports-backdrop-filter:sm:backdrop-blur-[2px]"
           : "bg-black/20 supports-backdrop-filter:max-sm:backdrop-blur-[3px] supports-backdrop-filter:sm:backdrop-blur-[6px]",
@@ -62,8 +75,23 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         data-dialog-layer={layer}
+        render={(renderProps, state) => (
+          <motion.div
+            {...(renderProps as unknown as HTMLMotionProps<"div">)}
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{
+              opacity: state.open ? 1 : 0,
+              scale: state.open ? 1 : 0.97,
+            }}
+            transition={{
+              duration: state.open ? 0.3 : MOTION_DURATION.fast,
+              ease: MOTION_EASE_OUT,
+            }}
+            style={{ ...(renderProps.style ?? {}), transformOrigin: "center" }}
+          />
+        )}
         className={cn(
-          "dialog-acrylic fixed top-1/2 left-1/2 z-50 isolate grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-0 overflow-hidden rounded-[24px] p-0 text-[13px] text-popover-foreground duration-100 outline-none sm:max-w-[min(480px,calc(100vw-2rem))] sm:rounded-[32px] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "dialog-acrylic fixed top-1/2 left-1/2 z-50 isolate grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-0 overflow-hidden rounded-[24px] p-0 text-[13px] text-popover-foreground outline-none sm:max-w-[min(480px,calc(100vw-2rem))] sm:rounded-[32px]",
           className
         )}
         {...props}
@@ -75,7 +103,7 @@ function DialogContent({
             render={
               <Button
                 variant="ghost"
-                className="pointer-events-auto absolute top-3 right-3 z-20 size-10 rounded-[4px] bg-transparent transition-[color,scale] duration-150 ease-out hover:bg-transparent active:scale-[0.96] motion-reduce:transform-none"
+                className="pointer-events-auto absolute top-3 right-3 z-20 size-10 rounded-[4px] bg-transparent hover:bg-transparent"
                 size="icon"
               />
             }

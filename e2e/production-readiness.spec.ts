@@ -1,5 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import operatorCatalog from "../src/generated/arkntools/operator-catalog.json" with { type: "json" };
+
+const amiyaPortrait = operatorCatalog.find((operator) => operator.id === "char_002_amiya")?.portrait;
+if (!amiyaPortrait) throw new Error("Generated operator catalog is missing Amiya's portrait.");
+
 const requestId = "11111111-1111-4111-8111-111111111111";
 const diagnosticId = "22222222-2222-4222-8222-222222222222";
 const now = Date.now();
@@ -26,6 +31,184 @@ async function expectUnifiedDialogAction(
   await expect(button).toHaveCSS("height", height);
   await expect(button).toHaveCSS("border-radius", "22px");
   await expect(button).toHaveCSS("font-size", "13px");
+}
+
+async function expectButtonGeometryStable(button: Locator) {
+  await expect(button).toBeVisible();
+  await expect.poll(() => button.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      hasSize: rect.width > 1 && rect.height > 1,
+      inlineTransform: (element as HTMLElement).style.transform,
+      collapsedTransform: style.transform === "matrix(0, 0, 0, 0, 0, 0)",
+    };
+  })).toEqual({
+    hasSize: true,
+    inlineTransform: "",
+    collapsedTransform: false,
+  });
+}
+
+async function armEndingTransitionCapture(element: Locator, label: string) {
+  await element.evaluate((node, captureLabel) => {
+    const attribute = `data-motion-exit-${captureLabel}`;
+    const root = document.documentElement;
+    root.removeAttribute(attribute);
+
+    const capture = () => {
+      if (!node.hasAttribute("data-ending-style")) return false;
+      requestAnimationFrame(() => {
+        const durations = node.getAnimations().map((animation) => animation.effect?.getTiming().duration ?? 0);
+        root.setAttribute(attribute, JSON.stringify(durations));
+      });
+      return true;
+    };
+
+    if (capture()) return;
+    const observer = new MutationObserver(() => {
+      if (!capture()) return;
+      observer.disconnect();
+    });
+    observer.observe(node, { attributes: true, attributeFilter: ["data-ending-style"] });
+  }, label);
+}
+
+async function expectCapturedExitDuration(page: Page, label: string, durationMs: number) {
+  await expect.poll(() => page.locator("html").getAttribute(`data-motion-exit-${label}`)).toContain(String(durationMs));
+}
+
+async function expectMotionDuration(element: Locator, durationMs: number, subtree = false) {
+  await expect.poll(() => element.evaluate((node, options) => (
+    node.getAnimations({ subtree: options.subtree }).some((animation) => {
+      const duration = Number(animation.effect?.getTiming().duration ?? 0);
+      return Math.abs(duration - options.durationMs) < 1;
+    })
+  ), { durationMs, subtree })).toBe(true);
+}
+
+async function armMotionCapture(page: Page, selector: string, label: string, durationMs: number) {
+  await page.evaluate(({ selector, label, durationMs }) => {
+    const attribute = `data-motion-enter-${label}`;
+    const root = document.documentElement;
+    const startedAt = performance.now();
+    root.removeAttribute(attribute);
+
+    const inspect = () => {
+      const timing = Array.from(document.querySelectorAll(selector))
+        .flatMap((element) => element.getAnimations())
+        .map((animation) => animation.effect?.getTiming())
+        .find((candidate) => Math.abs(Number(candidate?.duration ?? 0) - durationMs) < 1);
+      if (timing) {
+        root.setAttribute(attribute, JSON.stringify({
+          duration: Number(timing.duration),
+          delay: Number(timing.delay),
+        }));
+        return;
+      }
+      if (performance.now() - startedAt < 5_000) requestAnimationFrame(inspect);
+    };
+
+    inspect();
+  }, { selector, label, durationMs });
+}
+
+async function armMotionCollectionCapture(page: Page, selector: string, label: string, durationMs: number) {
+  await page.evaluate(({ selector, label, durationMs }) => {
+    const attribute = `data-motion-enter-${label}`;
+    const root = document.documentElement;
+    const startedAt = performance.now();
+    root.removeAttribute(attribute);
+
+    const inspect = () => {
+      const elements = Array.from(document.querySelectorAll(selector));
+      const timings = elements.map((element) => element.getAnimations()
+        .map((animation) => animation.effect?.getTiming())
+        .find((candidate) => Math.abs(Number(candidate?.duration ?? 0) - durationMs) < 1));
+      if (elements.length > 0 && timings.every(Boolean)) {
+        root.setAttribute(attribute, JSON.stringify(timings.map((timing) => ({
+          duration: Number(timing?.duration),
+          delay: Number(timing?.delay),
+        }))));
+        return;
+      }
+      if (performance.now() - startedAt < 5_000) requestAnimationFrame(inspect);
+    };
+
+    inspect();
+  }, { selector, label, durationMs });
+}
+
+async function expectCapturedMotion(page: Page, label: string, durationMs: number, delayMs = 0) {
+  await expect.poll(async () => {
+    const value = await page.locator("html").getAttribute(`data-motion-enter-${label}`);
+    return value ? JSON.parse(value) as { duration: number; delay: number } : null;
+  }).toEqual({ duration: durationMs, delay: delayMs });
+}
+
+async function expectCapturedMotionDelays(page: Page, label: string, durationMs: number, delays: number[]) {
+  await expect.poll(async () => {
+    const value = await page.locator("html").getAttribute(`data-motion-enter-${label}`);
+    return value ? JSON.parse(value) as Array<{ duration: number; delay: number }> : null;
+  }).toEqual(delays.map((delay) => ({ duration: durationMs, delay })));
+}
+
+async function armTransientStyleCapture(page: Page, selector: string, label: string) {
+  await page.evaluate(({ selector, label }) => {
+    const attribute = `data-motion-style-${label}`;
+    const root = document.documentElement;
+    const startedAt = performance.now();
+    root.removeAttribute(attribute);
+
+    const inspect = () => {
+      for (const element of document.querySelectorAll(selector)) {
+        const style = getComputedStyle(element);
+        const opacity = Number(style.opacity);
+        const transform = style.transform;
+        const moved = !["none", "matrix(1, 0, 0, 1, 0, 0)", "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)"].includes(transform);
+        if (moved || opacity < 0.999) {
+          root.setAttribute(attribute, JSON.stringify({ opacity, transform }));
+          return;
+        }
+      }
+      if (performance.now() - startedAt < 5_000) requestAnimationFrame(inspect);
+    };
+
+    inspect();
+  }, { selector, label });
+}
+
+async function expectCapturedStyleMotion(page: Page, label: string) {
+  await expect.poll(() => page.locator("html").getAttribute(`data-motion-style-${label}`)).not.toBeNull();
+}
+
+async function waitForOwnAnimations(element: Locator) {
+  await element.evaluate(async (node) => {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    await Promise.race([
+      Promise.all(node.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
+      new Promise<void>((resolve) => setTimeout(resolve, 500)),
+    ]);
+  });
+}
+
+async function gotoStable(page: Page, path: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.goto(path, { waitUntil: "domcontentloaded" });
+      if (new URL(page.url()).pathname === path) return;
+    } catch (error) {
+      lastError = error;
+      if (!/interrupted by another navigation|Load failed/i.test(String(error))) throw error;
+    }
+    await page.waitForTimeout(250);
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Unable to navigate to ${path} after a development reload.`);
 }
 
 async function expectVisibleNumbersUseNumberFont(page: Page, scope: Locator = page.locator("body")) {
@@ -227,6 +410,20 @@ const scheduleVisualPlanData = {
   },
 };
 
+const lazyPortraitPlanData = {
+  ...scheduleVisualPlanData,
+  maa: {
+    ...scheduleVisualPlanData.maa,
+    plans: scheduleVisualPlanData.maa.plans.map((plan) => ({
+      ...plan,
+      rooms: {
+        ...plan.rooms,
+        processing: [{ operators: [{ name: "嘉辛塔", skill: 1 }] }],
+      },
+    })),
+  },
+};
+
 const productChangePlanData = {
   ...scheduleVisualPlanData,
   maa: {
@@ -237,6 +434,36 @@ const productChangePlanData = {
         ...plan.rooms,
         trading: [0, 1].map(() => ({ product: "LMD", operators: [], sort: true, autofill: false })),
         manufacture: [0, 1, 2, 3].map(() => ({ product: "Gold", operators: [], sort: true, autofill: false })),
+      },
+    })),
+  },
+};
+
+const motionPlanBase = rotationResultData({
+  rotationProfile: "abc_12_6_6",
+  durations: [12, 6, 6],
+});
+
+const motionPlanData = {
+  ...motionPlanBase,
+  maa: {
+    ...motionPlanBase.maa,
+    plans: [0, 1, 2].map((index) => ({
+      ...maaPlan(index),
+      rooms: {
+        control: [{ operators: [] }],
+        trading: [0, 1].map((roomIndex) => ({
+          product: "LMD",
+          operators: roomIndex === 0 ? [{ name: ["阿米娅", "凯尔希", "贝洛内"][index], skill: 2 }] : [],
+          sort: true,
+          autofill: false,
+        })),
+        manufacture: [0, 1, 2, 3].map(() => ({ product: "Gold", operators: [], sort: true, autofill: false })),
+        power: [0, 1, 2].map(() => ({ operators: [] })),
+        dormitory: [0, 1, 2, 3].map(() => ({ operators: [], autofill: true })),
+        meeting: [{ operators: [] }],
+        hire: [{ operators: [] }],
+        processing: [{ operators: [{ name: ["阿米娅", "凯尔希", "贝洛内"][index], skill: 2 }] }],
       },
     })),
   },
@@ -496,7 +723,15 @@ const primarySklandAccount = {
   selectedUid: authenticatedSklandSnapshot.player.uid,
   roles: authenticatedSklandSnapshot.roles,
   credentialExpiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-  statusAuthorized: true,
+};
+
+type MockSklandSnapshot = Omit<typeof authenticatedSklandSnapshot, "infrastructure" | "player"> & {
+  player: Omit<typeof authenticatedSklandSnapshot.player, "avatarUrl"> & {
+    avatarUrl: string | null;
+  };
+  infrastructure: Omit<typeof authenticatedSklandSnapshot.infrastructure, "layoutSuggestion"> & {
+    layoutSuggestion: typeof layout243 | null;
+  };
 };
 
 async function mockApis(
@@ -504,7 +739,7 @@ async function mockApis(
   options: {
     debugTools?: boolean;
     sklandConfigured?: boolean;
-    sklandSnapshot?: typeof authenticatedSklandSnapshot;
+    sklandSnapshot?: MockSklandSnapshot;
     sklandAccounts?: typeof primarySklandAccount[];
     activeAccountId?: string | null;
     sklandSessionDelayMs?: number;
@@ -565,16 +800,15 @@ async function mockApis(
                 ? null
                 : "当前未开放森空岛登录，可使用 MAA 导入。",
               ...(options.sklandSnapshot ? { scheduleSnapshot: options.sklandSnapshot } : {}),
+              ...(options.sklandSnapshot ? { statusSnapshot: options.sklandSnapshot } : {}),
             },
         requestId,
       }),
     });
   });
   await page.route("**/api/skland/status", (route) => {
-    const revoked = route.request().method() === "DELETE";
     const accounts = (options.sklandAccounts
-      ?? (options.sklandSnapshot ? [primarySklandAccount] : []))
-      .map((account) => ({ ...account, statusAuthorized: !revoked }));
+      ?? (options.sklandSnapshot ? [primarySklandAccount] : []));
     return route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -582,10 +816,9 @@ async function mockApis(
       body: JSON.stringify({
         success: true,
         data: {
-          authorized: !revoked,
           accounts,
           activeAccountId: options.activeAccountId ?? accounts[0]?.accountId ?? null,
-          ...(!revoked && options.sklandSnapshot ? { snapshot: options.sklandSnapshot } : {}),
+          ...(options.sklandSnapshot ? { snapshot: options.sklandSnapshot } : {}),
         },
         requestId,
       }),
@@ -688,6 +921,54 @@ async function seedV4Session(
   });
 }
 
+test("serves versioned WebP portraits with immutable caching only when versioned", async ({ request }) => {
+  expect(amiyaPortrait).toMatch(/^\/images\/operator-portraits\/002_amiya\.webp\?v=\d+-[0-9a-f]{12}$/);
+  const versioned = await request.get(amiyaPortrait);
+  expect(versioned.ok()).toBe(true);
+  expect(versioned.headers()["content-type"]).toContain("image/webp");
+  expect(versioned.headers()["cache-control"]).toContain("max-age=31536000");
+  expect(versioned.headers()["cache-control"]).toContain("immutable");
+
+  const unversioned = await request.get(amiyaPortrait.split("?")[0]);
+  expect(unversioned.ok()).toBe(true);
+  expect(unversioned.headers()["cache-control"]).toBe("public, max-age=0");
+});
+
+test("defers a portrait far below the mobile viewport until it approaches view", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Chromium owns the deterministic native lazy-loading threshold assertion.");
+  await mockApis(page);
+  await seedV4Session(page, lazyPortraitPlanData);
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.textContent = '[data-room-group="processing"] { margin-top: 3000px !important; }';
+      document.head.append(style);
+    });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const requestedPortraits: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "image" && request.url().includes("/images/operator-portraits/")) {
+      requestedPortraits.push(request.url());
+    }
+  });
+  await page.goto("/");
+
+  const deferredPortrait = page.locator('img[alt="嘉辛塔"]');
+  await expect(deferredPortrait).toHaveAttribute("loading", "lazy");
+  const position = await deferredPortrait.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return { top: box.top, viewportHeight: window.innerHeight };
+  });
+  expect(position.top).toBeGreaterThan(position.viewportHeight * 2);
+  await page.waitForTimeout(300);
+  expect(requestedPortraits).toHaveLength(3);
+  expect(requestedPortraits.some((url) => url.includes("/4237_jcinta.webp?"))).toBe(false);
+
+  await deferredPortrait.scrollIntoViewIfNeeded();
+  await expect.poll(() => requestedPortraits.some((url) => url.includes("/4237_jcinta.webp?"))).toBe(true);
+});
+
 test("restores a v4 schedule without hydration errors and keeps only safe data", async ({ page }) => {
   await mockApis(page);
   await seedV4Session(page);
@@ -697,9 +978,11 @@ test("restores a v4 schedule without hydration errors and keeps only safe data",
   });
 
   await page.goto("/");
-  await expect(page.getByText("排班已生成")).toBeVisible();
+  await expect(page.locator("[data-plan-board]")).toHaveAttribute("data-plan-revision", diagnosticId);
+  await expect(page.locator('[data-slot="live-activity"]')).toHaveCount(0);
   await page.reload();
-  await expect(page.getByText("排班已生成")).toBeVisible();
+  await expect(page.locator("[data-plan-board]")).toHaveAttribute("data-plan-revision", diagnosticId);
+  await expect(page.locator('[data-slot="live-activity"]')).toHaveCount(0);
   expect(consoleErrors.filter((message) => /hydration|did not match/i.test(message))).toEqual([]);
 
   const persisted = await page.evaluate(() => JSON.parse(
@@ -722,19 +1005,38 @@ test("two-shift output drives labels, teams, metric units, and profile details",
   await expect(shiftTabs).toHaveCount(2);
   await expect(page.locator("[data-shift-tabs]")).toHaveCSS("overflow-y", "hidden");
   await expect(page.getByRole("tab", { name: /第 3 班/ })).toHaveCount(0);
-  await expect(page.getByText("主力 上班 · 替补 休息", { exact: true })).toBeVisible();
+  await expect(shiftTabs.first()).toHaveAttribute("aria-label", /主力 上班 · 替补 休息/);
 
   await expect(page.getByText("5.288×", { exact: true })).toBeVisible();
-  await expect(page.getByText("24h 贸易", { exact: true }).locator("..")).toContainText(/参考 4\.968×\s*· \+6\.4%/);
   await expect(page.getByText("917.5%", { exact: true })).toBeVisible();
-  await expect(page.getByText("24h 制造", { exact: true }).locator("..")).toContainText(/参考 850%\s*· \+7\.9%/);
   await expect(page.getByText("355.2%", { exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: /第 2 班 · 12h/ }).click();
-  await expect(page.getByText("替补 上班 · 主力 休息", { exact: true })).toBeVisible();
+  await expect(shiftTabs.nth(1)).toHaveAttribute("aria-label", /替补 上班 · 主力 休息/);
 
-  await page.locator("details").filter({ hasText: "效率详情" }).locator("summary").click();
+  const detailsTrigger = page.locator('[data-plan-details-trigger="efficiency"]').last();
+  await detailsTrigger.click();
+  const detailsSheet = page.locator('[data-slot="drawer-content"]');
+  await expect(detailsSheet).toBeVisible();
+  await expect(detailsSheet.getByText("24h 贸易", { exact: true }).locator("..")).toContainText(/参考 4\.968×\s*\+6\.4%/);
+  await expect(detailsSheet.getByText("24h 制造", { exact: true }).locator("..")).toContainText(/参考 850%\s*\+7\.9%/);
+  await expect(detailsSheet.locator('[data-efficiency-insights] [data-insight-state="positive"]')).toHaveCount(3);
   await expect(page.getByText("机制等效 当前 1.42 · 参考 1.31", { exact: true })).toBeVisible();
+  await expect(detailsSheet.locator('[data-recommendation-card="compact"]')).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-slot="drawer-root"]')).toHaveCount(0);
+  await expect(detailsTrigger).toBeFocused();
+
+  await detailsTrigger.click();
+  const drawerHandle = page.locator('[data-slot="drawer-handle"]');
+  const handleBox = await drawerHandle.boundingBox();
+  expect(handleBox).not.toBeNull();
+  await page.mouse.move(handleBox!.x + 40, handleBox!.y + handleBox!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox!.x + handleBox!.width - 10, handleBox!.y + handleBox!.height / 2, { steps: 12 });
+  await page.mouse.up();
+  await expect(page.locator('[data-slot="drawer-root"]')).toHaveCount(0);
+  await expect(detailsTrigger).toBeFocused();
 
   await page.getByRole("button", { name: "练卡建议" }).click();
   await expect(page.getByText("练度提升", { exact: true })).toBeVisible();
@@ -782,7 +1084,11 @@ test("four-shift output persists the fourth tab and migrates an old v4 profile",
   ).activeShift)).toBe(3);
 
   await page.reload();
-  await expect(page.getByRole("tab", { name: /第 4 班 · 4h/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /第 4 班 · 4h/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+    { timeout: 15_000 },
+  );
   const persisted = await page.evaluate(() => JSON.parse(
     window.localStorage.getItem("arknights-infra-calc-session-v5") ?? "{}"
   ));
@@ -815,7 +1121,7 @@ test("?beta cannot enable debug tools without the server feature flag", async ({
   await mockApis(page, { debugTools: false });
   await seedPreferences(page);
   await page.goto("/?beta");
-  await expect(page.getByText("排班服务已就绪")).toBeVisible();
+  await expect(page.getByRole("button", { name: "全角色导入" })).toBeVisible();
   await expect(page.getByText("调试输出")).toHaveCount(0);
   await expect(page.getByText("问题上下文")).toHaveCount(0);
   await expect(page.getByText("开启调试工具", { exact: true })).toHaveCount(0);
@@ -837,7 +1143,7 @@ test("the development debug entry manages the URL and debug panels", async ({ pa
   await expect(page.getByText("开启调试工具", { exact: true })).toBeVisible();
 });
 
-test("shows the solving orb only while a plan request is running", async ({ page }) => {
+test("shows the thinking activity and indeterminate progress only while a plan request is running", async ({ page }) => {
   await mockApis(page);
   let releasePlan!: () => void;
   const planGate = new Promise<void>((resolve) => {
@@ -855,30 +1161,593 @@ test("shows the solving orb only while a plan request is running", async ({ page
   await page.goto("/");
 
   await page.getByRole("button", { name: "全角色导入" }).click();
-  const status = page.getByRole("status");
-  const statusText = status.locator('[data-slot="status-text"]');
-  const readyTextX = await statusText.evaluate((element) => element.getBoundingClientRect().x);
   await page.getByRole("button", { name: "生成排班" }).click();
 
+  const status = page.locator('[data-slot="live-activity"]');
   const solvingOrb = status.locator('[data-slot="solving-orb"]');
+  const progress = status.locator('[data-slot="activity-progress-indicator"]');
   await expect(status).toContainText("正在生成排班");
+  await expect(status).toHaveCSS("background-color", "rgb(250, 250, 248)");
   await expect(solvingOrb).toBeVisible();
-  await expect(solvingOrb).toHaveAttribute("aria-hidden", "true");
-  const solvingTextX = await statusText.evaluate((element) => element.getBoundingClientRect().x);
-  expect(solvingTextX).toBeCloseTo(readyTextX, 4);
+  await expect(status.locator(".live-activity-shimmer")).toBeVisible();
+  await expect(progress).toBeVisible();
+  await expect(progress).toHaveCSS("width", /.+/);
 
   releasePlan();
   await expect(status).toContainText("排班已生成");
   await expect(solvingOrb).toHaveCount(0);
-  const completeTextX = await statusText.evaluate((element) => element.getBoundingClientRect().x);
-  expect(completeTextX).toBeCloseTo(readyTextX, 4);
+  await expect(status.locator('[data-slot="activity-progress-indicator"]')).toHaveCSS("width", /.+/);
+});
+
+test("Skland calculator keeps the schedule visible before and after sidebar navigation", async ({ page }) => {
+  await mockApis(page, {
+    sklandConfigured: true,
+    sklandSnapshot: {
+      ...authenticatedSklandSnapshot,
+      infrastructure: {
+        ...authenticatedSklandSnapshot.infrastructure,
+        layoutSuggestion: null,
+      },
+    },
+  });
+  await seedPreferences(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await expect(page.locator("[data-skland-account-control]")).toBeVisible();
+  const runButton = page.getByRole("button", { name: "生成排班" });
+  await expect(runButton).toBeEnabled();
+
+  const waitingBoard = page.locator("[data-plan-board]");
+  await expect(waitingBoard).toBeVisible();
+  await expect(waitingBoard).toHaveCSS("opacity", "1");
+  await expect(waitingBoard).not.toHaveAttribute("data-plan-revision");
+  await expect(waitingBoard).toContainText("控制中枢");
+
+  await runButton.click();
+  await expect(page.locator('[data-slot="live-activity"]')).toHaveAttribute("data-activity-phase", "success");
+  await expect(page.locator("[data-plan-board]")).toHaveAttribute("data-plan-revision", diagnosticId);
+  await expect(page.getByRole("button", { name: "导出到 MAA" })).toBeEnabled();
+  const comparisonTrigger = page.locator('[data-plan-details-trigger="comparison"]');
+  await expect(comparisonTrigger).toBeVisible();
+  await comparisonTrigger.click();
+  const comparisonSheet = page.locator('[data-slot="drawer-content"]');
+  await expect(comparisonSheet.locator("[data-plan-details-section]")).toHaveAttribute("data-plan-details-section", "comparison");
+  await expect(comparisonSheet.locator("[data-shift-comparison-details]")).toBeVisible();
+  const desktopAdjustmentGroups = comparisonSheet.locator("[data-desktop-adjustment-groups]");
+  await expect(desktopAdjustmentGroups).toBeVisible();
+  await expect(desktopAdjustmentGroups.getByRole("heading", { level: 4 })).toContainText(["需换出", "需换入", "位置调整"]);
+  const mobileIssueTone = { unexpected: "bg-amber-100", missing: "bg-sky-100", misplaced: "bg-zinc-200" } as const;
+  for (const issue of ["unexpected", "missing", "misplaced"] as const) {
+    const group = desktopAdjustmentGroups.locator(`[data-adjustment-group="${issue}"]`);
+    const declaredCount = Number((await group.locator(".font-number").textContent())?.match(/\d+/)?.[0] ?? 0);
+    const table = group.locator(`[data-desktop-adjustment-table="${issue}"]`);
+    if (declaredCount === 0) {
+      await expect(table).toHaveCount(0);
+      await expect(group.getByText("无", { exact: true })).toBeVisible();
+      continue;
+    }
+    await expect(table.locator("tbody tr")).toHaveCount(declaredCount);
+    const tableColumnOffsets = await table.evaluate((element) => {
+      const headers = Array.from(element.querySelectorAll("th"));
+      const firstRowCells = Array.from(element.querySelectorAll("tbody tr:first-child td"));
+      return headers.map((header, index) => Math.abs(header.getBoundingClientRect().x - firstRowCells[index].getBoundingClientRect().x));
+    });
+    expect(tableColumnOffsets.every((offset) => offset < 0.5)).toBe(true);
+  }
+  const desktopRoomLabels = desktopAdjustmentGroups.locator("[data-room-label]");
+  await expect(desktopRoomLabels.first()).toBeVisible();
+  await expect(desktopRoomLabels.first()).toHaveCSS("border-width", "0px");
+  await expect(desktopRoomLabels.first().locator("[data-room-indicator]")).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileAdjustmentGroups = comparisonSheet.locator("[data-mobile-adjustment-groups]");
+  await expect(mobileAdjustmentGroups).toBeVisible();
+  await expect(mobileAdjustmentGroups.getByRole("heading", { level: 4 })).toContainText(["需换出", "需换入", "位置调整"]);
+  for (const issue of ["unexpected", "missing", "misplaced"] as const) {
+    const group = mobileAdjustmentGroups.locator(`[data-adjustment-group="${issue}"]`);
+    const declaredCount = Number((await group.locator(".font-number").textContent())?.match(/\d+/)?.[0] ?? 0);
+    await expect(group.locator("li strong")).toHaveCount(declaredCount);
+    await expect(group.getByRole("heading", { level: 4 }).locator("span")).toHaveClass(new RegExp(mobileIssueTone[issue]));
+    if (declaredCount === 0) await expect(group.getByText("无", { exact: true })).toBeVisible();
+  }
+  await expect(mobileAdjustmentGroups.locator("[data-room-label]").first()).toBeVisible();
+  await expect(mobileAdjustmentGroups.locator("[data-room-label]").first()).toHaveCSS("border-width", "0px");
+  const firstMobileAdjustmentRow = mobileAdjustmentGroups.locator("[data-mobile-adjustment-row]").first();
+  const mobileRowAlignment = await firstMobileAdjustmentRow.evaluate((row) => {
+    const operator = row.querySelector("strong")?.getBoundingClientRect();
+    const action = row.querySelector("[data-mobile-adjustment-action]")?.getBoundingClientRect();
+    return operator && action ? Math.abs((operator.top + operator.height / 2) - (action.top + action.height / 2)) : Number.POSITIVE_INFINITY;
+  });
+  expect(mobileRowAlignment).toBeLessThan(2);
+  await expect(firstMobileAdjustmentRow.locator("strong")).toHaveCSS("font-size", "14px");
+  const mobileComparisonWidth = await mobileAdjustmentGroups.evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }));
+  expect(mobileComparisonWidth.scroll).toBeLessThanOrEqual(mobileComparisonWidth.client);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-slot="drawer-root"]')).toHaveCount(0);
+  await expect(comparisonTrigger).toBeFocused();
+
+  const returnToCalculator = async (destination: "练卡建议" | "森空岛状态", marker: string, label: string) => {
+    await page.getByRole("button", { name: destination, exact: true }).click();
+    await expect(page.locator(marker)).toBeVisible();
+    await armMotionCapture(page, "[data-plan-board]", label, 320);
+    await page.getByRole("button", { name: "基建计算器", exact: true }).click();
+
+    const returnedBoard = page.locator("[data-plan-board]");
+    await expect(returnedBoard).toBeVisible();
+    await expect(returnedBoard).toHaveCSS("opacity", "1");
+    await expect(returnedBoard).toHaveAttribute("data-plan-revision", diagnosticId);
+    await expect(page.getByRole("button", { name: "导出到 MAA" })).toBeEnabled();
+    await page.waitForTimeout(650);
+    expect(await page.locator("html").getAttribute(`data-motion-enter-${label}`)).toBeNull();
+  };
+
+  await returnToCalculator("练卡建议", '[data-slot="training-summary"]', "calculator-return-training");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await returnToCalculator("森空岛状态", "[data-skland-view-tabs]", "calculator-return-skland-reduced");
+});
+
+test("plan completion reveals status, metrics, and schedule once without resetting board state", async ({ page, browserName }) => {
+  const invalidTransformWarnings: string[] = [];
+  page.on("console", (message) => {
+    if (/Invalid keyframe value for property transform|translate0d/i.test(message.text())) {
+      invalidTransformWarnings.push(message.text());
+    }
+  });
+  await mockApis(page);
+  let releasePlan!: () => void;
+  const planGate = new Promise<void>((resolve) => {
+    releasePlan = resolve;
+  });
+  await page.route("**/api/plan", async (route) => {
+    await planGate;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: motionPlanData, requestId }),
+    });
+  });
+  await seedPreferences(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "全角色导入" }).click();
+  const listTab = page.getByRole("tab", { name: "列表式布局" });
+  await listTab.click();
+  const dormitorySection = page.locator('section[aria-label="宿舍"]');
+  await dormitorySection.locator('button[aria-expanded="true"]').click();
+  await dormitorySection.getByRole("button", { name: "暂不显示" }).click();
+  const restoreHidden = page.getByRole("button").filter({ hasText: "恢复已隐藏" });
+  await expect(restoreHidden).toBeVisible();
+
+  await armMotionCapture(
+    page,
+    '[data-activity-phase="running"]',
+    "loading-status",
+    260
+  );
+  await page.getByRole("button", { name: "生成排班" }).click();
+  const status = page.locator('[data-slot="live-activity"]');
+  await expect(status).toHaveAttribute("data-activity-phase", "running");
+  await expectCapturedMotion(page, "loading-status", 260);
+
+  const boardBeforePlan = page.locator("[data-plan-board]");
+  await boardBeforePlan.evaluate((element) => {
+    element.setAttribute("data-motion-sentinel", "stable");
+  });
+
+  if (browserName === "webkit") {
+    await armTransientStyleCapture(page, "[data-plan-summary]", "plan-summary");
+    await armTransientStyleCapture(page, "[data-plan-metric]", "plan-metrics");
+  } else {
+    await armMotionCapture(page, "[data-plan-summary]", "plan-summary", 460);
+    await armMotionCollectionCapture(page, "[data-plan-metric]", "plan-metrics", 360);
+  }
+  releasePlan();
+  await expect(status).toHaveAttribute("data-activity-phase", "success");
+  const summary = page.locator("[data-plan-summary]");
+  const board = page.locator("[data-plan-board]");
+  await expect(summary).toBeVisible();
+  await expect(board).toHaveAttribute("data-plan-revision", diagnosticId);
+  await expect(board).toHaveAttribute("data-motion-sentinel", "stable");
+  expect(await board.evaluate((element) => element.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  await expect(listTab).toHaveAttribute("aria-selected", "true");
+  await expect(restoreHidden).toBeVisible();
+
+  if (browserName === "webkit") {
+    await expectCapturedStyleMotion(page, "plan-summary");
+    await expectCapturedStyleMotion(page, "plan-metrics");
+  } else {
+    await expectCapturedMotion(page, "plan-summary", 460, 40);
+    await expectCapturedMotionDelays(page, "plan-metrics", 360, [100, 150, 215, 280]);
+  }
+  await expect(status).toContainText("排班已生成");
+
+  const renderingBudget = await page.evaluate(() => {
+    const summaryElement = document.querySelector<HTMLElement>("[data-plan-summary]")!;
+    const boardElement = document.querySelector<HTMLElement>("[data-plan-board]")!;
+    const summaryCalligraphCount = summaryElement.querySelectorAll("[data-calligraph]").length;
+    const boardCalligraphCount = boardElement.querySelectorAll("[data-calligraph]").length;
+    const roomPrimaryCount = boardElement.querySelectorAll("[data-room-primary-efficiency]").length;
+    const animatedTextCalligraphCount = document.querySelectorAll('[data-animated-value="text"] [data-calligraph]').length;
+    const clipPathAnimationCount = [summaryElement, boardElement]
+      .flatMap((element) => element.getAnimations({ subtree: true }))
+      .filter((animation) => {
+        const effect = animation.effect;
+        return effect instanceof KeyframeEffect && effect.getKeyframes().some((frame) => (
+          typeof frame.clipPath === "string" && frame.clipPath !== "none"
+        ));
+      }).length;
+    return {
+      animatedTextCalligraphCount,
+      boardCalligraphCount,
+      clipPathAnimationCount,
+      roomPrimaryCount,
+      summaryCalligraphCount,
+      totalCalligraphCount: document.querySelectorAll("[data-calligraph]").length,
+      totalElementCount: document.querySelectorAll("*").length,
+    };
+  });
+  expect(renderingBudget.summaryCalligraphCount).toBe(3);
+  expect(renderingBudget.boardCalligraphCount).toBe(renderingBudget.roomPrimaryCount);
+  expect(renderingBudget.totalCalligraphCount).toBe(
+    renderingBudget.summaryCalligraphCount + renderingBudget.boardCalligraphCount
+  );
+  expect(renderingBudget.totalCalligraphCount).toBeLessThanOrEqual(20);
+  expect(renderingBudget.animatedTextCalligraphCount).toBe(0);
+  expect(renderingBudget.clipPathAnimationCount).toBe(0);
+  expect(renderingBudget.totalElementCount).toBeLessThan(1_500);
+
+  await page.waitForTimeout(650);
+  await board.evaluate((element) => {
+    element.setAttribute("data-motion-sentinel", "stable");
+  });
+  await armTransientStyleCapture(page, "[data-plan-board] [data-operator-identity]", "shift-slots");
+  const operatorIdentitiesBefore = await board.locator("[data-operator-identity]").evaluateAll((nodes) => (
+    nodes.map((node) => node.getAttribute("data-operator-identity"))
+  ));
+  const firstShift = page.getByRole("tab", { name: /第 1 班 · 12h/ });
+  const secondShift = page.getByRole("tab", { name: /第 2 班 · 6h/ });
+  const thirdShift = page.getByRole("tab", { name: /第 3 班 · 6h/ });
+  await secondShift.click();
+  await expect(secondShift).toHaveAttribute("aria-selected", "true");
+  await expect(board).toHaveAttribute("data-motion-sentinel", "stable");
+  expect(await board.evaluate((element) => element.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  await expectCapturedStyleMotion(page, "shift-slots");
+  await expect.poll(() => board.locator("[data-operator-identity]").evaluateAll((nodes) => (
+    nodes.map((node) => node.getAttribute("data-operator-identity"))
+  ))).not.toEqual(operatorIdentitiesBefore);
+
+  await firstShift.click();
+  await thirdShift.click();
+  await secondShift.click();
+  await expect(secondShift).toHaveAttribute("aria-selected", "true");
+  await page.waitForTimeout(320);
+  await expect(board.locator('[data-operator-identity="凯尔希"]').first()).toBeVisible();
+  await expect(board.locator('[data-operator-identity="阿米娅"], [data-operator-identity="贝洛内"]')).toHaveCount(0);
+  if (browserName === "webkit") {
+    await armTransientStyleCapture(page, '[data-schedule-view="compact"]', "compact-view");
+  } else {
+    await armMotionCapture(page, '[data-schedule-view="compact"]', "compact-view", 280);
+  }
+
+  await page.getByRole("tab", { name: "一图流布局" }).click();
+  await expect(board).toHaveAttribute("data-motion-sentinel", "stable");
+  expect(await board.evaluate((element) => element.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  const compactView = board.locator('[data-schedule-view="compact"]');
+  await expect(compactView).toBeVisible();
+  if (browserName === "webkit") {
+    await expectCapturedStyleMotion(page, "compact-view");
+  } else {
+    await expectCapturedMotion(page, "compact-view", 280);
+  }
+  expect(invalidTransformWarnings).toEqual([]);
+});
+
+test("reduced motion keeps feedback timing while removing movement, clipping, and staggering", async ({ page, browserName }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await mockApis(page);
+  let releasePlan!: () => void;
+  const planGate = new Promise<void>((resolve) => {
+    releasePlan = resolve;
+  });
+  await page.route("**/api/plan", async (route) => {
+    await planGate;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: twoShiftPlanData, requestId }),
+    });
+  });
+  await seedPreferences(page);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "全角色导入" }).click();
+  await page.getByRole("button", { name: "生成排班" }).click();
+  await expect(page.locator('[data-slot="live-activity"]')).toHaveAttribute("data-activity-phase", "running");
+  await expect(page.locator('[data-slot="live-activity"] .animate-spin')).toHaveCount(0);
+
+  const board = page.locator("[data-plan-board]");
+  await board.evaluate((element) => {
+    element.setAttribute("data-motion-sentinel", "stable");
+  });
+
+  if (browserName === "webkit") {
+    await armTransientStyleCapture(page, "[data-plan-summary]", "reduced-summary");
+    await armTransientStyleCapture(page, "[data-plan-metric]", "reduced-metric");
+  } else {
+    await armMotionCapture(page, "[data-plan-summary]", "reduced-summary", 140);
+    await armMotionCapture(page, "[data-plan-metric]", "reduced-metric", 140);
+  }
+  releasePlan();
+  await expect(page.locator('[data-slot="live-activity"]')).toHaveAttribute("data-activity-phase", "success");
+  const summary = page.locator("[data-plan-summary]");
+  await expect(summary).toBeVisible();
+  await expect(board).toHaveAttribute("data-motion-sentinel", "stable");
+  expect(await board.evaluate((element) => element.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  if (browserName === "webkit") {
+    await expectCapturedStyleMotion(page, "reduced-summary");
+    await expectCapturedStyleMotion(page, "reduced-metric");
+  } else {
+    await expectCapturedMotion(page, "reduced-summary", 140);
+    await expectCapturedMotion(page, "reduced-metric", 140);
+  }
+  const reduced = await page.evaluate(() => {
+    const activity = document.querySelector<HTMLElement>('[data-slot="live-activity"]')!;
+    const boardElement = document.querySelector<HTMLElement>("[data-plan-board]")!;
+    const movingFrames = boardElement.getAnimations({ subtree: true }).flatMap((animation) => {
+      const effect = animation.effect;
+      return effect instanceof KeyframeEffect ? effect.getKeyframes() : [];
+    }).filter((frame) => (
+      (typeof frame.transform === "string" && !["none", "matrix(1, 0, 0, 1, 0, 0)"].includes(frame.transform))
+      || (typeof frame.clipPath === "string" && frame.clipPath !== "none")
+    ));
+    return {
+      activityAnimationCount: activity.getAnimations({ subtree: true }).filter((animation) => animation.playState === "running").length,
+      movingFrameCount: movingFrames.length,
+      calligraphCount: boardElement.querySelectorAll("[data-calligraph]").length,
+    };
+  });
+  expect(reduced.activityAnimationCount).toBe(0);
+  expect(reduced.movingFrameCount).toBe(0);
+  expect(reduced.calligraphCount).toBe(0);
+});
+
+test("live activity survives navigation and calculator search occupies the released toolbar space", async ({ page }) => {
+  await mockApis(page);
+  let releasePlan!: () => void;
+  const planGate = new Promise<void>((resolve) => {
+    releasePlan = resolve;
+  });
+  await page.route("**/api/plan", async (route) => {
+    await planGate;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: twoShiftPlanData, requestId }),
+    });
+  });
+  await seedPreferences(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await expect(page.locator('[data-slot="live-activity"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "全角色导入" }).click();
+  await page.getByRole("button", { name: "生成排班" }).click();
+  const activity = page.locator('[data-slot="live-activity"]');
+  await expect(activity).toHaveAttribute("data-activity-phase", "running");
+
+  await page.getByRole("button", { name: "技能查询" }).click();
+  await expect(page.getByRole("heading", { name: "技能查询" })).toBeVisible();
+  await expect(activity).toHaveAttribute("data-activity-phase", "running");
+  releasePlan();
+  await expect(activity).toHaveAttribute("data-activity-phase", "success");
+  await expect(activity).toHaveCount(0, { timeout: 3_000 });
+
+  await expect(page.getByRole("textbox", { name: "搜索干员名称" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "筛选制造站" })).toBeVisible();
+
+  await page.getByRole("button", { name: "基建计算器", exact: true }).click();
+  const search = page.getByRole("textbox", { name: "搜索排班中的干员或房间" });
+  const toolbar = page.locator("[data-calculator-controls]");
+  await expect(search).toBeVisible();
+  for (const buttonName of ["配置Box与布局", "生成排班"]) {
+    await expect(toolbar.getByRole("button", { name: buttonName })).toHaveCSS("height", "36px");
+  }
+  await expect(page.locator("[data-calculator-export-actions]").getByRole("button", { name: "全角色导入" })).toHaveCSS("height", "28px");
+  await page.keyboard.press("Control+k");
+  await expect(search).toBeFocused();
+  await search.fill("阿米娅");
+  await expect(page.locator("[data-plan-board]")).toContainText("阿米娅");
+  await expect(page.getByRole("button", { name: "清空排班搜索" })).toBeVisible();
+  await page.getByRole("button", { name: "清空排班搜索" }).click();
+  await expect(search).toHaveValue("");
+
+  await page.getByRole("button", { name: "查看快捷键" }).click();
+  const shortcutDialog = page.getByRole("dialog");
+  await expect(shortcutDialog).toBeVisible();
+  await expect(shortcutDialog).toHaveCSS("max-width", "672px");
+  await expect(shortcutDialog.locator('[data-slot="kbd"]')).toHaveCount(5);
+  await expect(shortcutDialog.locator('[data-slot="kbd-group"]')).toHaveCount(2);
+  const shortcutRows = shortcutDialog.locator('[data-slot="kbd-group"]').first().locator("xpath=..");
+  await expect(shortcutRows).toHaveCSS("min-height", "80px");
+  await page.keyboard.press("Escape");
+  await expect(shortcutDialog).toBeHidden();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileToolbar = await toolbar.evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }));
+  expect(mobileToolbar.scroll).toBeLessThanOrEqual(mobileToolbar.client);
+  await expect(search).toHaveCSS("height", "44px");
+});
+
+test("failed plan remains expanded with retry and diagnostic actions", async ({ page }) => {
+  await mockApis(page);
+  let requestCount = 0;
+  await page.route("**/api/plan", async (route) => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: false,
+          error: { code: "AIC-PLAN-3001", message: "排班服务暂不可用，请稍后重试。", retryable: true },
+          requestId,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: twoShiftPlanData, requestId }),
+    });
+  });
+  await seedPreferences(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "全角色导入" }).click();
+  await page.getByRole("button", { name: "生成排班" }).click();
+
+  const activity = page.locator('[data-slot="live-activity"]');
+  await expect(activity).toHaveAttribute("data-activity-phase", "error");
+  await expect(activity).toHaveAttribute("data-activity-view", "expanded");
+  await page.waitForTimeout(2_800);
+  await expect(activity).toHaveAttribute("data-activity-view", "expanded");
+  await activity.hover();
+  await expect(activity).toHaveAttribute("data-activity-view", "expanded");
+  await activity.getByRole("button", { name: "复制诊断" }).click();
+  await expect(activity.getByRole("button", { name: "已复制" })).toBeVisible();
+  await activity.getByRole("button", { name: "重试" }).click();
+  await expect(page.locator('[data-slot="live-activity"][data-activity-phase="success"]')).toBeVisible();
+});
+
+test("dialog and mobile sheet motion preserve direction, exit timing, and focus", async ({ page }) => {
+  await mockApis(page);
+  await seedV4Session(page, scheduleVisualPlanData);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const setupTrigger = page.getByRole("button", { name: "配置Box与布局" }).first();
+  await setupTrigger.click();
+  const setupDialog = page.getByRole("dialog");
+  await expect(setupDialog).toHaveCSS("transform-origin", /.+/);
+  await expectMotionDuration(setupDialog, 300);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await armEndingTransitionCapture(setupDialog, "setup");
+  await setupDialog.getByRole("button", { name: "Close" }).click();
+  await expectCapturedExitDuration(page, "setup", 180);
+  await expect(setupDialog).toHaveCount(0);
+  await expect(setupTrigger).toBeFocused();
+
+  await page.getByRole("tab", { name: "列表式布局" }).click();
+  const issueTrigger = page.getByRole("button", { name: /反馈排班问题/ }).first();
+  await issueTrigger.click();
+  const feedbackDialog = page.getByRole("dialog");
+  await expectMotionDuration(feedbackDialog, 300);
+  await armEndingTransitionCapture(feedbackDialog, "feedback");
+  await feedbackDialog.getByRole("button", { name: "取消" }).click();
+  await expectCapturedExitDuration(page, "feedback", 180);
+  await expect(feedbackDialog).toHaveCount(0);
+  await expect(issueTrigger).toBeFocused();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const sidebarTrigger = page.getByRole("button", { name: "Toggle Sidebar" });
+  await sidebarTrigger.click();
+  const sheet = page.locator('[data-mobile="true"][data-sidebar="sidebar"]');
+  await expect(sheet).toHaveAttribute("data-side", "left");
+  await expectMotionDuration(sheet, 320);
+  await armEndingTransitionCapture(sheet, "sidebar");
+  await page.keyboard.press("Escape");
+  await expectCapturedExitDuration(page, "sidebar", 220);
+  await expect(sheet).toHaveCount(0);
+  await expect(sidebarTrigger).toBeFocused();
+});
+
+test("shared action buttons keep their geometry after WebKit interactions", async ({ page }) => {
+  await mockApis(page);
+  await seedPreferences(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  const setupTrigger = page.getByRole("button", { name: "配置Box与布局" }).first();
+  await setupTrigger.click();
+  const setupDialog = page.getByRole("dialog");
+  await expect(setupDialog).toBeVisible();
+  await setupDialog.getByRole("button", { name: "Close" }).click();
+  await expect(setupDialog).toHaveCount(0);
+  await expect(setupTrigger).toBeFocused();
+  await expectButtonGeometryStable(setupTrigger);
+
+  const importButton = page.getByRole("button", { name: "全角色导入" });
+  await importButton.click();
+  await expectButtonGeometryStable(importButton);
+
+  const planButton = page.getByRole("button", { name: "生成排班" });
+  await expect(planButton).toBeEnabled();
+  await planButton.click();
+  await expect(page.getByText("排班已生成")).toBeVisible();
+  await expectButtonGeometryStable(planButton);
+});
+
+test("tooltips wait once and then open adjacent help instantly within the provider window", async ({ page, browserName }) => {
+  await mockApis(page);
+  await seedPreferences(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const calculatorTrigger = page.getByRole("button", { name: "基建计算器" });
+  const adviceTrigger = page.getByRole("button", { name: "练卡建议" });
+  await expect(calculatorTrigger).toBeVisible();
+  await calculatorTrigger.evaluate((trigger) => {
+    const root = document.documentElement;
+    root.removeAttribute("data-tooltip-entered-at");
+    root.removeAttribute("data-tooltip-open-delay");
+    const markEntered = () => {
+      if (!root.hasAttribute("data-tooltip-entered-at")) {
+        root.setAttribute("data-tooltip-entered-at", String(performance.now()));
+      }
+    };
+    trigger.addEventListener("pointerenter", markEntered, { once: true });
+    trigger.addEventListener("mouseenter", markEntered, { once: true });
+    const observer = new MutationObserver(() => {
+      const enteredAt = Number(root.getAttribute("data-tooltip-entered-at"));
+      if (!enteredAt || !document.querySelector('[data-slot="tooltip-content"][data-open]')) return;
+      root.setAttribute("data-tooltip-open-delay", String(performance.now() - enteredAt));
+      observer.disconnect();
+    });
+    observer.observe(document.body, { attributes: true, childList: true, subtree: true });
+  });
+  if (browserName === "webkit") {
+    await armTransientStyleCapture(page, '[data-slot="tooltip-content"][data-open]', "tooltip");
+  }
+  await calculatorTrigger.hover();
+  const firstTooltip = page.locator('[data-slot="tooltip-content"][data-open]');
+  await expect(firstTooltip).toBeVisible({ timeout: 1_500 });
+  if (browserName === "webkit") {
+    await expectCapturedStyleMotion(page, "tooltip");
+  } else {
+    await expectMotionDuration(firstTooltip, 240);
+  }
+  await expect(page.locator("html")).toHaveAttribute("data-tooltip-open-delay", /.+/);
+  const firstOpenDelay = Number(await page.locator("html").getAttribute("data-tooltip-open-delay"));
+  expect(firstOpenDelay).toBeGreaterThanOrEqual(300);
+  expect(firstOpenDelay).toBeLessThan(1_200);
+
+  await adviceTrigger.hover();
+  const instantTooltip = page.locator('[data-slot="tooltip-content"][data-instant][data-open]');
+  await expect(instantTooltip).toBeVisible({ timeout: 200 });
+  expect(await instantTooltip.evaluate((node) => node.getAnimations().every((animation) => (
+    Number(animation.effect?.getTiming().duration ?? 0) === 0
+  )))).toBe(true);
 });
 
 test("Full E2 stays in place and completes generation, shifts, MAA export, and feedback", async ({ page }) => {
   await mockApis(page);
   await seedPreferences(page);
   await page.goto("/");
-  await expect(page.getByText("排班服务已就绪")).toBeVisible();
+  await expect(page.getByRole("button", { name: "全角色导入" })).toBeVisible();
 
   const fullE2 = page.getByRole("button", { name: "全角色导入" });
   await expect(fullE2).toBeVisible();
@@ -904,6 +1773,19 @@ test("Full E2 stays in place and completes generation, shifts, MAA export, and f
     { columns: "90px 90px", columnGap: "8px", rowGap: "10px" },
     { columns: "90px 90px", columnGap: "8px", rowGap: "10px" },
   ]);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileFactoryControls = page.getByRole("group", { name: /制造站 1 配方/ }).first();
+  await expect(mobileFactoryControls).toBeVisible();
+  const mobileFactoryLayout = await mobileFactoryControls.evaluate((element) => ({
+    columns: getComputedStyle(element).gridTemplateColumns.split(" ").length,
+    rowPositions: Array.from(element.children).map((child) => child.getBoundingClientRect().y),
+    fits: element.scrollWidth <= element.clientWidth,
+  }));
+  expect(mobileFactoryLayout.columns).toBe(3);
+  expect(new Set(mobileFactoryLayout.rowPositions).size).toBe(1);
+  expect(mobileFactoryLayout.fits).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.getByRole("button", { name: "生成排班" }).click();
   await expect(page.getByText("排班已生成")).toBeVisible();
@@ -1006,10 +1888,8 @@ test("responsive navigation and the two locked areas keep their current behavior
 
   const listViewTab = page.getByRole("tab", { name: "列表式布局" });
   const compactViewTab = page.getByRole("tab", { name: "一图流布局" });
-  await expect(compactViewTab).toBeVisible();
-  await expect(compactViewTab).toBeDisabled();
-  await expect(listViewTab).toHaveAttribute("aria-selected", "true");
-  await expect(compactViewTab.locator("xpath=..").getByRole("tab")).toHaveText(["一图流布局", "列表式布局"]);
+  await expect(compactViewTab).toHaveCount(0);
+  await expect(listViewTab).toHaveCount(0);
   await expect(page.getByText("加工站")).toBeVisible();
 
   await page.getByRole("button", { name: /功能设施/ }).click();
@@ -1024,7 +1904,8 @@ test("responsive navigation and the two locked areas keep their current behavior
   ]) {
     await page.setViewportSize(viewport);
     await page.reload();
-    await expect(page.getByText("排班已生成")).toBeVisible();
+    await expect(page.locator("[data-plan-board]")).toHaveAttribute("data-plan-revision", diagnosticId);
+    await expect(page.locator('[data-slot="live-activity"]')).toHaveCount(0);
     await expect(page.getByRole("button", { name: "全角色导入" })).toBeVisible();
     await expect(compactViewTab).toBeEnabled();
     await expect(compactViewTab).toHaveAttribute("aria-selected", "true");
@@ -1035,7 +1916,7 @@ test("responsive navigation and the two locked areas keep their current behavior
   await expect(page.getByRole("button", { name: "森空岛状态", exact: true })).toBeVisible();
 });
 
-test("the top account bar stays pinned on every page and treats local Box data as logged out", async ({ page }) => {
+test("the compact mobile navigation stays pinned while the account control belongs to the calculator", async ({ page }) => {
   test.setTimeout(60_000);
   await mockApis(page, { sklandSessionDelayMs: 12_000 });
   await seedV4Session(page);
@@ -1055,30 +1936,61 @@ test("the top account bar stays pinned on every page and treats local Box data a
   expect(topbarStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
   expect(topbarStyle.borderBottomWidth).toBe("1px");
   expect(topbarStyle.boxShadow).toBe("none");
-  await expect(page.locator("[data-skland-topbar-loading]")).toBeVisible();
-  await expect(topbar.getByRole("button", { name: "登录森空岛" })).toBeVisible({ timeout: 15_000 });
+  await expect(topbar.locator("[data-skland-account-control]")).toHaveCount(0);
+  await expect(page.locator("[data-skland-account-loading]")).toBeVisible();
+  await expect(page.locator("[data-skland-account-control]")).toBeVisible({ timeout: 15_000 });
   await expect(page.locator("[data-skland-sidebar-account]")).toHaveCount(0);
+
+  const mobileBar = topbar.locator(".app-content-track");
+  await expect(mobileBar).toHaveCSS("height", "56px");
 
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect.poll(async () => (await topbar.boundingBox())?.y ?? -1).toBeCloseTo(0, 0);
 
-  for (const destination of ["练卡建议", "森空岛状态", "基建计算器"]) {
+  for (const destination of ["练卡建议", "森空岛状态"]) {
     await topbar.getByRole("button", { name: "Toggle Sidebar" }).click();
     await page.getByRole("button", { name: destination, exact: true }).click();
-    await expect(topbar.getByRole("button", { name: "登录森空岛" })).toBeVisible();
+    await expect(page.locator("[data-skland-account-control]")).toHaveCount(0);
   }
+  await topbar.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await page.getByRole("button", { name: "基建计算器", exact: true }).click();
+  await expect(page.locator("[data-skland-account-control]")).toBeVisible();
 
   await page.setViewportSize({ width: 768, height: 900 });
-  await expect.poll(() => topbar.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      backgroundColor: style.backgroundColor,
-      borderBottomWidth: style.borderBottomWidth,
-    };
-  })).toEqual({
-    backgroundColor: "rgba(0, 0, 0, 0)",
-    borderBottomWidth: "0px",
-  });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(topbar).toBeHidden();
+  await expect.poll(async () => (await page.locator("[data-app-content]").boundingBox())?.y ?? -1).toBeCloseTo(0, 0);
+});
+
+test("all primary pages share the calculator top content offset", async ({ page }) => {
+  await mockApis(page, { sklandConfigured: true, sklandSnapshot: authenticatedSklandSnapshot });
+  await seedPreferences(page);
+
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 768, height: 900 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    const calculatorTop = (await page.locator("[data-calculator-controls]").boundingBox())?.y ?? -1;
+
+    for (const destination of [
+      { name: "练卡建议", root: "[data-training-page]" },
+      { name: "技能查询", root: "[data-skill-query-page]" },
+      { name: "森空岛状态", root: "[data-skland-page]" },
+    ]) {
+      if (viewport.width < 768) {
+        await page.locator("[data-app-topbar]").getByRole("button", { name: "Toggle Sidebar" }).click();
+      }
+      await page.getByRole("button", { name: destination.name, exact: true }).click();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const pageRoot = page.locator(destination.root);
+      await expect(pageRoot).toBeVisible();
+      const pageTop = (await pageRoot.locator(":scope > :first-child").boundingBox())?.y ?? -1;
+      expect(pageTop, `${viewport.width}px ${destination.name}`).toBeCloseTo(calculatorTop, 0);
+    }
+  }
 });
 
 test("mobile interactive targets remain at least 44 CSS pixels", async ({ page }) => {
@@ -1128,7 +2040,7 @@ test("setup keeps Box parse errors local and actionable", async ({ page }) => {
   const setupTrigger = page.getByRole("button", { name: "配置Box与布局" }).first();
   await setupTrigger.click();
   const dialog = page.getByRole("dialog");
-  await page.getByRole("tab", { name: "干员数据", exact: true }).click();
+  await dialog.getByRole("button", { name: /第 1 步，共 3 步：干员数据/ }).click();
   await expect(dialog.locator(".setup-data-summary")).toHaveCount(1);
   await dialog.getByRole("button", { name: "更换", exact: true }).click();
   await page.getByRole("tab", { name: "森空岛", exact: true }).click();
@@ -1168,10 +2080,10 @@ test("fresh MAA import requires one facility review before completion", async ({
   await dialog.getByLabel("JSON 内容").fill(JSON.stringify(sampleData));
   await dialog.getByRole("button", { name: "导入 JSON", exact: true }).click();
 
-  await expect(dialog.getByRole("tab", { name: "基建与换班", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(dialog.getByRole("button", { name: /第 2 步，共 3 步：布局/ })).toHaveAttribute("aria-current", "step");
   await expect(dialog.getByRole("button", { name: "检查设施", exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "检查设施", exact: true }).click();
-  await expect(dialog.getByRole("tab", { name: "设施设置", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(dialog.getByRole("button", { name: /第 3 步，共 3 步：设施/ })).toHaveAttribute("aria-current", "step");
   await expect(dialog.getByRole("button", { name: "完成", exact: true })).toBeEnabled();
 });
 
@@ -1208,12 +2120,12 @@ test("setup exposes and persists only worker-supported rotation profiles", async
   expect(dialogMaterial.texture).toContain("60px");
   expect(dialogMaterial.shadow).toContain("0px 0px 44px");
   await expect(dialog).toHaveCSS("width", "880px");
-  const setupPrimaryAction = dialog.getByRole("button", { name: "完成", exact: true });
+  const setupPrimaryAction = dialog.getByRole("button", { name: "继续", exact: true });
   await expect(setupPrimaryAction).toHaveCSS("width", "196px");
   await expect(setupPrimaryAction).toHaveCSS("height", "46px");
   await expect(setupPrimaryAction).toHaveCSS("border-radius", "22px");
   await expect(setupPrimaryAction).toHaveCSS("font-size", "13px");
-  await expect(setupPrimaryAction.locator("svg")).toHaveCSS("width", "12px");
+  await expect(setupPrimaryAction.locator("svg")).toHaveCount(0);
   await expect(dialog.getByRole("heading", { name: "排班设置" })).toBeVisible();
   const closeButton = dialog.getByRole("button", { name: "Close" });
   await expect(closeButton).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
@@ -1221,10 +2133,10 @@ test("setup exposes and persists only worker-supported rotation profiles", async
   await expect(closeButton).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(dialog.getByText("森空岛、MAA 或测试样例", { exact: true })).toHaveCount(0);
   await expect(dialog.getByText("布局、换班、等级、产品和订单", { exact: true })).toHaveCount(0);
-  const stepList = dialog.getByRole("tablist", { name: "设置步骤" });
+  const stepList = dialog.getByRole("list", { name: "设置步骤" });
   await expect(stepList.locator(":scope > *")).toHaveCount(3);
-  expect((await stepList.boundingBox())?.width ?? Infinity).toBeLessThan(260);
-  await dialog.getByRole("tab", { name: "干员数据", exact: true }).click();
+  expect((await stepList.boundingBox())?.width ?? 0).toBeGreaterThan(600);
+  await dialog.getByRole("button", { name: /第 1 步，共 3 步：干员数据/ }).click();
   await expect.poll(async () => (await dialog.boundingBox())?.height ?? Infinity).toBeLessThan(480);
   const collapsedDialogHeight = (await dialog.boundingBox())?.height ?? 0;
   await dialog.getByRole("button", { name: "更换", exact: true }).click();
@@ -1232,11 +2144,9 @@ test("setup exposes and persists only worker-supported rotation profiles", async
   await expect.poll(async () => (await dialog.boundingBox())?.height ?? Infinity).toBeLessThan(700);
   expect((await dialog.boundingBox())?.height ?? 0).toBeGreaterThan(collapsedDialogHeight);
   await dialog.getByRole("button", { name: "收起", exact: true }).click();
-  await dialog.getByRole("tab", { name: "基建与换班", exact: true }).click();
-  const completedDataStep = dialog.getByRole("tab", { name: "干员数据", exact: true });
-  await expect(completedDataStep.locator("svg")).toHaveCount(0);
-  await expect(completedDataStep).toHaveClass(/text-emerald-700/);
-  expect(await completedDataStep.evaluate((element) => getComputedStyle(element, "::after").display)).toBe("none");
+  await dialog.getByRole("button", { name: /第 2 步，共 3 步：布局/ }).click();
+  const completedDataStep = dialog.getByRole("button", { name: /第 1 步，共 3 步：干员数据/ });
+  await expect(completedDataStep.locator("svg")).toHaveCount(1);
 
   const selectedPreset = dialog.getByRole("button", { name: /^243/ });
   await expect(selectedPreset).toHaveAttribute("aria-pressed", "true");
@@ -1249,6 +2159,7 @@ test("setup exposes and persists only worker-supported rotation profiles", async
 
   const rotationTrigger = dialog.getByRole("combobox", { name: "换班方式" });
   await rotationTrigger.click();
+  await waitForOwnAnimations(page.locator('[data-slot="combobox-content"]'));
   const [triggerBox, popupBox] = await Promise.all([
     rotationTrigger.locator("xpath=..").boundingBox(),
     page.locator('[data-slot="combobox-content"]').boundingBox(),
@@ -1274,6 +2185,7 @@ test("setup exposes and persists only worker-supported rotation profiles", async
   await expect(rotationTrigger).toHaveValue("菲亚梅塔轮换 · 8/8/4/4");
   await expect(dialog.getByText("完整循环 24 小时")).toHaveCount(0);
   await expect(dialog.getByText("第 4 班 4h")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "继续", exact: true }).click();
   await dialog.getByRole("button", { name: "完成", exact: true }).click();
 
   await page.getByRole("button", { name: "生成排班" }).click();
@@ -1293,7 +2205,7 @@ test("layout level controls clamp edits and expose the power-safe 342 defaults",
 
   await page.getByRole("button", { name: "配置Box与布局" }).first().click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("tab", { name: "基建与换班", exact: true }).click();
+  await dialog.getByRole("button", { name: /第 2 步，共 3 步：布局/ }).click();
 
   await dialog.getByRole("button", { name: /^342/ }).click();
   await expect(dialog.getByRole("button", { name: "检查设施", exact: true })).toBeVisible();
@@ -1344,6 +2256,7 @@ test("layout level controls clamp edits and expose the power-safe 342 defaults",
   const mobileTradeLevel = dialog.locator('input[aria-label="trade_2 等级"]:visible');
   await mobileTradeLevel.click();
   const firstLevelOption = page.getByRole("option", { name: "1", exact: true });
+  await waitForOwnAnimations(page.locator('[data-slot="combobox-content"]'));
   const [levelFieldBox, levelPopupBox] = await Promise.all([
     mobileTradeLevel.locator("xpath=..").boundingBox(),
     page.locator('[data-slot="combobox-content"]').boundingBox(),
@@ -1383,17 +2296,20 @@ test("calculator owns scheduling controls and training advice uses a single tech
   await page.goto("/");
 
   const calculatorControls = page.locator("[data-calculator-controls]");
-  const fullE2 = page.locator("[data-full-e2]");
-  const runButton = page.getByRole("button", { name: "生成排班" });
+  const fullE2 = page.locator('[data-calculator-export-actions="desktop"] [data-full-e2]');
   await expect(calculatorControls).toBeVisible();
-  const desktopControlHeights = await Promise.all([
+  const exportMaa = page.getByRole("button", { name: "导出到 MAA" });
+  const desktopExportHeights = await Promise.all([
     fullE2.evaluate((element) => element.getBoundingClientRect().height),
-    runButton.evaluate((element) => element.getBoundingClientRect().height),
+    exportMaa.evaluate((element) => element.getBoundingClientRect().height),
   ]);
-  expect(desktopControlHeights[0]).toBe(desktopControlHeights[1]);
+  expect(desktopExportHeights[0]).toBe(desktopExportHeights[1]);
   const controlOrder = await calculatorControls.locator("button").allTextContents();
-  expect(controlOrder.at(-2)).toContain("全角色导入");
   expect(controlOrder.at(-1)).toContain("生成排班");
+  expect(controlOrder.some((label) => label.includes("全角色导入"))).toBe(false);
+  const exportOrder = await page.locator("[data-calculator-export-actions]").locator("button").allTextContents();
+  expect(exportOrder[0]).toContain("全角色导入");
+  expect(exportOrder[1]).toContain("导出到 MAA");
 
   await page.getByRole("button", { name: "练卡建议" }).click();
   await expect(calculatorControls).toHaveCount(0);
@@ -1406,6 +2322,11 @@ test("calculator owns scheduling controls and training advice uses a single tech
   const adviceCards = page.locator('[data-slot="training-advice-card"]');
   await expect(adviceCards).toHaveCount(2);
   await expect(adviceCards.locator("svg")).toHaveCount(0);
+  const advicePortrait = adviceCards.locator('img[src^="/images/operator-portraits/"]').first();
+  await expect(advicePortrait).toHaveAttribute("width", "80");
+  await expect(advicePortrait).toHaveAttribute("height", "80");
+  await expect(advicePortrait).toHaveAttribute("loading", "lazy");
+  await expect(advicePortrait).toHaveAttribute("decoding", "async");
   const cardBoxes = await adviceCards.evaluateAll((elements) => elements.map((element) => {
     const box = element.getBoundingClientRect();
     return { left: box.left, top: box.top, width: box.width };
@@ -1418,7 +2339,7 @@ test("calculator owns scheduling controls and training advice uses a single tech
   await page.getByRole("button", { name: "Toggle Sidebar" }).click();
   await page.getByRole("button", { name: "基建计算器" }).click();
   const mobileHeights = await Promise.all([
-    page.locator("[data-full-e2]").evaluate((element) => element.getBoundingClientRect().height),
+    page.locator('[data-calculator-export-actions="mobile"] [data-full-e2]').evaluate((element) => element.getBoundingClientRect().height),
     page.getByRole("button", { name: "生成排班" }).evaluate((element) => element.getBoundingClientRect().height),
   ]);
   expect(Math.min(...mobileHeights)).toBeGreaterThanOrEqual(44);
@@ -1451,6 +2372,12 @@ test("schedule visuals use a stable technical canvas and responsive level marker
   await expect.poll(() => page.locator('img[src^="/images/building-skills/"]').first().evaluate(
     (image) => (image as HTMLImageElement).naturalWidth
   )).toBe(36);
+  const operatorPortrait = page.locator('img[src^="/images/operator-portraits/"]').first();
+  await expect(operatorPortrait).toHaveAttribute("src", /\.webp\?v=\d+-[0-9a-f]{12}$/);
+  await expect(operatorPortrait).toHaveAttribute("width", "180");
+  await expect(operatorPortrait).toHaveAttribute("height", "180");
+  await expect(operatorPortrait).toHaveAttribute("loading", "lazy");
+  await expect(operatorPortrait).toHaveAttribute("decoding", "async");
 
   const visualStyles = await page.evaluate(() => {
     const room = document.querySelector<HTMLElement>(".infra-room-surface");
@@ -1473,7 +2400,8 @@ test("schedule visuals use a stable technical canvas and responsive level marker
       emblemBlendMode: emblemStyle.mixBlendMode,
     };
   });
-  expect(visualStyles.bodyFont).toContain("Noto Sans SC");
+  expect(visualStyles.bodyFont).toContain("Microsoft YaHei");
+  expect(visualStyles.bodyFont).toContain("PingFang SC");
   expect(visualStyles.bodyFont).not.toContain("Segoe UI");
   expect(visualStyles.backdropFilter).toBe("none");
   expect(visualStyles.surfaceBackground).toBe("rgb(39, 42, 43)");
@@ -1520,12 +2448,12 @@ test("schedule visuals use a stable technical canvas and responsive level marker
   expect(tabletTradeSummaryBox).not.toBeNull();
   expect(tabletTradeOccupancyBox).not.toBeNull();
   expect(tabletTradeOccupancyBox!.y).toBeGreaterThanOrEqual(
-    tabletTradeSummaryBox!.y + tabletTradeSummaryBox!.height - 1
+    tabletTradeSummaryBox!.y + tabletTradeSummaryBox!.height - 1.5
   );
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(compactViewTab).toBeDisabled();
-  await expect(listViewTab).toHaveAttribute("aria-selected", "true");
+  await expect(compactViewTab).toHaveCount(0);
+  await expect(listViewTab).toHaveCount(0);
   const mobileDiamonds = page.locator('.level-diamonds[data-variant="list"]').first();
   await expect(mobileDiamonds).toBeVisible();
   const mobileBox = await mobileDiamonds.boundingBox();
@@ -1583,7 +2511,7 @@ test("self-hosts Bender Bold for technical numbers while preserving UI-font exce
   await expectVisibleNumbersUseNumberFont(page);
 
   for (const path of ["/privacy", "/terms"]) {
-    await page.goto(path);
+    await gotoStable(page, path);
     await expectVisibleNumbersUseNumberFont(page);
   }
 
@@ -1598,9 +2526,9 @@ test("self-hosts Bender Bold for technical numbers while preserving UI-font exce
 
 test("publishes the site terms and privacy policy with upstream policy links", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/privacy");
+  await gotoStable(page, "/privacy");
   await expect(page.getByRole("heading", { name: "隐私政策", level: 1 })).toBeVisible();
-  await expect(page.getByText("版本与生效日期：2026-08-05")).toBeVisible();
+  await expect(page.getByText("版本与生效日期：2026-08-07")).toBeVisible();
   await expect(page.getByText("可露希尔基建终端项目维护者", { exact: false })).toBeVisible();
   await expect(page.getByRole("link", { name: "森空岛使用许可及服务协议" })).toHaveAttribute(
     "href",
@@ -1611,9 +2539,9 @@ test("publishes the site terms and privacy policy with upstream policy links", a
     "https://assets.skland.com/protocols/privacy.html"
   );
 
-  await page.goto("/terms");
+  await gotoStable(page, "/terms");
   await expect(page.getByRole("heading", { name: "服务条款", level: 1 })).toBeVisible();
-  await expect(page.getByText("版本与生效日期：2026-08-05")).toBeVisible();
+  await expect(page.getByText("版本与生效日期：2026-08-07")).toBeVisible();
   await expect(page.getByText(/非官方、非商业工具/)).toBeVisible();
 });
 
@@ -1626,8 +2554,8 @@ test("Skland login shows QR on every viewport and offers a separate mobile app s
       consent: {
         termsAccepted: true,
         privacyAccepted: true,
-        termsVersion: "2026-08-05",
-        privacyVersion: "2026-08-05-r2",
+        termsVersion: "2026-08-07",
+        privacyVersion: "2026-08-07",
       },
     });
     return route.fulfill({
@@ -1656,18 +2584,20 @@ test("Skland login shows QR on every viewport and offers a separate mobile app s
   await seedPreferences(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await expect(page.locator("[data-app-topbar]").getByRole("button", { name: "登录森空岛" })).toBeVisible();
+  await expect(page.locator("[data-skland-account-control]")).toBeVisible();
   await expect(page.locator("[data-skland-sidebar-account]")).toHaveCount(0);
   await page.setViewportSize({ width: 375, height: 812 });
   await page.reload();
 
-  const topbarLogin = page.locator("[data-app-topbar]").getByRole("button", { name: "登录森空岛" });
-  await expect(topbarLogin).toBeVisible();
-  const loginBox = await topbarLogin.boundingBox();
+  const accountLogin = page.locator("[data-skland-account-control]");
+  await expect(accountLogin).toBeVisible();
+  const loginBox = await accountLogin.boundingBox();
   expect(loginBox?.height).toBeGreaterThanOrEqual(44);
-  await topbarLogin.click();
+  await accountLogin.click();
   await expect(page.getByRole("heading", { name: "把当前罗德岛带进排班助手" })).toBeVisible();
   await expect(page.getByText(/手机号|验证码|密码/)).toHaveCount(0);
+  await expect(page.getByText("登录信息会加密保存在你的浏览器中，7 天后自动失效；本站不会另行长期保存。")).toBeVisible();
+  await expect(page.getByText(/本站不会自动签到或读取社区内容/)).toHaveCount(0);
   expect(qrStartRequests).toBe(0);
   const [mobileQrBox, mobileCopyBox] = await Promise.all([
     page.locator("[data-skland-login-qr]").boundingBox(),
@@ -1768,34 +2698,59 @@ test("Skland login waits for an explicit click and explains slow preparation", a
   expect(qrStartRequests).toBe(1);
 });
 
-test("Skland status uses separate authorization and deletion preserves non-Skland data", async ({ page }) => {
+test("Skland login loads full status by default and deletion preserves non-Skland data", async ({ page }) => {
+  const statusMethods: string[] = [];
+  const snapshotWithAvatar = {
+    ...authenticatedSklandSnapshot,
+    player: {
+      ...authenticatedSklandSnapshot.player,
+      avatarUrl: "https://example.com/skland-avatar.png",
+    },
+  };
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/skland/status") statusMethods.push(request.method());
+  });
   await mockApis(page, {
     sklandConfigured: true,
-    sklandSnapshot: authenticatedSklandSnapshot,
-    sklandAccounts: [{ ...primarySklandAccount, statusAuthorized: false }],
+    sklandSnapshot: snapshotWithAvatar,
   });
   await seedV4Session(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await expect(page.locator("[data-skland-account-avatar] img")).toHaveAttribute(
+    "src",
+    snapshotWithAvatar.player.avatarUrl
+  );
   await page.getByRole("button", { name: "Toggle Sidebar" }).click();
   await page.getByRole("button", { name: "森空岛状态", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "单独启用完整状态" })).toBeVisible();
-  await expect(page.getByText("UID 123••••789")).toHaveCount(0);
-  await page.getByRole("button", { name: "启用状态中心" }).click();
   await expect(page.getByText("UID 123••••789")).toBeVisible();
-
-  await page.getByRole("button", { name: "撤回状态中心授权" }).click();
-  await expect(page.getByRole("heading", { name: "单独启用完整状态" })).toBeVisible();
-  await page.getByRole("button", { name: "删除全部森空岛数据" }).click();
-  const deleteDialog = page.getByRole("dialog", { name: "删除全部森空岛数据？" });
-  await expect(deleteDialog).toContainText("MAA 导入与手动布局会保留");
-  await deleteDialog.getByRole("button", { name: "删除全部森空岛数据" }).click();
+  await expect(page.getByRole("button", { name: "启用状态中心" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "撤回状态中心授权" })).toHaveCount(0);
+  await expect.poll(() => statusMethods).toEqual([]);
+  const [postStatus, deleteStatus] = await Promise.all([
+    page.request.post("/api/skland/status"),
+    page.request.delete("/api/skland/status"),
+  ]);
+  expect(postStatus.status()).toBe(405);
+  expect(deleteStatus.status()).toBe(405);
+  const dataControls = page.locator("[data-skland-data-controls]");
+  await expect(dataControls).toContainText("MAA 导入与手动布局会保留");
+  expect(await dataControls.evaluate((element) => element.parentElement?.lastElementChild === element)).toBe(true);
+  const deleteAll = page.getByRole("button", { name: "按住删除全部森空岛数据" });
+  await deleteAll.click();
+  await expect(page.getByRole("heading", { name: "把当前罗德岛带进排班助手" })).toHaveCount(0);
+  const deleteBox = await deleteAll.boundingBox();
+  expect(deleteBox).not.toBeNull();
+  await page.mouse.move(deleteBox!.x + deleteBox!.width / 2, deleteBox!.y + deleteBox!.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(1900);
+  await page.mouse.up();
   await expect(page.getByRole("heading", { name: "把当前罗德岛带进排班助手" })).toBeVisible();
 
   await page.getByRole("button", { name: "Toggle Sidebar" }).click();
   await page.getByRole("button", { name: "基建计算器", exact: true }).click();
-  await expect(page.getByText("排班已生成")).toBeVisible();
+  await expect(page.locator("[data-plan-board]")).toHaveAttribute("data-plan-revision", diagnosticId);
 });
 
 test("Skland status center keeps profile and recruitment in overview and supports role switching", async ({ page }) => {
@@ -1814,9 +2769,11 @@ test("Skland status center keeps profile and recruitment in overview and support
     sourceName: "森空岛同步",
   };
   let attendanceRequests = 0;
+  let statusRequests = 0;
   let currentStatusSnapshot: typeof authenticatedSklandSnapshot | typeof switchedSnapshot = authenticatedSklandSnapshot;
   page.on("request", (request) => {
     if (/attendance|sign/i.test(request.url())) attendanceRequests += 1;
+    if (new URL(request.url()).pathname === "/api/skland/status") statusRequests += 1;
   });
   await mockApis(page, {
     sklandConfigured: true,
@@ -1841,6 +2798,7 @@ test("Skland status center keeps profile and recruitment in overview and support
           }],
           activeAccountId: primarySklandAccount.accountId,
           scheduleSnapshot: switchedSnapshot,
+          statusSnapshot: switchedSnapshot,
         },
         requestId,
       }),
@@ -1854,7 +2812,6 @@ test("Skland status center keeps profile and recruitment in overview and support
       body: JSON.stringify({
         success: true,
         data: {
-          authorized: true,
           accounts: [{
             ...primarySklandAccount,
             selectedUid: currentStatusSnapshot.player.uid,
@@ -1882,6 +2839,7 @@ test("Skland status center keeps profile and recruitment in overview and support
   await expect(accountCombobox).toHaveValue("测试博士 · 官服");
   await expect(accountCombobox).not.toHaveValue(/123456789/);
   await accountCombobox.click();
+  await waitForOwnAnimations(page.locator('[data-slot="combobox-content"]'));
   const [accountFieldBox, accountPopupBox] = await Promise.all([
     accountCombobox.locator("xpath=..").boundingBox(),
     page.locator('[data-slot="combobox-content"]').boundingBox(),
@@ -2002,6 +2960,7 @@ test("Skland status center keeps profile and recruitment in overview and support
   await page.getByRole("button", { name: "退出" }).click();
   await expect(page.getByRole("heading", { name: "把当前罗德岛带进排班助手" })).toBeVisible();
   expect(attendanceRequests).toBe(0);
+  expect(statusRequests).toBe(0);
 });
 
 test("Skland layout sync stays beside the tabs and confirms replacement of dirty settings", async ({ page }) => {
@@ -2122,7 +3081,6 @@ test("Skland supports adding, switching, and individually logging out multiple a
     selectedUid: secondarySnapshot.player.uid,
     roles: secondarySnapshot.roles,
     credentialExpiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-    statusAuthorized: true,
   };
   let currentSnapshot = authenticatedSklandSnapshot;
   let currentAccounts = [primarySklandAccount];
@@ -2159,6 +3117,7 @@ test("Skland supports adding, switching, and individually logging out multiple a
           accounts: currentAccounts,
           activeAccountId: currentAccountId,
           ...(currentAccounts.length ? { scheduleSnapshot: currentSnapshot } : {}),
+          ...(currentAccounts.length ? { statusSnapshot: currentSnapshot } : {}),
         },
         requestId,
       }),
@@ -2193,6 +3152,7 @@ test("Skland supports adding, switching, and individually logging out multiple a
           accounts: currentAccounts,
           activeAccountId: currentAccountId,
           scheduleSnapshot: currentSnapshot,
+          statusSnapshot: currentSnapshot,
         },
         requestId,
       }),
@@ -2227,6 +3187,7 @@ test("Skland supports adding, switching, and individually logging out multiple a
           accounts: currentAccounts,
           activeAccountId: currentAccountId,
           scheduleSnapshot: currentSnapshot,
+          statusSnapshot: currentSnapshot,
         },
         requestId,
       }),
@@ -2239,7 +3200,6 @@ test("Skland supports adding, switching, and individually logging out multiple a
     body: JSON.stringify({
       success: true,
       data: {
-        authorized: true,
         accounts: currentAccounts,
         activeAccountId: currentAccountId,
         snapshot: currentSnapshot,
@@ -2251,20 +3211,23 @@ test("Skland supports adding, switching, and individually logging out multiple a
   await seedPreferences(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/");
-  await page.getByRole("button", { name: "森空岛状态", exact: true }).click();
 
-  const topbarAccount = page.locator("[data-skland-topbar-account]");
-  const topbarAvatar = page.locator("[data-skland-topbar-avatar]");
+  const calculatorAccount = page.locator("[data-skland-account-control]");
+  const calculatorAvatar = page.locator("[data-skland-account-avatar]");
   const accountSelect = page.locator("[data-skland-account-select]");
   const addAccount = page.locator("[data-skland-add-account]");
   const logout = page.locator("[data-skland-logout]");
-  await expect(topbarAccount).toBeVisible();
-  await expect(topbarAvatar).toBeVisible();
-  const avatarBox = await topbarAvatar.boundingBox();
-  const topbarAccountBox = await topbarAccount.boundingBox();
-  expect(avatarBox?.width).toBeCloseTo(44, 0);
-  expect(topbarAccountBox?.height).toBeCloseTo(44, 0);
-  await expect.poll(() => topbarAccount.evaluate((element) => getComputedStyle(element).borderRadius)).not.toBe("9999px");
+  await expect(calculatorAccount).toBeVisible();
+  await expect(calculatorAvatar).toBeVisible();
+  const avatarBox = await calculatorAvatar.boundingBox();
+  const calculatorAccountBox = await calculatorAccount.boundingBox();
+  const setupBox = await page.getByRole("button", { name: "配置Box与布局" }).boundingBox();
+  expect(avatarBox?.width).toBeCloseTo(34, 0);
+  expect(calculatorAccountBox?.height).toBeCloseTo(36, 0);
+  expect(calculatorAccountBox?.height).toBeCloseTo(setupBox?.height ?? 0, 0);
+  await expect.poll(() => calculatorAccount.evaluate((element) => getComputedStyle(element).borderTopLeftRadius)).toBe("0px");
+  await page.getByRole("button", { name: "森空岛状态", exact: true }).click();
+  await expect(calculatorAccount).toHaveCount(0);
   const controlHeights = await Promise.all([
     accountSelect.evaluate((element) => element.getBoundingClientRect().height),
     addAccount.evaluate((element) => element.getBoundingClientRect().height),
@@ -2272,9 +3235,6 @@ test("Skland supports adding, switching, and individually logging out multiple a
   ]);
   expect(new Set(controlHeights)).toEqual(new Set([36]));
   await expect(logout).toHaveClass(/text-destructive/);
-
-  await topbarAccount.click();
-  await expect(page.getByRole("heading", { name: "测试博士" }).first()).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileControlHeights = await Promise.all([
@@ -2312,7 +3272,10 @@ test("Skland supports adding, switching, and individually logging out multiple a
   await expect(page.getByRole("heading", { name: "第二账号博士" }).first()).toBeVisible();
   await logout.click();
   await expect(page.getByRole("heading", { name: "把当前罗德岛带进排班助手" })).toBeVisible();
-  await expect(page.locator("[data-app-topbar]").getByRole("button", { name: "登录森空岛" })).toBeVisible();
+  await expect(page.locator("[data-skland-account-control]")).toHaveCount(0);
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await page.getByRole("button", { name: "基建计算器", exact: true }).click();
+  await expect(page.locator("[data-skland-account-control]")).toBeVisible();
 
   const persisted = await page.evaluate(() => JSON.stringify(localStorage));
   expect(persisted).not.toContain(primarySklandAccount.accountId);
@@ -2349,7 +3312,7 @@ test("setup routes Skland account actions to the status center", async ({ page }
   await page.goto("/");
 
   await page.getByRole("button", { name: "配置Box与布局" }).first().click();
-  await page.getByRole("tab", { name: "干员数据", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /第 1 步，共 3 步：干员数据/ }).click();
   await page.getByRole("button", { name: "更换", exact: true }).click();
   await page.getByRole("tab", { name: "森空岛", exact: true }).click();
   await expect(page.getByRole("dialog").getByText(/测试博士/).first()).toBeVisible();
@@ -2370,7 +3333,7 @@ test("setup can restore cached Skland data after switching to the sample", async
 
   await page.getByRole("button", { name: "配置Box与布局" }).first().click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("tab", { name: "干员数据", exact: true }).click();
+  await dialog.getByRole("button", { name: /第 1 步，共 3 步：干员数据/ }).click();
   await dialog.getByRole("button", { name: "更换", exact: true }).click();
   await dialog.getByRole("tab", { name: "森空岛", exact: true }).click();
 
@@ -2378,9 +3341,9 @@ test("setup can restore cached Skland data after switching to the sample", async
   await expect(dialog.getByRole("button", { name: "重新同步", exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "使用森空岛数据", exact: true }).click();
 
-  await expect(dialog.getByRole("tab", { name: "基建与换班", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(dialog.getByRole("button", { name: /第 2 步，共 3 步：布局/ })).toHaveAttribute("aria-current", "step");
   await expect(dialog.getByRole("button", { name: "检查设施", exact: true })).toBeVisible();
-  await dialog.getByRole("tab", { name: "干员数据", exact: true }).click();
+  await dialog.getByRole("button", { name: /第 1 步，共 3 步：干员数据/ }).click();
   await expect(dialog.getByText("森空岛同步", { exact: true })).toBeVisible();
   await expect(dialog.getByText("2 名干员 · 2 名可用", { exact: true })).toBeVisible();
 });
@@ -2398,7 +3361,7 @@ test("settings clears local product data without logging out of Skland", async (
   await page.goto("/");
 
   await page.getByRole("button", { name: "配置Box与布局" }).click();
-  await page.getByRole("tab", { name: "干员数据", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /第 1 步，共 3 步：干员数据/ }).click();
   await page.getByText("数据管理", { exact: true }).click();
   const storageCopy = page.getByText("数据在此浏览器保存 30 天。", { exact: true });
   await storageCopy.scrollIntoViewIfNeeded();

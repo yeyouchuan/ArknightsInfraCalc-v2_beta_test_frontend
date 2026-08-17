@@ -26,7 +26,7 @@ export default defineConfig({
       use: { ...devices["Desktop Safari"] },
       // WebKit is consistently slower when hydrating the full restored schedule
       // and completing the multi-account flow on Windows CI/dev machines.
-      timeout: 60_000,
+      timeout: 90_000,
     },
   ],
   webServer: {

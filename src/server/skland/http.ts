@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { isSklandFeatureEnabled } from "../../deployment.ts";
-import type { SklandAccountSummary, SklandScheduleSnapshot } from "../../types.ts";
+import type { SklandAccountSummary, SklandScheduleSnapshot, SklandStatusSnapshot } from "../../types.ts";
 import { failureResponse, PublicApiError } from "../api-contract";
 import { loadSessionSnapshot, SklandServiceError } from "./adapter";
 import {
@@ -32,7 +32,10 @@ export interface SklandAccountStore {
   accounts: SklandStoredAccount[];
   activeAccountId: string | null;
   staleCookieNames: string[];
-  migratedSnapshot: SklandScheduleSnapshot | null;
+  migratedSnapshot: {
+    schedule: SklandScheduleSnapshot;
+    status: SklandStatusSnapshot;
+  } | null;
 }
 
 function cookieOptions(request: Request, maxAge = SKLAND_SESSION_TTL_SECONDS) {
@@ -92,12 +95,15 @@ export async function readSklandAccountStore(): Promise<SklandAccountStore> {
 
   const legacyValue = store.get(SKLAND_SESSION_COOKIE)?.value;
   const legacySession = legacyValue ? unsealSklandSession(legacyValue) : null;
-  let migratedSnapshot: SklandScheduleSnapshot | null = null;
+  let migratedSnapshot: SklandAccountStore["migratedSnapshot"] = null;
   if (accounts.length === 0 && legacySession) {
     const result = await loadSessionSnapshot(legacySession);
     const account = createSklandStoredAccount(result.session, result.snapshot.roles);
     accounts.push(account);
-    migratedSnapshot = result.snapshot;
+    migratedSnapshot = {
+      schedule: result.snapshot,
+      status: result.statusSnapshot,
+    };
   }
   if (legacyValue) staleCookieNames.push(SKLAND_SESSION_COOKIE);
 
@@ -139,7 +145,11 @@ export function withUpdatedSklandAccount(
 export async function loadActiveSklandAccount(
   store: SklandAccountStore,
   forceRefresh = false
-): Promise<{ store: SklandAccountStore; snapshot: SklandScheduleSnapshot | null }> {
+): Promise<{
+  store: SklandAccountStore;
+  snapshot: SklandScheduleSnapshot | null;
+  statusSnapshot: SklandStatusSnapshot | null;
+}> {
   let current = store;
   while (current.activeAccountId) {
     const account = activeSklandAccount(current);
@@ -148,12 +158,20 @@ export async function loadActiveSklandAccount(
       continue;
     }
     if (current.migratedSnapshot && !forceRefresh) {
-      return { store: current, snapshot: current.migratedSnapshot };
+      return {
+        store: current,
+        snapshot: current.migratedSnapshot.schedule,
+        statusSnapshot: current.migratedSnapshot.status,
+      };
     }
     try {
       const result = await loadSessionSnapshot(account.session, forceRefresh);
       const updated = withUpdatedSklandAccount(current, account.accountId, result.session, result.snapshot);
-      return { store: updated, snapshot: result.snapshot };
+      return {
+        store: updated,
+        snapshot: result.snapshot,
+        statusSnapshot: result.statusSnapshot,
+      };
     } catch (error) {
       if (!(error instanceof SklandServiceError) || error.code !== "AUTH_EXPIRED") throw error;
       const removed = removeSklandAccount(current.accounts, current.activeAccountId, account.accountId);
@@ -165,7 +183,7 @@ export async function loadActiveSklandAccount(
       };
     }
   }
-  return { store: current, snapshot: null };
+  return { store: current, snapshot: null, statusSnapshot: null };
 }
 
 export function setSklandAccountStoreCookies(

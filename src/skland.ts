@@ -59,6 +59,18 @@ export function compareShifts(maaJson: MaaJson | undefined, infrastructure: Skla
 
     const unexpected = [...actualLocationByOperator.keys()].filter((name) => !plannedLocationByOperator.has(name));
     const tiredScheduled = [...plannedLocationByOperator.keys()].filter((name) => tired.has(name));
+    const adjustments = [...new Set([...plannedLocationByOperator.keys(), ...actualLocationByOperator.keys()])]
+      .flatMap((name) => {
+        const currentRoomKey = actualLocationByOperator.get(name) ?? null;
+        const targetRoomKey = plannedLocationByOperator.get(name) ?? null;
+        const issues = [] as ShiftComparison["adjustments"][number]["issues"];
+        if (!currentRoomKey && targetRoomKey) issues.push("missing");
+        if (currentRoomKey && !targetRoomKey) issues.push("unexpected");
+        if (currentRoomKey && targetRoomKey && currentRoomKey !== targetRoomKey) issues.push("misplaced");
+        if (targetRoomKey && tired.has(name)) issues.push("tired");
+        return issues.length ? [{ operator: name, currentRoomKey, targetRoomKey, issues }] : [];
+      })
+      .sort((left, right) => left.operator.localeCompare(right.operator, "zh-CN"));
     const denominator = new Set([...plannedLocationByOperator.keys(), ...actualLocationByOperator.keys()]).size || 1;
     return {
       planIndex,
@@ -68,6 +80,7 @@ export function compareShifts(maaJson: MaaJson | undefined, infrastructure: Skla
       unexpected: unexpected.sort(),
       misplaced: misplaced.sort(),
       tiredScheduled: tiredScheduled.sort(),
+      adjustments,
     };
   });
 }

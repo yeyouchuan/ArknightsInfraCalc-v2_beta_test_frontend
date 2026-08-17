@@ -4,7 +4,12 @@ import test from "node:test";
 import type { AppBindingList, PlayerInfo } from "skland-kit";
 
 import { successResponse } from "../api-contract.ts";
-import { rolesFromBinding, scheduleSnapshotFromPlayerInfo, snapshotFromPlayerInfo } from "./normalize.ts";
+import {
+  rolesFromBinding,
+  scheduleSnapshotFromPlayerInfo,
+  snapshotFromPlayerInfo,
+  snapshotsFromPlayerInfo,
+} from "./normalize.ts";
 
 const RESIDENT = {
   charId: "char_1",
@@ -308,11 +313,14 @@ test("normalizes the complete public Skland dashboard without leaking raw respon
   }
 });
 
-test("schedule synchronization strips status-center-only fields", () => {
-  const snapshot = scheduleSnapshotFromPlayerInfo(playerInfo(), roles, noLayoutSuggestion);
-  const serialized = JSON.stringify(snapshot);
-  assert.equal(snapshot.operbox[0]?.name, "测试干员");
-  assert.equal(snapshot.infrastructure.rooms[0]?.operators[0]?.morale, 20);
+test("one player-info normalization returns full status and a stripped schedule snapshot", () => {
+  const combined = snapshotsFromPlayerInfo(playerInfo(), roles, "123456789", noLayoutSuggestion);
+  const legacySchedule = scheduleSnapshotFromPlayerInfo(playerInfo(), roles, noLayoutSuggestion);
+  const serialized = JSON.stringify(combined.scheduleSnapshot);
+  assert.equal(combined.statusSnapshot.player.avatarUrl, "https://example.com/avatar.png");
+  assert.equal(combined.scheduleSnapshot.operbox[0]?.name, "测试干员");
+  assert.equal(combined.scheduleSnapshot.infrastructure.rooms[0]?.operators[0]?.morale, 20);
+  assert.deepEqual(combined.scheduleSnapshot, legacySchedule);
   for (const forbidden of ["avatarUrl", "sanity", "progress", "skins", "routine", "recruit", "training", "labor"]) {
     assert.equal(serialized.includes(`"${forbidden}"`), false);
   }
@@ -523,16 +531,21 @@ test("filters deleted bindings and keeps only the public role fields", () => {
 });
 
 test("Skland dashboard data remains inside the standard public API envelope", async () => {
-  const snapshot = snapshotFromPlayerInfo(playerInfo(), roles, "123456789", noLayoutSuggestion);
-  const response = successResponse({ authenticated: true, configured: true, snapshot }, "req-skland-dashboard");
+  const snapshots = snapshotsFromPlayerInfo(playerInfo(), roles, "123456789", noLayoutSuggestion);
+  const response = successResponse({
+    authenticated: true,
+    configured: true,
+    ...snapshots,
+  }, "req-skland-dashboard");
   assert.equal(response.headers.get("X-Request-Id"), "req-skland-dashboard");
   const body = await response.json() as {
     success: boolean;
     requestId: string;
-    data: { snapshot: typeof snapshot };
+    data: typeof snapshots;
   };
   assert.equal(body.success, true);
   assert.equal(body.requestId, "req-skland-dashboard");
-  assert.equal(body.data.snapshot.player.nickname, "博士");
-  assert.equal("showConfig" in body.data.snapshot, false);
+  assert.equal(body.data.statusSnapshot.player.nickname, "博士");
+  assert.equal("showConfig" in body.data.statusSnapshot, false);
+  assert.equal("player" in body.data.scheduleSnapshot, false);
 });

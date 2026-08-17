@@ -18,6 +18,7 @@ jobs:
     env:
       DEPLOYMENT_ENV: ${{ github.ref_name == 'main' && 'production' || 'development' }}
       DEPLOY_SHA: ${{ github.sha }}
+      DEPLOY_PREVIOUS_SHA: ${{ github.event.before }}
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
       DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
@@ -37,7 +38,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Validate deployment configuration
         shell: bash
@@ -56,6 +57,7 @@ jobs:
           [[ "$DEPLOY_RUN_USER" =~ ^[A-Za-z0-9_-]+$ ]]
           test "$DEPLOY_RUN_USER" != "root"
           [[ "$DEPLOY_INTERNAL_PORT" =~ ^[0-9]{2,5}$ ]]
+          [[ "$DEPLOY_PREVIOUS_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$DEPLOY_DEBUG_TOOLS_ENABLED" =~ ^[01]$ ]]
           [[ "$DEPLOY_RATE_LIMIT_ENABLED" =~ ^[01]$ ]]
           [[ "$DEPLOY_PREPARE_HELPER_CONTRACT" =~ ^[1-9][0-9]*$ ]]
@@ -135,41 +137,138 @@ jobs:
           prepare_started_at="$(date +%s)"
           deploy_tree_sha="$(git rev-parse 'HEAD^{tree}')"
           remote_archive="/tmp/arknights-infra-${DEPLOYMENT_ENV}-${DEPLOY_SHA}.tar.gz"
+          remote_bundle="/tmp/arknights-infra-${DEPLOYMENT_ENV}-${DEPLOY_SHA}.bundle"
+          local_bundle="release-${DEPLOY_SHA}.bundle"
+          ssh_options=(
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o ConnectionAttempts=2
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=3
+          )
+
+          run_remote_prepare() {
+            local bundle_path="${1:-}"
+            local remote_command="/usr/local/sbin/arknights-infra-prepare-release \
+              '$DEPLOYMENT_ENV' \
+              '$DEPLOY_SHA' \
+              '$deploy_tree_sha' \
+              '$remote_archive'"
+            if [[ -n "$bundle_path" ]]; then
+              remote_command+=" '$bundle_path'"
+            fi
+            timeout --kill-after=10s 90s ssh "${ssh_options[@]}" \
+              "${DEPLOY_SSH_USER}@${DEPLOY_HOST}" \
+              "$remote_command"
+          }
+
+          is_temporary_failure() {
+            [[ "$1" -eq 75 || "$1" -eq 124 || "$1" -eq 137 ]]
+          }
 
           set +e
-          ssh -o BatchMode=yes "${DEPLOY_SSH_USER}@${DEPLOY_HOST}" \
-            "/usr/local/sbin/arknights-infra-prepare-release \
-            '$DEPLOYMENT_ENV' \
-            '$DEPLOY_SHA' \
-            '$deploy_tree_sha' \
-            '$remote_archive'"
+          run_remote_prepare
           prepare_status=$?
           set -e
 
           transport_mode="git-cache"
           fallback_reason="none"
-          if [[ "$prepare_status" -eq 75 ]]; then
-            transport_mode="scp-fallback"
-            fallback_reason="temporary-cache-or-github-failure"
-            git archive --format=tar.gz --output="release-${DEPLOY_SHA}.tar.gz" HEAD
-            scp -o BatchMode=yes \
-              -o ServerAliveInterval=30 \
-              -o ServerAliveCountMax=6 \
-              "release-${DEPLOY_SHA}.tar.gz" \
-              "${DEPLOY_SSH_USER}@${DEPLOY_HOST}:$remote_archive"
-          elif [[ "$prepare_status" -ne 0 ]]; then
+          bundle_base_source="not-needed"
+          transfer_bytes=0
+          release_prepared=0
+          if [[ "$prepare_status" -eq 0 ]]; then
+            release_prepared=1
+          elif ! is_temporary_failure "$prepare_status"; then
             echo "Release preparation failed with non-recoverable status $prepare_status." >&2
             exit "$prepare_status"
+          else
+            fallback_reason="temporary-cache-or-github-failure"
           fi
 
-          archive_bytes="$(ssh -o BatchMode=yes "${DEPLOY_SSH_USER}@${DEPLOY_HOST}" "stat -c '%s' '$remote_archive'")"
+          if [[ "$release_prepared" -eq 0 ]]; then
+            bundle_ready=0
+            bundle_base_sha=""
+            bundle_base_source="none"
+            remote_cache_base="$(timeout --kill-after=5s 30s ssh "${ssh_options[@]}" \
+              "${DEPLOY_SSH_USER}@${DEPLOY_HOST}" \
+              "git --git-dir=/var/cache/arknights-infra-deploy/repository.git rev-parse 'refs/arknights-infra/environments/$DEPLOYMENT_ENV'" \
+              2>/dev/null || true)"
+            if [[ "$remote_cache_base" =~ ^[0-9a-f]{40}$ ]] \
+              && [[ "$remote_cache_base" != "$DEPLOY_SHA" ]] \
+              && git cat-file -e "${remote_cache_base}^{commit}" \
+              && git merge-base --is-ancestor "$remote_cache_base" HEAD; then
+              bundle_base_sha="$remote_cache_base"
+              bundle_base_source="server-cache"
+            elif [[ "$DEPLOY_PREVIOUS_SHA" != "0000000000000000000000000000000000000000" ]] \
+              && git cat-file -e "${DEPLOY_PREVIOUS_SHA}^{commit}" \
+              && git merge-base --is-ancestor "$DEPLOY_PREVIOUS_SHA" HEAD; then
+              bundle_base_sha="$DEPLOY_PREVIOUS_SHA"
+              bundle_base_source="previous-push"
+            fi
+
+            if [[ -n "$bundle_base_sha" ]]; then
+              if git bundle create "$local_bundle" HEAD "^$bundle_base_sha"; then
+                bundle_ready=1
+              else
+                fallback_reason="incremental-bundle-create-failed"
+              fi
+            else
+              fallback_reason="incremental-base-unavailable"
+            fi
+
+            if [[ "$bundle_ready" -eq 1 ]]; then
+              bundle_bytes="$(stat -c '%s' "$local_bundle")"
+              set +e
+              timeout --kill-after=10s 1500s scp "${ssh_options[@]}" \
+                "$local_bundle" \
+                "${DEPLOY_SSH_USER}@${DEPLOY_HOST}:$remote_bundle"
+              bundle_transfer_status=$?
+              set -e
+
+              if [[ "$bundle_transfer_status" -eq 0 ]]; then
+                transfer_bytes="$(( transfer_bytes + bundle_bytes ))"
+                set +e
+                run_remote_prepare "$remote_bundle"
+                bundle_prepare_status=$?
+                set -e
+                if [[ "$bundle_prepare_status" -eq 0 ]]; then
+                  transport_mode="git-bundle"
+                  transfer_bytes="$bundle_bytes"
+                  release_prepared=1
+                elif is_temporary_failure "$bundle_prepare_status"; then
+                  fallback_reason="incremental-bundle-incomplete"
+                else
+                  echo "Incremental bundle failed validation with status $bundle_prepare_status." >&2
+                  exit "$bundle_prepare_status"
+                fi
+              else
+                fallback_reason="incremental-bundle-transfer-failed"
+                timeout --kill-after=5s 30s ssh "${ssh_options[@]}" \
+                  "${DEPLOY_SSH_USER}@${DEPLOY_HOST}" \
+                  "rm -f -- '$remote_bundle'" || true
+              fi
+            fi
+          fi
+
+          if [[ "$release_prepared" -eq 0 ]]; then
+            transport_mode="scp-archive"
+            git archive --format=tar.gz --output="release-${DEPLOY_SHA}.tar.gz" HEAD
+            archive_transfer_bytes="$(stat -c '%s' "release-${DEPLOY_SHA}.tar.gz")"
+            transfer_bytes="$(( transfer_bytes + archive_transfer_bytes ))"
+            timeout --kill-after=10s 1500s scp "${ssh_options[@]}" \
+              "release-${DEPLOY_SHA}.tar.gz" \
+              "${DEPLOY_SSH_USER}@${DEPLOY_HOST}:$remote_archive"
+          fi
+
+          archive_bytes="$(timeout --kill-after=5s 30s ssh "${ssh_options[@]}" \
+            "${DEPLOY_SSH_USER}@${DEPLOY_HOST}" "stat -c '%s' '$remote_archive'")"
           prepare_elapsed_seconds="$(( $(date +%s) - prepare_started_at ))"
           {
             echo "### Release transport"
             echo
-            echo "| Environment | SHA | Mode | Seconds | Archive bytes | Fallback reason |"
-            echo "| --- | --- | --- | ---: | ---: | --- |"
-            echo "| $DEPLOYMENT_ENV | \`${DEPLOY_SHA:0:12}\` | $transport_mode | $prepare_elapsed_seconds | $archive_bytes | $fallback_reason |"
+            echo "| Environment | SHA | Mode | Bundle base | Seconds | Transferred bytes | Archive bytes | Fallback reason |"
+            echo "| --- | --- | --- | --- | ---: | ---: | ---: | --- |"
+            echo "| $DEPLOYMENT_ENV | \`${DEPLOY_SHA:0:12}\` | $transport_mode | $bundle_base_source | $prepare_elapsed_seconds | $transfer_bytes | $archive_bytes | $fallback_reason |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy and verify

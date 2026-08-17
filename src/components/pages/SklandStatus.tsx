@@ -14,7 +14,6 @@ import {
   LogOut,
   PackageCheck,
   Search,
-  ShieldCheck,
   Shirt,
   Sparkles,
   Trash2,
@@ -49,6 +48,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { HoldToConfirm } from "@/components/ui/hold-to-confirm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LevelDiamonds, OperatorSlot, roomVisualFor } from "@/components";
@@ -180,8 +180,7 @@ interface SklandStatusProps {
   onAuthenticated: (session: SklandSessionData) => void;
   onRoleChange: (accountId: string, uid: string) => Promise<void>;
   onLogout: () => Promise<void>;
-  onAuthorizeStatus: () => Promise<void>;
-  onRevokeStatus: () => Promise<void>;
+  onRetryStatus: () => void;
   onDeleteAllData: () => Promise<void>;
   onApplyLayout: () => void;
   onContinueSetup: () => void;
@@ -198,74 +197,32 @@ function credentialExpiryLabel(timestamp: number): string {
 
 function SklandDataControls({
   account,
-  authorized,
   busy,
-  onRevokeStatus,
   onDeleteAllData,
 }: {
   account: SklandAccountSummary;
-  authorized: boolean;
   busy: boolean;
-  onRevokeStatus: () => Promise<void>;
   onDeleteAllData: () => Promise<void>;
 }) {
-  const [deleteOpen, setDeleteOpen] = useState(false);
   return (
-    <>
-      <Card data-skland-data-controls>
-        <CardHeader>
-          <CardTitle>数据与授权</CardTitle>
-          <CardDescription data-ui-number-font>
-            登录凭证将在 {credentialExpiryLabel(account.credentialExpiresAt)} 固定过期，刷新页面不会延长保存期。
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {authorized ? (
-            <Button type="button" variant="outline" disabled={busy} onClick={() => void onRevokeStatus()}>
-              撤回状态中心授权
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={busy}
-            onClick={() => setDeleteOpen(true)}
-            data-skland-delete-all
-          >
-            <Trash2 />删除全部森空岛数据
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="max-w-[min(500px,calc(100vw-2rem))]">
-          <DialogHeader>
-            <DialogTitle>删除全部森空岛数据？</DialogTitle>
-            <DialogDescription>
-              将永久删除此浏览器中的全部森空岛账号、登录凭证、状态授权、同步数据、森空岛排班结果，以及服务端可关联的运行记录和反馈。MAA 导入与手动布局会保留；森空岛官方账号不会被删除。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="ghost" disabled={busy} onClick={() => setDeleteOpen(false)}>保留数据</Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={busy}
-              onClick={() => void (async () => {
-                try {
-                  await onDeleteAllData();
-                  setDeleteOpen(false);
-                } catch {
-                  // 页面会保留确认框，并由上层展示统一错误信息。
-                }
-              })()}
-            >
-              <Trash2 />删除全部森空岛数据
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <section className="grid gap-3 pt-2" data-skland-data-controls>
+      <div>
+        <h2 className="text-sm font-semibold">数据管理</h2>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground" data-ui-number-font>
+          登录凭证将在 {credentialExpiryLabel(account.credentialExpiresAt)} 固定过期。按住下方按钮会永久删除全部森空岛账号、凭证、同步数据及可关联记录；MAA 导入与手动布局会保留。
+        </p>
+      </div>
+      <HoldToConfirm
+        disabled={busy}
+        confirmLabel="正在删除"
+        className="w-full sm:w-fit"
+        onConfirm={() => void onDeleteAllData().catch(() => {
+          // 上层统一展示删除失败信息；此处只避免产生未处理的 Promise rejection。
+        })}
+      >
+        <Trash2 className="size-4" />按住删除全部森空岛数据
+      </HoldToConfirm>
+    </section>
   );
 }
 
@@ -713,7 +670,11 @@ function RoomCard({ room }: { room: SklandInfrastructureRoom }) {
             : "grid flex-1 content-between gap-2"
         }`}
       >
-        <div className={`flex flex-wrap items-start gap-3 ${isPowerRoom ? "justify-end max-sm:justify-start" : ""}`}>
+        <div
+          className={`flex flex-wrap items-start gap-3 max-sm:grid max-sm:w-full max-sm:grid-cols-5 max-sm:gap-1.5 max-sm:[&_.infra-operator-slot]:w-full max-sm:[&_.infra-operator-slot]:[--operator-slot-size:clamp(48px,calc((100vw-72px)/5),64px)] ${
+            isPowerRoom ? "justify-end max-sm:justify-start" : ""
+          }`}
+        >
           {room.operators.length ? room.operators.map((operator) => (
             <OperatorSlot
               key={`${room.key}-${operator.id}`}
@@ -1384,7 +1345,7 @@ export function ProgressTab({ snapshot }: { snapshot: SklandStatusSnapshot }) {
 
 function LoadingState() {
   return (
-    <div className="grid gap-5" role="status" aria-label="正在恢复森空岛会话">
+    <div className="grid gap-5 pt-5" role="status" aria-label="正在恢复森空岛会话" data-skland-page>
       <Skeleton className="h-32 w-full rounded-xl" />
       <div className="grid gap-3 md:grid-cols-3">
         <Skeleton className="h-36 rounded-xl" />
@@ -1410,8 +1371,7 @@ export function SklandStatus({
   onAuthenticated,
   onRoleChange,
   onLogout,
-  onAuthorizeStatus,
-  onRevokeStatus,
+  onRetryStatus,
   onDeleteAllData,
   onApplyLayout,
   onContinueSetup,
@@ -1424,7 +1384,7 @@ export function SklandStatus({
 
   if (!scheduleSnapshot) {
     return (
-      <div className="grid gap-6 py-2 sm:py-5">
+      <div className="grid gap-6 pt-5 pb-2 sm:pb-5" data-skland-page>
         <header className="max-w-2xl">
           <p className="text-xs font-medium tracking-wide text-primary">森空岛状态中心</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight">把当前罗德岛带进排班助手</h2>
@@ -1447,32 +1407,26 @@ export function SklandStatus({
   const activeRole = activeAccount?.roles.find((role) => role.uid === activeAccount.selectedUid) ?? activeAccount?.roles[0] ?? null;
 
   if (!snapshot && activeAccount) {
+    if (!error) return <LoadingState />;
     return (
-      <div className="grid gap-6 py-2 sm:py-5" data-skland-status-consent>
+      <div className="grid gap-6 pt-5 pb-2 sm:pb-5" data-skland-page data-skland-status-load-error>
         <header className="max-w-2xl">
           <p className="text-xs font-medium tracking-wide text-primary">森空岛状态中心</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">单独启用完整状态</h2>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight">完整状态暂时无法加载</h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            当前已登录{activeRole ? `“${activeRole.nickname}”` : "森空岛"}，排班同步可以继续使用。状态中心是可选功能。
+            当前已登录{activeRole ? `“${activeRole.nickname}”` : "森空岛"}。你可以重新加载，或退出当前账号后重新扫码。
           </p>
         </header>
-        {error ? (
-          <Alert variant="destructive"><AlertDescription>{error.message}（{error.code}）</AlertDescription></Alert>
-        ) : null}
+        <Alert variant="destructive"><AlertDescription>{error.message}（{error.code}）</AlertDescription></Alert>
         <Card>
           <CardHeader>
-            <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <ShieldCheck className="size-5" />
-            </div>
-            <CardTitle>允许读取状态中心附加数据？</CardTitle>
+            <CardTitle>重新加载状态中心</CardTitle>
             <CardDescription className="max-w-2xl leading-6">
-              启用后会读取并展示头像、UID、等级、理智、任务、公招、皮肤、训练、线索、活动和游戏进度。森空岛玩家接口会返回组合数据；未启用时，排班之外的字段会在服务端映射后立即丢弃。
+              登录后会按隐私政策列明的范围读取并展示完整状态；完整快照只保留在当前页面内存中。
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button type="button" disabled={busy} onClick={() => void onAuthorizeStatus()}>
-              <ShieldCheck />启用状态中心
-            </Button>
+            <Button type="button" disabled={busy} onClick={onRetryStatus}>重新加载状态中心</Button>
             <Button type="button" variant="outline" disabled={busy} onClick={() => void onLogout()}>
               <LogOut />退出当前账号
             </Button>
@@ -1480,9 +1434,7 @@ export function SklandStatus({
         </Card>
         <SklandDataControls
           account={activeAccount}
-          authorized={false}
           busy={busy}
-          onRevokeStatus={onRevokeStatus}
           onDeleteAllData={onDeleteAllData}
         />
       </div>
@@ -1509,7 +1461,7 @@ export function SklandStatus({
   const selectedItem = selectionItems.find((item) => item.value === selectedValue) ?? null;
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-6 pt-5" data-skland-page>
       <header
         className="grid gap-5 border-b border-border/70 pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
         data-ui-number-font
@@ -1689,9 +1641,7 @@ export function SklandStatus({
 
       <SklandDataControls
         account={activeAccount}
-        authorized
         busy={busy}
-        onRevokeStatus={onRevokeStatus}
         onDeleteAllData={onDeleteAllData}
       />
     </div>

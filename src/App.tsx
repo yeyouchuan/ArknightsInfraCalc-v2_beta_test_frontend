@@ -1,19 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { CLIENT_SKLAND_ENABLED } from "@/client-features";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, type AppPage } from "@/components/layout/AppSidebar";
-import { AppTopBar } from "@/components/layout/AppTopBar";
+import { AppTopBar, SklandAccountControl } from "@/components/layout/AppTopBar";
 import { InfraCalculator } from "@/components/pages/InfraCalculator";
-import { SkillLookup } from "@/components/pages/SkillLookup";
 import { SklandStatus } from "@/components/pages/SklandStatus";
-import { TrainingAdvice } from "@/components/pages/TrainingAdvice";
+import { LiveActivity, usePlanActivity } from "@/components/ui/live-activity";
 
 import {
-  authorizeSklandStatus,
   deleteAllSklandData,
   getHealth,
   getSampleOperbox,
@@ -21,7 +19,6 @@ import {
   getSklandStatus,
   logoutSkland,
   runPlan,
-  revokeSklandStatus,
   saveFeedback,
   selectSklandRole,
   toDisplayError,
@@ -40,10 +37,6 @@ import {
   updateRoomLevel,
   updateTradeOrder,
 } from "./blueprint";
-import {
-  IssueNoteModal,
-  ProductChangeConfirmModal,
-} from "./components";
 import { copyText, downloadJson } from "./download";
 import { ONBOARDING_STORAGE_KEY, initialSetupStep, shouldAutoOpenSetup, type SetupStep } from "./onboarding";
 import { readOperboxFile, readOperboxText } from "./operbox";
@@ -57,8 +50,10 @@ import {
 } from "./persistence";
 import { planToRows, RoomRow } from "./schedule";
 import { DEFAULT_ROTATION_PROFILE } from "./rotation-settings";
-import { SetupDialog } from "./setup-dialog";
+import { readPlanHistory, writePlanHistory, type PlanHistoryEntry } from "./plan-history";
 import { closestShift, compareShifts } from "./skland";
+import { setupConfigurationFingerprint } from "./setup-configuration";
+import { applyFiammettaSettings, scheduledOperatorNames, validateFiammettaExport } from "./fiammetta-settings";
 import {
   BaseBlueprint,
   BoxSource,
@@ -76,6 +71,37 @@ import {
   SklandStatusSnapshot,
 } from "./types";
 
+const CLIENT_SKLAND_ENABLED = process.env.APP_CLIENT_SKLAND_ENABLED === "1";
+
+function DeferredPageLoading() {
+  return (
+    <div className="grid min-h-64 place-items-center" role="status" aria-live="polite">
+      <span className="text-sm text-muted-foreground">正在加载页面…</span>
+    </div>
+  );
+}
+
+const TrainingAdvice = dynamic(
+  () => import("@/components/pages/TrainingAdvice").then((module) => module.TrainingAdvice),
+  { loading: DeferredPageLoading, ssr: false },
+);
+const SkillQuery = dynamic(
+  () => import("@/components/pages/SkillQuery").then((module) => module.SkillQuery),
+  { loading: DeferredPageLoading, ssr: false },
+);
+const SetupDialog = dynamic(
+  () => import("./setup-dialog").then((module) => module.SetupDialog),
+  { ssr: false },
+);
+const IssueNoteModal = dynamic(
+  () => import("./components").then((module) => module.IssueNoteModal),
+  { ssr: false },
+);
+const ProductChangeConfirmModal = dynamic(
+  () => import("./components").then((module) => module.ProductChangeConfirmModal),
+  { ssr: false },
+);
+
 type ProductChange =
   | { type: "factory"; roomId: string; recipe: FactoryRecipe }
   | { type: "trade"; roomId: string; order: TradeOrder };
@@ -88,6 +114,19 @@ function layoutWithProductChange(layout: BaseBlueprint, change: ProductChange): 
 
 function displayError(code: DisplayError["code"], message: string, retryable = false): DisplayError {
   return { code, message, retryable };
+}
+
+async function eligibleFiammettaTargetsFor(
+  operbox: OperBoxEntry[],
+  maa: PublicPlanData["maa"],
+): Promise<ReadonlySet<string>> {
+  const { operatorBuildingSkillList } = await import("./operatorPortraits");
+  const scheduled = scheduledOperatorNames(maa);
+  return new Set(
+    operbox
+      .filter((operator) => operator.own && scheduled.has(operator.name) && operatorBuildingSkillList(operator.name).length > 0)
+      .map((operator) => operator.name),
+  );
 }
 
 function resolvePreset(value: PresetDef | undefined): PresetDef {
@@ -202,10 +241,14 @@ function WorkbenchApp() {
   const [layoutSource, setLayoutSource] = useState<"local" | "skland">("local");
   const [localLayoutBackup, setLocalLayoutBackup] = useState<BaseBlueprint | null>(null);
   const [rotationProfile, setRotationProfile] = useState<RotationProfile>(DEFAULT_ROTATION_PROFILE);
+  const [fiammettaEnabled, setFiammettaEnabled] = useState(false);
+  const [fiammettaTarget, setFiammettaTarget] = useState<string | null>(null);
+  const [fiammettaOrder, setFiammettaOrder] = useState<"pre" | "post">("pre");
   const [inputMode, setInputMode] = useState<"skland" | "maa">(CLIENT_SKLAND_ENABLED ? "skland" : "maa");
   const [maaPaste, setMaaPaste] = useState("");
   const [sklandScheduleSnapshot, setSklandScheduleSnapshot] = useState<SklandScheduleSnapshot | null>(null);
   const [sklandStatusSnapshot, setSklandStatusSnapshot] = useState<SklandStatusSnapshot | null>(null);
+  const [sklandStatusReloadKey, setSklandStatusReloadKey] = useState(0);
   const [sklandAccounts, setSklandAccounts] = useState<SklandAccountSummary[]>([]);
   const [sklandActiveAccountId, setSklandActiveAccountId] = useState<string | null>(null);
   const [sklandConfigured, setSklandConfigured] = useState(false);
@@ -214,6 +257,9 @@ function WorkbenchApp() {
   const [sklandError, setSklandError] = useState<DisplayError | null>(null);
   const [sklandBusy, setSklandBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [setupMounted, setSetupMounted] = useState(false);
+  const [issueModalMounted, setIssueModalMounted] = useState(false);
+  const [productModalMounted, setProductModalMounted] = useState(false);
   const [setupInitialStep, setSetupInitialStep] = useState<SetupStep>("box");
   const initialLayoutForRestore = useRef(defaultLayout);
   const initialBoxSource = useRef(boxSource);
@@ -227,7 +273,10 @@ function WorkbenchApp() {
   const [inputErrorCode, setInputErrorCode] = useState<DisplayError["code"]>("AIC-BOX-1101");
   const [sampleLoading, setSampleLoading] = useState(false);
   const [result, setResult] = useState<PublicPlanData | null>(null);
+  const [previousResult, setPreviousResult] = useState<PublicPlanData | null>(null);
+  const [planHistory, setPlanHistory] = useState<PlanHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const planAbortRef = useRef<AbortController | null>(null);
   const [cliReady, setCliReady] = useState(false);
   const [apiError, setApiError] = useState<DisplayError | null>(null);
   const [storageNotice, setStorageNotice] = useState<DisplayError | null>(null);
@@ -248,6 +297,21 @@ function WorkbenchApp() {
   const activePlan = scheduleResult?.maa.plans?.[activeShift];
   const activeRotationShift = scheduleResult?.rotation.shifts?.[activeShift];
   const rows = useMemo(() => planToRows(activePlan, activeRotationShift, layout), [activePlan, activeRotationShift, layout]);
+  const scheduledOperators = useMemo(() => scheduledOperatorNames(scheduleResult?.maa), [scheduleResult?.maa]);
+  const ownsFiammetta = Boolean(operbox?.some((operator) => operator.own && operator.name === "菲亚梅塔"));
+  const setupConfigurationKey = useMemo(() => setupConfigurationFingerprint({
+    layout,
+    rotationProfile,
+    fiammettaEnabled,
+    fiammettaTarget,
+    fiammettaOrder,
+  }), [fiammettaEnabled, fiammettaOrder, fiammettaTarget, layout, rotationProfile]);
+  const changedRoomIds = useMemo(() => {
+    const previousPlan = previousResult?.maa.plans?.[activeShift];
+    if (!previousPlan || !activePlan) return new Set<string>();
+    const before = new Map(planToRows(previousPlan, previousResult?.rotation.shifts?.[activeShift], layout).map((row) => [row.roomId, JSON.stringify([row.operators, row.efficiency])]));
+    return new Set(rows.filter((row) => before.get(row.roomId) !== JSON.stringify([row.operators, row.efficiency])).map((row) => row.roomId));
+  }, [activePlan, activeShift, layout, previousResult, rows]);
   const currentMoraleByOperator = useMemo(() => {
     if (!CLIENT_SKLAND_ENABLED || boxSource !== "skland" || !sklandScheduleSnapshot) return undefined;
 
@@ -291,6 +355,28 @@ function WorkbenchApp() {
     return () => window.removeEventListener("popstate", syncBetaPanels);
   }, []);
 
+  useEffect(() => setPlanHistory(readPlanHistory(window.localStorage)), []);
+
+  useEffect(() => {
+    if (setupOpen) setSetupMounted(true);
+  }, [setupOpen]);
+
+  useEffect(() => {
+    if (issueOpen) setIssueModalMounted(true);
+  }, [issueOpen]);
+
+  useEffect(() => {
+    if (pendingProductChange) setProductModalMounted(true);
+  }, [pendingProductChange]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && loading) planAbortRef.current?.abort();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [loading]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -314,6 +400,9 @@ function WorkbenchApp() {
         setLayoutSource(restoredLayoutSource);
         setLocalLayoutBackup(CLIENT_SKLAND_ENABLED ? restored.localLayoutBackup : null);
         setRotationProfile(restored.rotationProfile);
+        setFiammettaEnabled(Boolean(restored.fiammettaEnabled));
+        setFiammettaTarget(restored.fiammettaTarget ?? null);
+        setFiammettaOrder(restored.fiammettaOrder === "post" ? "post" : "pre");
         setResult(restored.result);
         setActiveShift(restored.activeShift);
         initialLayoutForRestore.current = restoredLayout;
@@ -347,6 +436,9 @@ function WorkbenchApp() {
         layoutSource,
         localLayoutBackup,
         rotationProfile,
+        fiammettaEnabled,
+        fiammettaTarget,
+        fiammettaOrder,
         result,
         activeShift,
       });
@@ -354,7 +446,7 @@ function WorkbenchApp() {
     } catch {
       setStorageNotice(displayError("AIC-LOCAL-7001", "浏览器无法保存本地数据，但仍可继续生成排班。"));
     }
-  }, [hasRestoredSession, preset, layout, operbox, fileName, boxSource, layoutDirty, layoutSource, localLayoutBackup, rotationProfile, result, activeShift]);
+  }, [hasRestoredSession, preset, layout, operbox, fileName, boxSource, layoutDirty, layoutSource, localLayoutBackup, rotationProfile, fiammettaEnabled, fiammettaTarget, fiammettaOrder, result, activeShift]);
 
   useEffect(() => {
     if (!hasRestoredSession || typeof window === "undefined") return;
@@ -395,6 +487,7 @@ function WorkbenchApp() {
         setSklandDisabledReason(session.disabledReason ?? null);
         setSklandAccounts(session.accounts);
         setSklandActiveAccountId(session.activeAccountId);
+        setSklandStatusSnapshot(session.statusSnapshot ?? null);
         if (session.authenticated && session.scheduleSnapshot) {
           setSklandScheduleSnapshot(session.scheduleSnapshot);
           if (initialBoxSource.current === "skland" || !initialOperbox.current) {
@@ -432,7 +525,7 @@ function WorkbenchApp() {
     if (
       !CLIENT_SKLAND_ENABLED
       || page !== "skland"
-      || !activeSklandAccount?.statusAuthorized
+      || !activeSklandAccount
       || sklandStatusSnapshot
       || statusLoadingAccount.current === activeSklandAccount.accountId
     ) return;
@@ -457,7 +550,7 @@ function WorkbenchApp() {
     return () => {
       cancelled = true;
     };
-  }, [activeSklandAccount, page, sklandStatusSnapshot]);
+  }, [activeSklandAccount, page, sklandStatusReloadKey, sklandStatusSnapshot]);
 
   async function handleFile(file: File): Promise<boolean> {
     setInputError(null);
@@ -495,7 +588,7 @@ function WorkbenchApp() {
   function applySklandSession(session: SklandSessionData, applyLayoutWhenClean = true) {
     setSklandAccounts(session.accounts);
     setSklandActiveAccountId(session.activeAccountId);
-    setSklandStatusSnapshot(null);
+    setSklandStatusSnapshot(session.statusSnapshot ?? null);
     if (session.authenticated && session.scheduleSnapshot) {
       applySklandSnapshot(session.scheduleSnapshot, applyLayoutWhenClean);
       return;
@@ -531,24 +624,7 @@ function WorkbenchApp() {
     try {
       const session = await selectSklandRole(accountId, uid);
       if (!session.authenticated || !session.scheduleSnapshot) throw new Error("角色切换失败。");
-      const selectedAccount = session.accounts.find((account) => account.accountId === session.activeAccountId);
-      let status: Awaited<ReturnType<typeof getSklandStatus>> | null = null;
-      let statusError: unknown = null;
-      if (selectedAccount?.statusAuthorized) {
-        try {
-          status = await getSklandStatus();
-        } catch (error) {
-          statusError = error;
-        }
-      }
       applySklandSession(session, false);
-      if (status) {
-        setSklandAccounts(status.accounts);
-        setSklandActiveAccountId(status.activeAccountId);
-        setSklandStatusSnapshot(status.snapshot ?? null);
-      } else if (statusError) {
-        setSklandError(toDisplayError(statusError, "角色已切换，但状态中心加载失败，请稍后重试。"));
-      }
     } catch (error) {
       const normalized = toDisplayError(error, "角色切换失败，请稍后重试。");
       setSklandError(normalized);
@@ -556,6 +632,7 @@ function WorkbenchApp() {
         const current = await getSklandSession();
         setSklandAccounts(current.accounts);
         setSklandActiveAccountId(current.activeAccountId);
+        setSklandStatusSnapshot(current.statusSnapshot ?? null);
         if (current.authenticated && current.scheduleSnapshot) applySklandSnapshot(current.scheduleSnapshot, false);
       } catch {
         // 保留上一份成功快照，等待用户再次操作。
@@ -603,11 +680,12 @@ function WorkbenchApp() {
       return;
     }
     setLoading(true);
+    const controller = new AbortController();
+    planAbortRef.current?.abort();
+    planAbortRef.current = controller;
     setResultClearNotice(null);
     setInputError(null);
     setApiError(null);
-    setResult(null);
-    setActiveShift(0);
     clearIssueState();
 
     try {
@@ -617,9 +695,34 @@ function WorkbenchApp() {
         sourceName: fileName,
         boxSource,
         rotation: rotationProfile,
-      });
+      }, controller.signal);
       setCliReady(true);
-      setResult(response);
+      setActiveShift(0);
+      const responseTargets = await eligibleFiammettaTargetsFor(operbox, response.maa);
+      const fiammettaError = validateFiammettaExport({
+        settings: { enabled: fiammettaEnabled, target: fiammettaTarget, order: fiammettaOrder },
+        ownsFiammetta,
+        eligibleTargets: responseTargets,
+      });
+      setPreviousResult(result);
+      const finalizedResult = {
+        ...response,
+        maa: applyFiammettaSettings(response.maa, {
+          enabled: fiammettaEnabled && !fiammettaError,
+          target: fiammettaTarget,
+          order: fiammettaOrder,
+        }),
+      };
+      setResult(finalizedResult);
+      if (fiammettaError && fiammettaEnabled) {
+        setApiError(displayError("AIC-BOX-1101", `${fiammettaError} 本次结果未写入菲亚梅塔换人。`));
+      }
+      setPlanHistory((current) => {
+        const compact = { ...finalizedResult, debug: undefined };
+        const next = [{ savedAt: new Date().toISOString(), result: compact }, ...current.filter((entry) => entry.result.diagnosticId !== response.diagnosticId)].slice(0, 5);
+        try { writePlanHistory(window.localStorage, next); } catch { /* Keep history in memory when storage is full. */ }
+        return next;
+      });
       if (response.maa.plans[0]) {
         const plan = response.maa.plans[0];
         const maaFactoryRooms = plan.rooms?.manufacture;
@@ -641,10 +744,26 @@ function WorkbenchApp() {
         }
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       setApiError(toDisplayError(error, "排班请求失败，请稍后重试。"));
     } finally {
-      setLoading(false);
+      if (planAbortRef.current === controller) {
+        planAbortRef.current = null;
+        setLoading(false);
+      }
     }
+  }
+
+  function handleCancelRun() {
+    planAbortRef.current?.abort();
+    planAbortRef.current = null;
+    setLoading(false);
+  }
+
+  function handleRestorePlan(entry: PlanHistoryEntry) {
+    setPreviousResult(result);
+    setResult(entry.result);
+    setActiveShift(0);
   }
 
   async function handleRun() {
@@ -673,8 +792,19 @@ function WorkbenchApp() {
     }
   }
 
-  function handleDownloadMaa() {
-    if (result?.maa) downloadJson("arknights-infra-schedule-maa.json", result.maa);
+  async function handleDownloadMaa() {
+    if (!result?.maa || !operbox) return;
+    const eligibleTargets = await eligibleFiammettaTargetsFor(operbox, result.maa);
+    const validationError = validateFiammettaExport({
+      settings: { enabled: fiammettaEnabled, target: fiammettaTarget, order: fiammettaOrder },
+      ownsFiammetta,
+      eligibleTargets,
+    });
+    if (validationError) {
+      setApiError(displayError("AIC-BOX-1101", validationError));
+      return;
+    }
+    downloadJson("arknights-infra-schedule-maa.json", result.maa);
   }
 
   function handleDownloadBundle() {
@@ -710,7 +840,13 @@ function WorkbenchApp() {
       return;
     }
 
-    const issue = { row: issueDraftRow, note: issueDraftNote.trim() };
+    const environment = [
+      `求解耗时：${Math.round(result.durationMs)} ms`,
+      `班次：${activeShift + 1}`,
+      `换班方式：${rotationProfile}`,
+      `布局：${preset.label}`,
+    ].join("；");
+    const issue = { row: issueDraftRow, note: `${issueDraftNote.trim()}\n\n[运行环境] ${environment}` };
 
     setFeedbackSaving(true);
     setFeedbackError(null);
@@ -755,6 +891,22 @@ function WorkbenchApp() {
 
   function handleRotationProfileChange(value: RotationProfile) {
     setRotationProfile(value);
+    clearPlanResult();
+  }
+
+  function handleFiammettaEnabledChange(enabled: boolean) {
+    setFiammettaEnabled(enabled);
+    clearPlanResult();
+  }
+
+  function handleFiammettaTargetChange(target: string) {
+    setFiammettaTarget(target);
+    setFiammettaEnabled(true);
+    clearPlanResult();
+  }
+
+  function handleFiammettaOrderChange(order: "pre" | "post") {
+    setFiammettaOrder(order);
     clearPlanResult();
   }
 
@@ -918,34 +1070,10 @@ function WorkbenchApp() {
     applySklandSession(session);
   }
 
-  async function handleAuthorizeSklandStatus() {
-    setSklandBusy(true);
+  function handleRetrySklandStatus() {
     setSklandError(null);
-    try {
-      const status = await authorizeSklandStatus();
-      setSklandAccounts(status.accounts);
-      setSklandActiveAccountId(status.activeAccountId);
-      setSklandStatusSnapshot(status.snapshot ?? null);
-    } catch (error) {
-      setSklandError(toDisplayError(error, "无法启用状态中心，请稍后重试。"));
-    } finally {
-      setSklandBusy(false);
-    }
-  }
-
-  async function handleRevokeSklandStatus() {
-    setSklandBusy(true);
-    setSklandError(null);
-    try {
-      const status = await revokeSklandStatus();
-      setSklandAccounts(status.accounts);
-      setSklandActiveAccountId(status.activeAccountId);
-      setSklandStatusSnapshot(null);
-    } catch (error) {
-      setSklandError(toDisplayError(error, "无法撤回状态中心授权，请稍后重试。"));
-    } finally {
-      setSklandBusy(false);
-    }
+    statusLoadingAccount.current = null;
+    setSklandStatusReloadKey((current) => current + 1);
   }
 
   async function handleDeleteAllSklandData() {
@@ -1069,6 +1197,7 @@ function WorkbenchApp() {
   const statusError = inputError && !setupOpen
     ? displayError(inputErrorCode, inputError)
     : apiError ?? storageNotice;
+  const activity = usePlanActivity({ loading, result, error: statusError });
 
   if (!hasRestoredSession) {
     return (
@@ -1086,16 +1215,16 @@ function WorkbenchApp() {
     <SidebarProvider defaultOpen={false}>
       <AppSidebar page={page} onPageChange={setPage} />
       <SidebarInset>
-        <AppTopBar
-          {...(CLIENT_SKLAND_ENABLED ? {
-            account: activeSklandAccount,
-            statusSnapshot: sklandStatusSnapshot,
-            sessionLoading: sklandSessionLoading,
-            onOpenSkland: () => setPage("skland" as const),
-          } : {})}
+        <AppTopBar />
+        <LiveActivity
+          activity={activity}
+          onRetry={() => void handleRetry()}
+          onCopyDiagnostic={() => {
+            if (activity?.error) void copyText(`${activity.error.code}${activity.error.requestId ? ` · ${activity.error.requestId}` : ""}`);
+          }}
         />
 
-      <div className="app-content-track py-4">
+      <div className="app-content-track py-4" data-app-content>
       {page === "calculator" ? (
         <InfraCalculator
           layout={layout}
@@ -1104,6 +1233,8 @@ function WorkbenchApp() {
           scheduleResult={scheduleResult}
           activeShift={activeShift}
           rows={rows}
+          changedRoomIds={changedRoomIds}
+          planHistory={planHistory}
           currentMoraleByOperator={currentMoraleByOperator}
           activePlan={activePlan}
           closestComparison={closestComparison}
@@ -1116,14 +1247,19 @@ function WorkbenchApp() {
           loading={loading}
           canRun={canRun}
           plannerReady={cliReady}
-          statusError={statusError}
+          accountControl={CLIENT_SKLAND_ENABLED ? (
+            <SklandAccountControl
+              account={activeSklandAccount}
+              statusSnapshot={sklandStatusSnapshot}
+              sessionLoading={sklandSessionLoading}
+              onOpenSkland={() => setPage("skland" as const)}
+            />
+          ) : undefined}
           onLoadSample={handleLoadSample}
           onOpenSetup={openSetup}
           onRun={handleRun}
-          onRetry={() => void handleRetry()}
-          onCopyDiagnostic={() => {
-            if (statusError) void copyText(`${statusError.code}${statusError.requestId ? ` · ${statusError.requestId}` : ""}`);
-          }}
+          onCancelRun={handleCancelRun}
+          onRestorePlan={handleRestorePlan}
           onSetActiveShift={setActiveShift}
           onMarkIssue={handleMarkIssue}
           onFactoryRecipeChange={handleScheduleFactoryRecipeChange}
@@ -1134,8 +1270,6 @@ function WorkbenchApp() {
           onClearResultNotice={() => setResultClearNotice(null)}
           onDismissResultClearWarning={dismissResultClearWarning}
         />
-      ) : page === "skills" ? (
-        <SkillLookup />
       ) : CLIENT_SKLAND_ENABLED && page === "skland" ? (
         <SklandStatus
           scheduleSnapshot={sklandScheduleSnapshot}
@@ -1152,8 +1286,7 @@ function WorkbenchApp() {
           onAuthenticated={handleSklandAuthenticated}
           onRoleChange={handleSklandRole}
           onLogout={handleSklandLogout}
-          onAuthorizeStatus={handleAuthorizeSklandStatus}
-          onRevokeStatus={handleRevokeSklandStatus}
+          onRetryStatus={handleRetrySklandStatus}
           onDeleteAllData={handleDeleteAllSklandData}
           onApplyLayout={handleApplySklandLayout}
           onContinueSetup={() => {
@@ -1163,6 +1296,8 @@ function WorkbenchApp() {
           onOpenCalculator={() => setPage("calculator")}
           onCopyUid={(uid) => void copyText(uid)}
         />
+      ) : page === "skill-query" ? (
+        <SkillQuery />
       ) : (
         <TrainingAdvice operbox={operbox} layout={layout} profile={result?.profile} onOpenCalculator={() => setPage("calculator")} />
       )}
@@ -1183,7 +1318,7 @@ function WorkbenchApp() {
         ) : null}
       </footer>
 
-      <SetupDialog
+      {setupMounted ? <SetupDialog
         {...(CLIENT_SKLAND_ENABLED ? {
           sklandSnapshot: sklandScheduleSnapshot,
           sklandConfigured,
@@ -1208,8 +1343,16 @@ function WorkbenchApp() {
         presets={PRESETS}
         preset={preset}
         layout={layout}
+        configurationKey={setupConfigurationKey}
         rotationProfile={rotationProfile}
         onRotationProfileChange={handleRotationProfileChange}
+        fiammettaEnabled={fiammettaEnabled}
+        fiammettaTarget={fiammettaTarget}
+        fiammettaOrder={fiammettaOrder}
+        scheduledOperators={scheduledOperators}
+        onFiammettaEnabledChange={handleFiammettaEnabledChange}
+        onFiammettaTargetChange={handleFiammettaTargetChange}
+        onFiammettaOrderChange={handleFiammettaOrderChange}
         onPresetSelect={handlePresetSelect}
         onLayoutFile={handleLayoutFile}
         onDownloadLayout={() => downloadJson(`layout-${layout.template}.json`, layout)}
@@ -1222,9 +1365,9 @@ function WorkbenchApp() {
         powerBudget={powerBudget}
         onFinish={closeSetup}
         onSkip={closeSetup}
-      />
+      /> : null}
 
-      <IssueNoteModal
+      {issueModalMounted ? <IssueNoteModal
         open={issueOpen}
         row={issueDraftRow}
         note={issueDraftNote}
@@ -1232,8 +1375,8 @@ function WorkbenchApp() {
         onNoteChange={setIssueDraftNote}
         onSave={handleSaveIssue}
         onCancel={handleCancelIssue}
-      />
-      <ProductChangeConfirmModal
+      /> : null}
+      {productModalMounted ? <ProductChangeConfirmModal
         open={Boolean(pendingProductChange)}
         roomLabel={rows.find((row) => row.roomId === pendingProductChange?.roomId)?.title ?? pendingProductChange?.roomId ?? "当前设施"}
         changeKind={pendingProductChange?.type === "trade" ? "贸易策略" : "制造配方"}
@@ -1241,11 +1384,10 @@ function WorkbenchApp() {
         busy={loading && Boolean(pendingProductChange)}
         onConfirm={() => void confirmScheduleProductChange()}
         onCancel={() => setPendingProductChange(null)}
-      />
+      /> : null}
       </SidebarInset>
     </SidebarProvider>
   );
 }
 
 export default WorkbenchApp;
-

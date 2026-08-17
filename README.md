@@ -62,7 +62,7 @@ http://127.0.0.1:5174/?beta
 
 所有环境均支持上传或粘贴 MAA 的 `Arknights_OperBox_Export.json`。dev 环境还支持森空岛同步：桌面端使用二维码登录，手机端可通过鹰角官方 `u-link` 包装二维码接口返回的 `scanUrl`，尝试拉起森空岛完成同一授权流程。移动端兼容性取决于森空岛 App 是否转交登录载荷，失败时应改用桌面二维码；本项目不提供账号密码登录。旧的一图流 xlsx 仍保留为兼容入口，243 全精二样例可从首页的“全角色导入”直接载入。
 
-登录、添加账号、账号/角色切换和退出统一位于侧边栏的“森空岛状态”页面；同一浏览器最多保留 5 个森空岛账号。生成二维码前必须分别同意[本站服务条款](./src/app/terms/page.tsx)与[本站隐私政策](./src/app/privacy/page.tsx)。基础登录只返回排班所需的 Box、设施、当前进驻与心情；头像、理智、任务、公招、皮肤、活动和游戏进度等完整状态需要按账号单独授权，撤回不影响排班同步。具体范围与排除项见 [森空岛数据能力矩阵](docs/SKLAND_DATA_CAPABILITIES.md)。
+登录、添加账号、账号/角色切换和退出统一位于侧边栏的“森空岛状态”页面；同一浏览器最多保留 5 个森空岛账号。生成二维码前必须分别同意[本站服务条款](./src/app/terms/page.tsx)与[本站隐私政策](./src/app/privacy/page.tsx)。登录成功后，状态中心会按隐私政策列明的白名单直接读取 Box、设施、当前进驻、头像、理智、任务、公招、皮肤、活动和游戏进度等完整状态，并展示已接入界面的数据，不再设置二次授权；传给排班流程的仍只有求解所需最小字段。具体范围与排除项见 [森空岛数据能力矩阵](docs/SKLAND_DATA_CAPABILITIES.md)。
 
 启用森空岛登录前必须配置至少 32 字节、长期保持不变的会话密钥：
 
@@ -80,7 +80,7 @@ $env:SKLAND_PUBLIC_ORIGIN = "https://infra.example.com"
 $env:BETA_TRUST_PROXY_HEADERS = "1"
 ```
 
-`BETA_PUBLIC_ORIGIN`保护全部公开写接口，`SKLAND_PUBLIC_ORIGIN`继续保护森空岛会话流。每个森空岛账号的凭证会使用 AES-256-GCM 加密后写入独立的 HttpOnly Cookie，另有一个加密索引 Cookie 记录当前账号；凭证从扫码成功起固定保存 7 天，刷新、读取会话或切换角色不会续期。扫码临时凭据和登录凭证都不会写入浏览器存储、运行记录或反馈包。状态中心提供撤回授权和“删除全部森空岛数据”，后者同时清除可关联的服务端运行记录与反馈，并保留独立导入的 MAA 数据和手动布局。localhost 可使用 HTTP 开发；非 localhost 环境默认必须通过 HTTPS 访问，否则只禁用森空岛入口，MAA 导入和求解仍可使用。仅在临时、可信的 HTTP 测试环境中可以显式设置 `SKLAND_ALLOW_INSECURE_HTTP=1`；此时登录流量不会受到 HTTPS 保护。
+`BETA_PUBLIC_ORIGIN`保护全部公开写接口，`SKLAND_PUBLIC_ORIGIN`继续保护森空岛会话流。每个森空岛账号的凭证会使用 AES-256-GCM 加密后写入独立的 HttpOnly Cookie，另有一个加密索引 Cookie 记录当前账号；凭证从扫码成功起固定保存 7 天，刷新、读取会话或切换角色不会续期。扫码临时凭据和登录凭证都不会写入浏览器存储、运行记录或反馈包，完整状态快照也只停留在页面内存。状态中心提供退出当前账号和“删除全部森空岛数据”，后者同时清除可关联的服务端运行记录与反馈，并保留独立导入的 MAA 数据和手动布局。localhost 可使用 HTTP 开发；非 localhost 环境默认必须通过 HTTPS 访问，否则只禁用森空岛入口，MAA 导入和求解仍可使用。仅在临时、可信的 HTTP 测试环境中可以显式设置 `SKLAND_ALLOW_INSECURE_HTTP=1`；此时登录流量不会受到 HTTPS 保护。
 
 `APP_DEPLOYMENT_ENV=production`会强制关闭森空岛，不能被`SKLAND_FEATURE_ENABLED=1`覆盖。线上构建不会渲染相关入口、不会发起会话请求，公开健康检查不含相关能力字段，`/api/skland/*`统一返回 404。未声明部署目标的`next build`同样按 production 关闭；本地`next dev`默认保持兼容。
 Production compilation also removes Skland copy, API URLs, and the app scheme from browser assets. `npm run test:production-client` scans static JavaScript and public HTML/RSC to prevent regressions.
@@ -116,7 +116,7 @@ chmod +x bin/infra-cli
 | `main` | `production` | 线上站点 | 强制关闭 |
 | `develop` | `development` | dev 站点 | 开启，可由环境变量主动关闭 |
 
-推送到两个分支都会先执行`Frontend quality`。只有 push 门禁成功后，`Deploy verified branch`才会发布该次通过验证的 SHA；PR 检查不会触发部署。工作流先确认服务器两个固定 helper 是`root:root 0755`普通文件且`--contract-version`与当前工作流兼容，再从共享 Git 缓存增量取得对象并在服务器本地生成只包含 Git 跟踪内容的发布包。只有 helper 以状态码`75`报告临时 GitHub 网络、缓存或锁故障时，才退回完整 SCP 上传；SHA、tree、路径或 helper 契约错误会直接终止。`scripts/deploy-release.sh`负责独立 release 目录、原子切换`current`软链、内部/公网健康检查和失败回滚；它在构建前及成功后都只清理经过严格校验的旧 release，每个环境保留当前版本和两个回滚版本，并在清理后可用空间不足 3 GiB 时于创建新 release 前失败。失败构建的本次目录会自动移除，`shared`和`/var/lib`持久化数据不参与清理。
+推送到两个分支都会先执行`Frontend quality`。只有 push 门禁成功后，`Deploy verified branch`才会发布该次通过验证的 SHA；PR 检查不会触发部署。工作流先确认服务器两个固定 helper 是`root:root 0755`普通文件且`--contract-version`与当前工作流兼容，再从共享 Git 缓存增量取得对象并在服务器本地生成只包含 Git 跟踪内容的发布包。helper 以状态码`75`报告临时 GitHub 网络、缓存或锁故障时，Runner 会读取该环境的服务器缓存 ref，并优先上传从该 ref 到已验证 SHA 的增量 Git bundle；缓存 ref 不可用时才尝试上一次 push SHA。服务器严格校验 bundle 的路径、所有者、HEAD、前置对象、commit tree 和完整对象图后导入缓存。只有 bundle 基线不可用、传输失败或缓存缺少前置对象时才退回完整 SCP；SHA、tree、路径或 helper 契约错误会直接终止。`scripts/deploy-release.sh`负责独立 release 目录、原子切换`current`软链、内部/公网健康检查和失败回滚；它在构建前及成功后都只清理经过严格校验的旧 release，每个环境保留当前版本和两个回滚版本，并在清理后可用空间不足 3 GiB 时于创建新 release 前失败。失败构建的本次目录会自动移除，`shared`和`/var/lib`持久化数据不参与清理。
 
 需要在 GitHub 仓库创建`production`与`development`两个 Environment，并在每个 Environment 中配置同名、不同值的项目：
 
@@ -143,7 +143,7 @@ Variables：
 
 当前两个站点都通过 Tailscale Funnel 提供公网 HTTPS：production 为`https://instance-pi2ohhfj.tail2dca9.ts.net:8443`并转发到专用回环 Nginx `127.0.0.1:4176`，dev 为`https://instance-pi2ohhfj.tail2dca9.ts.net`并转发到`127.0.0.1:4274`；两个 Next 内部端口`127.0.0.1:4175`和`127.0.0.1:4275`也不直接开放公网。production 的`0.0.0.0:4174`是受 Host 限制的直连/IP 兼容 vhost，不是 Funnel 目标，也不应写入公开 Origin 或发布健康检查。服务器 80 端口只将请求`308`重定向到 production HTTPS。两个 GitHub Environment 的`DEPLOY_PUBLIC_HEALTH_URL`必须分别使用对应 HTTPS 地址，`shared/.env.local`中的公开 Origin 也必须与各自入口一致并保持`SKLAND_ALLOW_INSECURE_HTTP=0`。使用`tailscale funnel status`检查公网转发；Funnel 不可用时不要回退到明文公网端口，可临时使用 SSH 隧道做只读诊断。
 
-Actions 使用独立`arkdeploy`密钥，并且 sudo 仅允许调用服务器上 root 所有的`/usr/local/sbin/arknights-infra-deploy`。prepare helper 不使用 sudo；两个固定脚本当前使用契约版本`1`，工作流检查普通文件、`root:root 0755`和版本一致性，并把服务器文件 SHA-256写入审计摘要。兼容的内部修改不要求在 main/develop 部署之间切换脚本；不兼容升级必须先通过完整 PR 门禁，再以 root 原子安装并复核 owner/mode/version/hash，最后才合并。现有 root SSH 私钥不会进入 GitHub。Git 缓存只保存公开仓库对象和两个环境 ref，不保存 Environment Secrets、应用配置或用户数据。
+Actions 使用独立`arkdeploy`密钥，并且 sudo 仅允许调用服务器上 root 所有的`/usr/local/sbin/arknights-infra-deploy`。prepare helper 不使用 sudo；两个固定脚本当前使用契约版本`1`，工作流检查普通文件、`root:root 0755`和版本一致性，并把服务器文件 SHA-256写入审计摘要。兼容的内部修改不要求在 main/develop 部署之间切换脚本；不兼容升级必须先通过完整 PR 门禁，再以 root 原子安装并复核 owner/mode/version/hash，最后才合并。现有 root SSH 私钥不会进入 GitHub。Git 缓存只保存公开仓库对象和两个环境 ref，临时 bundle 在 helper 退出时清理；两者都不保存 Environment Secrets、应用配置或用户数据。
 
 ## 手动运行
 

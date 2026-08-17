@@ -1,8 +1,9 @@
 import { ArrowUpRight, CircleAlert, ClipboardCheck, GraduationCap } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 
 import { InfraTechnicalCard, InfraTechnicalHeading } from "@/components/InfraTechnicalCard";
+import { RecommendationCard } from "@/components/RecommendationCard";
 import { Button } from "@/components/ui/button";
-import { operatorPortraitFor } from "@/operatorPortraits";
 import type { BaseBlueprint, OperBoxEntry, UserProfile, UserProfileAction } from "@/types";
 
 type TrainingAdviceProps = {
@@ -63,105 +64,9 @@ function actionKey(action: UserProfileAction, index: number) {
   return `${action.domain_id}-${action.kind}-${action.operator}-${index}`;
 }
 
-function actionDomainLabel(value: string): string {
-  const labels: Record<string, string> = {
-    trade: "贸易站",
-    trading: "贸易站",
-    manufacture: "制造站",
-    manu: "制造站",
-    power: "发电站",
-    control: "控制中枢",
-    general: "综合",
-  };
-  return labels[value.toLowerCase()] ?? "综合";
-}
-
-function actionDomainGroup(value: string): string {
-  const groups: Record<string, string> = {
-    trade: "trading",
-    trading: "trading",
-    manufacture: "manufacture",
-    manu: "manufacture",
-    power: "power",
-    control: "control",
-    general: "training",
-  };
-  return groups[value.toLowerCase()] ?? "training";
-}
-
-function actionKindLabel(value: string): string {
-  const labels: Record<string, string> = {
-    promote: "培养优先级",
-    promote_tier_up: "练度提升",
-    acquire: "获取建议",
-    replace: "阵容调整",
-    advice: "培养建议",
-  };
-  return labels[value.toLowerCase()] ?? "培养建议";
-}
-
-function ActionCard({
-  action,
-  entry,
-}: {
-  action: UserProfileAction;
-  entry?: OperBoxEntry;
-}) {
-  const portrait = operatorPortraitFor(action.operator, entry?.id);
-  const currentElite = action.current_elite ?? entry?.elite;
-  const state = !entry?.own
-    ? "未拥有"
-    : action.tier_up_requirement && currentElite !== undefined
-      ? `当前 精${currentElite} → 目标 ${action.tier_up_requirement}`
-      : entry.elite >= 2
-        ? "已精二"
-        : "待培养";
-
-  return (
-    <InfraTechnicalCard
-      group={actionDomainGroup(action.domain_id)}
-      className="min-w-0"
-      dataSlot="training-advice-card"
-      showEmblem={false}
-    >
-      <div className="grid min-w-0 gap-4 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center">
-        <div className="relative size-20 overflow-hidden bg-[#3C3C3C] outline outline-1 -outline-offset-1 outline-white/12">
-          {portrait ? (
-            <img
-              src={portrait}
-              alt={action.operator}
-              width={80}
-              height={80}
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="grid h-full place-items-center px-2 text-center text-xs font-semibold">{action.operator || "未知干员"}</div>
-          )}
-          <div className="absolute inset-x-0 bottom-0 truncate bg-black/70 px-1.5 py-1 text-center text-[11px] font-semibold">
-            {action.operator || "未指定干员"}
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-white/55">
-            <span className="font-medium text-[var(--room-accent)]">{actionDomainLabel(action.domain_id)}</span>
-            <span aria-hidden="true">·</span>
-            <span>{actionKindLabel(action.kind)}</span>
-          </div>
-          <p className="font-number mt-2 max-w-[72ch] text-pretty text-sm leading-6 text-white/82">{action.message}</p>
-        </div>
-        <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
-          <span className="font-number border border-[var(--room-accent)]/45 bg-black/18 px-2.5 py-1 text-xs font-semibold text-[var(--room-accent)]">
-            {action.priority || "未分级"}
-          </span>
-          <span className="border border-white/15 bg-white/7 px-2.5 py-1 text-xs text-white/70">{state}</span>
-        </div>
-      </div>
-    </InfraTechnicalCard>
-  );
-}
 
 export function TrainingAdvice({ operbox, layout, profile, onOpenCalculator }: TrainingAdviceProps) {
+  const shouldReduceMotion = useReducedMotion();
   const entries = operbox ?? [];
   const ownedByName = new Map(entries.map((entry) => [entry.name, entry]));
   const roomCounts = countRooms(layout);
@@ -171,7 +76,7 @@ export function TrainingAdvice({ operbox, layout, profile, onOpenCalculator }: T
   const eliteTotal = entries.filter((entry) => entry.own && entry.elite >= 2).length;
 
   return (
-    <div className="flex w-full flex-col gap-5">
+    <div className="flex w-full flex-col gap-5 pt-5" data-training-page>
       <section className="min-w-0" aria-label="训练建议概览">
         <div className="mb-2 flex min-w-0 items-center gap-2.5">
           <span className="h-7 w-1.5 shrink-0 bg-[#FFD501]" aria-hidden="true" />
@@ -250,26 +155,23 @@ export function TrainingAdvice({ operbox, layout, profile, onOpenCalculator }: T
         {actions.length ? (
           <div className="grid min-w-0 gap-3" data-training-advice-list>
             {actions.map((action, index) => (
-              <ActionCard key={actionKey(action, index)} action={action} entry={ownedByName.get(action.operator)} />
+              <RecommendationCard key={actionKey(action, index)} action={action} entry={ownedByName.get(action.operator)} index={index} />
             ))}
           </div>
         ) : (
           <InfraTechnicalCard
             group="training"
-            className="min-h-[220px]"
+            className="min-h-[248px]"
             dataSlot="training-empty"
             showEmblem={false}
           >
-            <div className="grid min-h-[188px] place-items-center text-center">
-              <div className="max-w-xl">
-                <ArrowUpRight
-                  className="mx-auto size-8 text-[var(--room-accent)]"
-                  aria-hidden="true"
-                />
-                <h3 className="mt-3 text-lg font-semibold">
+            <div className="grid min-h-[216px] gap-6 sm:grid-cols-[minmax(0,1fr)_15rem] sm:items-center">
+              <motion.div className="max-w-xl" initial={{ opacity: 0, x: shouldReduceMotion ? 0 : -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: shouldReduceMotion ? 0 : 0.38, ease: [0.23, 1, 0.32, 1] }}>
+                <div className="flex items-center gap-2 text-[var(--room-accent)]"><ArrowUpRight className="size-6" aria-hidden="true" /><span className="font-number text-[10px] font-semibold uppercase tracking-[0.16em]">ADVICE QUEUE · 00</span></div>
+                <h3 className="mt-4 text-xl font-semibold">
                   {profile ? "本次排班暂无培养建议" : "尚无培养建议"}
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-white/62">
+                <p className="mt-2 max-w-lg text-sm leading-6 text-white/62">
                   {profile
                     ? "当前干员与布局没有需要优先培养的项目，可以继续使用现有排班。"
                     : "先导入干员数据、确认基建布局并生成一次排班。"}
@@ -277,7 +179,10 @@ export function TrainingAdvice({ operbox, layout, profile, onOpenCalculator }: T
                 <Button type="button" className="mt-4 h-9 bg-white text-[#272a2b] hover:bg-white/90 max-sm:h-11" onClick={onOpenCalculator}>
                   {profile ? "查看当前排班" : "前往生成排班"}
                 </Button>
-              </div>
+              </motion.div>
+              <motion.div className="hidden border-y border-white/12 py-3 sm:block" aria-hidden="true" initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: shouldReduceMotion ? 0 : 0.38, delay: shouldReduceMotion ? 0 : 0.08, ease: [0.23, 1, 0.32, 1] }}>
+                {["干员练度扫描", "设施领域分析", "优先级队列"].map((label, index) => <div key={label} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-white/8 py-2.5 last:border-0"><span className="font-number text-[10px] text-white/35">0{index + 1}</span><span className="text-xs text-white/65">{label}</span><span className="font-number text-[10px] text-emerald-300/80">CLEAR</span></div>)}
+              </motion.div>
             </div>
           </InfraTechnicalCard>
         )}

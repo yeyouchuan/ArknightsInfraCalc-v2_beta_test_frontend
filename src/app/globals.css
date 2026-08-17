@@ -5,10 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-ui-source);
-    --font-sans: var(--font-ui-source);
+    --font-heading: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+    --font-sans: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
     --font-technical: var(--font-technical-source);
-    --font-number: var(--font-number-source), var(--font-ui-source);
+    --font-number: var(--font-number-source), "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -54,7 +54,7 @@
 }
 
 .tabular-nums {
-  font-family: var(--font-number-source), var(--font-ui-source);
+  font-family: var(--font-number-source), "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
 }
 
 :root {
@@ -105,7 +105,13 @@
     --infra-room-shadow-soft: oklch(0.12 0.012 220 / 0.12);
     --infra-room-text: oklch(0.97 0.006 220);
     --infra-room-text-muted: oklch(0.82 0.01 220);
-    --infra-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+    --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-duration-press: 160ms;
+    --motion-duration-fast: 180ms;
+    --motion-duration-state: 160ms;
+    --infra-ease-out: var(--motion-ease-out);
 }
 
 .dark {
@@ -166,14 +172,92 @@
     }
 }
 
+[data-motion-pressable] {
+  transition:
+    color var(--motion-duration-state) var(--motion-ease-out),
+    background-color var(--motion-duration-state) var(--motion-ease-out),
+    border-color var(--motion-duration-state) var(--motion-ease-out),
+    box-shadow var(--motion-duration-state) var(--motion-ease-out),
+    opacity var(--motion-duration-state) var(--motion-ease-out),
+    transform var(--motion-duration-press) var(--motion-ease-out);
+}
+
+.live-activity-shimmer {
+  position: relative;
+  color: rgb(29 78 216 / 0.56);
+}
+
+.live-activity-shimmer::before {
+  content: attr(data-text);
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(90deg, transparent 0%, transparent 38%, rgb(29 78 216) 50%, transparent 62%, transparent 100%);
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: live-activity-shimmer 2000ms linear infinite;
+}
+
+@keyframes live-activity-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-activity-shimmer {
+    color: rgb(29 78 216);
+  }
+
+  .live-activity-shimmer::before {
+    content: none;
+    animation: none;
+  }
+}
+
+[data-motion-pressable]:not([aria-haspopup]):active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-motion-pressable]:not([aria-haspopup]):active {
+    transform: none;
+  }
+}
+
+@keyframes animated-field-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--animated-field-x, 0), var(--animated-field-y, 0), 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animated-field-value {
+  display: inline-block;
+  animation: animated-field-enter var(--motion-duration-fast) var(--motion-ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-field-value {
+    animation: none;
+  }
+}
+
 .surface-shadow {
   box-shadow: var(--shadow-border);
 }
 
 .dialog-acrylic {
-  background-color: color-mix(in oklch, var(--popover) 88%, transparent);
-  -webkit-backdrop-filter: blur(24px) saturate(1.04);
-  backdrop-filter: blur(24px) saturate(1.04);
+  background-color: color-mix(in oklch, var(--popover) 92%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(1.03);
+  backdrop-filter: blur(28px) saturate(1.03);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.72),
     inset 0 -1px 0 rgb(15 23 42 / 0.06),
@@ -220,7 +304,7 @@
   box-shadow:
     inset 0 0 54px rgb(255 255 255 / 0.16),
     inset 0 -18px 36px rgb(15 23 42 / 0.025);
-  opacity: 0.52;
+  opacity: 0.3;
 }
 
 .dialog-acrylic[data-setup-dialog] {
@@ -238,76 +322,12 @@
     0 6px 16px rgb(12 19 24 / 0.08);
 }
 
-.plan-status-shimmer {
-  position: relative;
-  color: rgb(29 78 216 / 0.56);
-}
-
-.plan-status-shimmer::before {
-  content: attr(data-text);
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    transparent 40%,
-    rgb(29 78 216) 50%,
-    transparent 60%,
-    transparent 100%
-  );
-  background-size: 400% 100%;
-  background-repeat: no-repeat;
-  background-clip: text;
-  -webkit-background-clip: text;
-  animation: plan-status-shimmer 2000ms linear infinite;
-}
-
-@keyframes plan-status-shimmer {
-  from { background-position: 100% 0; }
-  to { background-position: 0 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .plan-status-shimmer {
-    color: rgb(29 78 216);
-  }
-
-  .plan-status-shimmer::before {
-    content: none;
-    animation: none;
-  }
-}
-
 .setup-dialog-footer {
   position: relative;
   z-index: 2;
   background-color: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-}
-
-.setup-step-list {
-  background: transparent;
-  box-shadow: none;
-}
-
-.setup-step-trigger {
-  transition:
-    color 150ms var(--infra-ease-out),
-    opacity 150ms var(--infra-ease-out);
-}
-
-.setup-step-trigger::after {
-  display: none;
-}
-
-.setup-step-trigger[data-active] {
-  background: transparent;
-  color: var(--foreground);
-  box-shadow: none;
 }
 
 .setup-data-summary,
@@ -346,12 +366,12 @@
 
 @media (max-width: 639px) {
   .dialog-acrylic {
-    -webkit-backdrop-filter: blur(12px) saturate(1.06);
-    backdrop-filter: blur(12px) saturate(1.06);
+    -webkit-backdrop-filter: blur(20px) saturate(1.03);
+    backdrop-filter: blur(20px) saturate(1.03);
   }
 
   .dialog-acrylic::before {
-    opacity: 0.4;
+    opacity: 0.24;
   }
 }
 
@@ -620,10 +640,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  html:focus-within {
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
+  }
+
+  .animate-pulse {
+    animation: none !important;
+  }
+
+  .animate-spin {
+    animation-duration: 1600ms !important;
   }
 }

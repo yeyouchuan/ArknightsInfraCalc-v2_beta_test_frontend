@@ -7,8 +7,8 @@ import type {
   RotationProfile,
   UserProfile,
 } from "./types";
-import { CLIENT_SKLAND_ENABLED } from "./client-features.ts";
 import { stripInternalFields } from "./internal-field-safety.ts";
+import { sanitizeMaaJson } from "./maa-safety.ts";
 import { normalizeRotationProfile } from "./rotation-settings.ts";
 import { normalizeRotationResult } from "./rotation-result.ts";
 
@@ -18,6 +18,7 @@ export const SESSION_KEY_V3 = "arknights-infra-calc-beta-session-v3";
 export const SESSION_KEY_V2 = "arknights-infra-calc-beta-session-v2";
 export const RESULT_CLEAR_WARNING_DISMISSED_KEY = "arknights-infra-calc-result-clear-warning-dismissed";
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const CLIENT_SKLAND_ENABLED = process.env.APP_CLIENT_SKLAND_ENABLED !== "0";
 const SKLAND_SOURCE_NAME = CLIENT_SKLAND_ENABLED ? "森空岛同步" : "已保存的干员数据";
 
 export interface PersistedSessionV5 {
@@ -33,6 +34,9 @@ export interface PersistedSessionV5 {
   layoutSource: "local" | "skland";
   localLayoutBackup: BaseBlueprint | null;
   rotationProfile: RotationProfile;
+  fiammettaEnabled?: boolean;
+  fiammettaTarget?: string | null;
+  fiammettaOrder?: "pre" | "post";
   result: PublicPlanData | null;
   activeShift: number;
 }
@@ -105,7 +109,7 @@ function validOperbox(value: unknown): value is OperBoxEntry[] {
     );
 }
 
-function safeResult(value: unknown, fallbackProfile: RotationProfile): PublicPlanData | null {
+export function normalizePersistedPlanData(value: unknown, fallbackProfile: RotationProfile): PublicPlanData | null {
   if (!isObject(value)) return null;
 
   const profile = (value.profile ?? value.profileJson) as UserProfile | undefined;
@@ -116,7 +120,7 @@ function safeResult(value: unknown, fallbackProfile: RotationProfile): PublicPla
 
   return {
     profile: stripInternalFields(structuredClone(profile)),
-    maa: stripInternalFields(structuredClone(maa)),
+    maa: sanitizeMaaJson(maa),
     rotation: normalizeRotationResult({
       source: rotation,
       profile,
@@ -164,7 +168,7 @@ function normalizeSession(value: unknown, now: number): PersistedSessionV5 | nul
         : null;
   const hasLegacySklandIdentity = boxSource === "skland" && rawSourceName?.startsWith("skland:");
   const rotationProfile = normalizeRotationProfile(value.rotationProfile);
-  const result = hasLegacySklandIdentity ? null : safeResult(value.result, rotationProfile);
+  const result = hasLegacySklandIdentity ? null : normalizePersistedPlanData(value.result, rotationProfile);
   const layoutDirty = Boolean(value.layoutDirty);
   return {
     version: 5,
@@ -188,6 +192,9 @@ function normalizeSession(value: unknown, now: number): PersistedSessionV5 | nul
         : "local",
     localLayoutBackup: localLayoutBackup ? structuredClone(localLayoutBackup) : null,
     rotationProfile,
+    fiammettaEnabled: Boolean(value.fiammettaEnabled),
+    fiammettaTarget: typeof value.fiammettaTarget === "string" ? value.fiammettaTarget.slice(0, 64) : null,
+    fiammettaOrder: value.fiammettaOrder === "post" ? "post" : "pre",
     result,
     activeShift: clampActiveShift(value.activeShift, result),
   };
@@ -225,7 +232,7 @@ export function persistSession(
 ): PersistedSessionV5 {
   const hasLegacySklandIdentity =
     input.boxSource === "skland" && input.sourceName?.startsWith("skland:");
-  const result = hasLegacySklandIdentity ? null : safeResult(input.result, input.rotationProfile);
+  const result = hasLegacySklandIdentity ? null : normalizePersistedPlanData(input.result, input.rotationProfile);
   const value: PersistedSessionV5 = {
     ...input,
     localLayoutBackup: input.localLayoutBackup ? structuredClone(input.localLayoutBackup) : null,

@@ -17,13 +17,8 @@ export interface SklandPolicyConsent {
   acceptedAt: number;
 }
 
-export interface SklandStatusConsent {
-  privacyVersion: typeof PRIVACY_VERSION;
-  grantedAt: number;
-}
-
 export interface SklandSessionPayload {
-  version: 2;
+  version: 3;
   cred: string;
   token: string;
   dId: string;
@@ -32,7 +27,6 @@ export interface SklandSessionPayload {
   refreshedAt: number;
   expiresAt: number;
   policyConsent: SklandPolicyConsent;
-  statusConsent: SklandStatusConsent | null;
 }
 
 export interface SklandStoredAccount {
@@ -95,7 +89,7 @@ function parsedSessionPayload(value: unknown, now: number): SklandSessionPayload
   if (!value || typeof value !== "object") return null;
   const decoded = value as Partial<SklandSessionPayload>;
   if (
-    decoded.version !== 2 ||
+    decoded.version !== 3 ||
     typeof decoded.cred !== "string" ||
     typeof decoded.token !== "string" ||
     typeof decoded.dId !== "string" ||
@@ -107,11 +101,6 @@ function parsedSessionPayload(value: unknown, now: number): SklandSessionPayload
     decoded.policyConsent.termsVersion !== TERMS_VERSION ||
     decoded.policyConsent.privacyVersion !== PRIVACY_VERSION ||
     typeof decoded.policyConsent.acceptedAt !== "number" ||
-    (decoded.statusConsent !== null && (
-      !decoded.statusConsent ||
-      decoded.statusConsent.privacyVersion !== PRIVACY_VERSION ||
-      typeof decoded.statusConsent.grantedAt !== "number"
-    )) ||
     decoded.expiresAt <= now
   ) {
     return null;
@@ -238,18 +227,6 @@ export function toPublicSklandAccount(account: SklandStoredAccount): SklandAccou
     selectedUid: account.session.selectedUid,
     roles: account.roles.map((role) => ({ ...role })),
     credentialExpiresAt: account.session.expiresAt,
-    statusAuthorized: account.session.statusConsent?.privacyVersion === PRIVACY_VERSION,
-  };
-}
-
-export function withSklandStatusConsent(
-  session: SklandSessionPayload,
-  granted: boolean,
-  now = Date.now()
-): SklandSessionPayload {
-  return {
-    ...session,
-    statusConsent: granted ? { privacyVersion: PRIVACY_VERSION, grantedAt: now } : null,
   };
 }
 

@@ -7,6 +7,7 @@ import type {
   UserProfile,
 } from "../types";
 import { stripInternalFields } from "../internal-field-safety.ts";
+import { sanitizeMaaJson } from "../maa-safety.ts";
 import { DEFAULT_ROTATION_PROFILE } from "../rotation-settings.ts";
 import { isDebugToolsEnabled, PublicApiError } from "./api-contract.ts";
 import { normalizeRotationResult, rotationFallbackProfile } from "../rotation-result.ts";
@@ -68,7 +69,7 @@ function stripSolverDiagnostics<T>(value: T): T {
 
 function sanitizeMaa(maa: MaaJson, layoutLabel: string): MaaJson {
   return {
-    ...stripInternalFields(structuredClone(maa)),
+    ...sanitizeMaaJson(maa),
     title: `可露希尔基建终端 · ${safeDisplayName(layoutLabel, "当前布局")}`,
   };
 }

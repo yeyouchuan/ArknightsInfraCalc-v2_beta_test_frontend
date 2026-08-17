@@ -65,12 +65,22 @@ export interface MaaOperatorSlot {
   skill?: number;
 }
 
+export type MaaExecutionOrder = "pre" | "post";
+export type MaaPeriod = [start: string, end: string];
+
+export interface MaaOperatorGroup {
+  name: string;
+  operators: string[];
+}
+
 export interface MaaRoom {
   operators: (string | MaaOperatorSlot | null)[];
   product?: string;
   skip?: boolean;
   sort?: boolean;
   autofill?: boolean;
+  candidates?: string[];
+  use_operator_groups?: boolean;
 }
 
 export interface MaaRooms {
@@ -87,9 +97,19 @@ export interface MaaRooms {
 export interface MaaPlan {
   name: string;
   description?: string;
+  description_post?: string;
+  period?: MaaPeriod[];
+  duration?: number;
+  groups?: MaaOperatorGroup[];
   rooms: MaaRooms;
-  Fiammetta?: { enable: boolean; target?: string | string[]; order?: string };
-  drones?: { enable?: boolean; room: string; index: number; order: string };
+  Fiammetta?: { enable: boolean; target?: string | string[]; order?: MaaExecutionOrder };
+  drones?: {
+    enable?: boolean;
+    room: "trading" | "manufacture";
+    index: number;
+    rule?: string;
+    order: MaaExecutionOrder;
+  };
 }
 
 export interface MaaJson {
@@ -212,7 +232,6 @@ export interface SklandAccountSummary {
   selectedUid: string;
   roles: SklandRole[];
   credentialExpiresAt: number;
-  statusAuthorized: boolean;
 }
 
 export interface SklandPlayer {
@@ -517,6 +536,7 @@ export interface SklandSessionResponse {
   accounts: SklandAccountSummary[];
   activeAccountId: string | null;
   scheduleSnapshot?: SklandScheduleSnapshot;
+  statusSnapshot?: SklandStatusSnapshot;
   error?: string;
   code?: string;
 }
@@ -533,6 +553,7 @@ export interface SklandQrStatusResponse {
   success: boolean;
   status: "waiting" | "scanned" | "expired" | "authenticated";
   scheduleSnapshot?: SklandScheduleSnapshot;
+  statusSnapshot?: SklandStatusSnapshot;
   error?: string;
   code?: string;
 }
@@ -545,6 +566,16 @@ export interface ShiftComparison {
   unexpected: string[];
   misplaced: string[];
   tiredScheduled: string[];
+  adjustments: ShiftAdjustment[];
+}
+
+export type ShiftAdjustmentIssue = "missing" | "unexpected" | "misplaced" | "tired";
+
+export interface ShiftAdjustment {
+  operator: string;
+  currentRoomKey: string | null;
+  targetRoomKey: string | null;
+  issues: ShiftAdjustmentIssue[];
 }
 
 export type Severity = "ok" | "warn" | "critical";
@@ -753,7 +784,6 @@ export type AppErrorCode =
   | "AIC-AUTH-2003"
   | "AIC-AUTH-2004"
   | "AIC-AUTH-2005"
-  | "AIC-AUTH-2006"
   | "AIC-AUTH-2007"
   | "AIC-PLAN-3001"
   | "AIC-PLAN-3002"
@@ -853,10 +883,10 @@ export interface SklandSessionData {
   accounts: SklandAccountSummary[];
   activeAccountId: string | null;
   scheduleSnapshot?: SklandScheduleSnapshot;
+  statusSnapshot?: SklandStatusSnapshot;
 }
 
 export interface SklandStatusData {
-  authorized: boolean;
   accounts: SklandAccountSummary[];
   activeAccountId: string | null;
   snapshot?: SklandStatusSnapshot;
@@ -873,6 +903,7 @@ export interface SklandQrStatusData {
   accounts?: SklandAccountSummary[];
   activeAccountId?: string | null;
   scheduleSnapshot?: SklandScheduleSnapshot;
+  statusSnapshot?: SklandStatusSnapshot;
 }
 
 export interface DisplayError {

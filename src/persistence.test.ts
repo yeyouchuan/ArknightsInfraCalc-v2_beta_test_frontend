@@ -297,6 +297,48 @@ test("internal fields nested in persisted result data are stripped", () => {
   assert.equal("cliPath" in saved.result!.profile, false);
 });
 
+test("persistence preserves MAA protocol candidates only inside rooms", () => {
+  const storage = new MemoryStorage();
+  const protocolResult = structuredClone(result) as PublicPlanData & {
+    maa: PublicPlanData["maa"] & { candidates?: string[] };
+  };
+  protocolResult.maa.candidates = ["private runtime candidate"];
+  protocolResult.maa.plans = [{
+    name: "早班",
+    description_post: "换班后说明",
+    period: [["08:00", "20:00"]],
+    duration: 720,
+    groups: [{ name: "贸易组", operators: ["龙舌兰"] }],
+    drones: { enable: true, room: "trading", index: 1, rule: "all", order: "post" },
+    rooms: {
+      trading: [{
+        operators: ["龙舌兰"],
+        candidates: ["但书", "巫恋"],
+        use_operator_groups: true,
+      }],
+    },
+  }];
+
+  const saved = persistSession(storage, {
+    presetLabel: "243",
+    layout,
+    operbox,
+    sourceName: "示例",
+    boxSource: "sample",
+    layoutDirty: false,
+    layoutSource: "local",
+    rotationProfile: DEFAULT_ROTATION_PROFILE,
+    result: protocolResult,
+    activeShift: 0,
+  });
+  const restored = loadPersistedSession(storage);
+
+  assert.equal("candidates" in saved.result!.maa, false);
+  assert.deepEqual(restored?.result?.maa.plans[0].rooms.trading?.[0].candidates, ["但书", "巫恋"]);
+  assert.equal(restored?.result?.maa.plans[0].description_post, "换班后说明");
+  assert.equal(restored?.result?.maa.plans[0].drones?.rule, "all");
+});
+
 test("v5 persistence restores the fourth shift when the result has four plans", () => {
   const storage = new MemoryStorage();
   persistSession(storage, {

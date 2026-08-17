@@ -5,7 +5,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/002_amiya.png",
+    "portrait": "/images/operator-portraits/002_amiya.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -27,7 +27,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/003_kalts.png",
+    "portrait": "/images/operator-portraits/003_kalts.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -49,7 +49,7 @@
     "rarity": 2,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/009_12fce.png",
+    "portrait": "/images/operator-portraits/009_12fce.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -71,7 +71,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/010_chen.png",
+    "portrait": "/images/operator-portraits/010_chen.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -93,7 +93,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/017_huang.png",
+    "portrait": "/images/operator-portraits/017_huang.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -115,7 +115,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/101_sora.png",
+    "portrait": "/images/operator-portraits/101_sora.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -137,7 +137,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/1011_lava2.png",
+    "portrait": "/images/operator-portraits/1011_lava2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -159,7 +159,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/1012_skadi2.png",
+    "portrait": "/images/operator-portraits/1012_skadi2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -187,7 +187,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/1013_chen2.png",
+    "portrait": "/images/operator-portraits/1013_chen2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -215,7 +215,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1014_nearl2.png",
+    "portrait": "/images/operator-portraits/1014_nearl2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -237,7 +237,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/1015_aglna2.png",
+    "portrait": "/images/operator-portraits/1015_aglna2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -259,7 +259,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/1016_agoat2.png",
+    "portrait": "/images/operator-portraits/1016_agoat2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -287,7 +287,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1019_siege2.png",
+    "portrait": "/images/operator-portraits/1019_siege2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -309,7 +309,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/102_texas.png",
+    "portrait": "/images/operator-portraits/102_texas.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -331,7 +331,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/1020_reed2.png",
+    "portrait": "/images/operator-portraits/1020_reed2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -359,7 +359,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/1021_kroos2.png",
+    "portrait": "/images/operator-portraits/1021_kroos2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -381,7 +381,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/1022_flwr2.png",
+    "portrait": "/images/operator-portraits/1022_flwr2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -403,7 +403,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/1023_ghost2.png",
+    "portrait": "/images/operator-portraits/1023_ghost2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -431,7 +431,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/1024_hbisc2.png",
+    "portrait": "/images/operator-portraits/1024_hbisc2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -453,7 +453,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1026_gvial2.png",
+    "portrait": "/images/operator-portraits/1026_gvial2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -481,7 +481,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/1027_greyy2.png",
+    "portrait": "/images/operator-portraits/1027_greyy2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -503,7 +503,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/1028_texas2.png",
+    "portrait": "/images/operator-portraits/1028_texas2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -525,7 +525,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/1029_yato2.png",
+    "portrait": "/images/operator-portraits/1029_yato2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -547,7 +547,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/103_angel.png",
+    "portrait": "/images/operator-portraits/103_angel.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -569,7 +569,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1030_noirc2.png",
+    "portrait": "/images/operator-portraits/1030_noirc2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -591,7 +591,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/1031_slent2.png",
+    "portrait": "/images/operator-portraits/1031_slent2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -613,7 +613,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1032_excu2.png",
+    "portrait": "/images/operator-portraits/1032_excu2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -641,7 +641,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/1033_swire2.png",
+    "portrait": "/images/operator-portraits/1033_swire2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -663,7 +663,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/1034_jesca2.png",
+    "portrait": "/images/operator-portraits/1034_jesca2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -685,7 +685,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/1035_wisdel.png",
+    "portrait": "/images/operator-portraits/1035_wisdel.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -713,7 +713,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/1036_fang2.png",
+    "portrait": "/images/operator-portraits/1036_fang2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -735,7 +735,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/1038_whitw2.png",
+    "portrait": "/images/operator-portraits/1038_whitw2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -757,7 +757,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/1039_thorn2.png",
+    "portrait": "/images/operator-portraits/1039_thorn2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -779,7 +779,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/1040_blaze2.png",
+    "portrait": "/images/operator-portraits/1040_blaze2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -801,7 +801,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/1041_angel2.png",
+    "portrait": "/images/operator-portraits/1041_angel2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -829,7 +829,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/1042_phatm2.png",
+    "portrait": "/images/operator-portraits/1042_phatm2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -851,7 +851,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1043_leizi2.png",
+    "portrait": "/images/operator-portraits/1043_leizi2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -873,7 +873,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/1044_hsgma2.png",
+    "portrait": "/images/operator-portraits/1044_hsgma2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -895,7 +895,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/1045_svash2.png",
+    "portrait": "/images/operator-portraits/1045_svash2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -923,7 +923,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/1046_sbell2.png",
+    "portrait": "/images/operator-portraits/1046_sbell2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -945,7 +945,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/1047_halo2.png",
+    "portrait": "/images/operator-portraits/1047_halo2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -967,7 +967,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/1048_orchd2.png",
+    "portrait": "/images/operator-portraits/1048_orchd2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -989,7 +989,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1049_catap2.png",
+    "portrait": "/images/operator-portraits/1049_catap2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1017,7 +1017,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1050_chen3.png",
+    "portrait": "/images/operator-portraits/1050_chen3.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1039,7 +1039,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/1051_headb2.png",
+    "portrait": "/images/operator-portraits/1051_headb2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1067,7 +1067,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/1052_kalts2.png",
+    "portrait": "/images/operator-portraits/1052_kalts2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1095,7 +1095,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/106_franka.png",
+    "portrait": "/images/operator-portraits/106_franka.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1129,7 +1129,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/107_liskam.png",
+    "portrait": "/images/operator-portraits/107_liskam.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1151,7 +1151,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/108_silent.png",
+    "portrait": "/images/operator-portraits/108_silent.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1173,7 +1173,7 @@
     "rarity": 4,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/109_fmout.png",
+    "portrait": "/images/operator-portraits/109_fmout.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1195,7 +1195,7 @@
     "rarity": 4,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/110_deepcl.png",
+    "portrait": "/images/operator-portraits/110_deepcl.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1217,7 +1217,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/112_siege.png",
+    "portrait": "/images/operator-portraits/112_siege.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1239,7 +1239,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/113_cqbw.png",
+    "portrait": "/images/operator-portraits/113_cqbw.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1267,7 +1267,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/115_headbr.png",
+    "portrait": "/images/operator-portraits/115_headbr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1289,7 +1289,7 @@
     "rarity": 4,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/117_myrrh.png",
+    "portrait": "/images/operator-portraits/117_myrrh.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1311,7 +1311,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/118_yuki.png",
+    "portrait": "/images/operator-portraits/118_yuki.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1333,7 +1333,7 @@
     "rarity": 3,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/120_hibisc.png",
+    "portrait": "/images/operator-portraits/120_hibisc.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1355,7 +1355,7 @@
     "rarity": 3,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/121_lava.png",
+    "portrait": "/images/operator-portraits/121_lava.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1377,7 +1377,7 @@
     "rarity": 3,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/122_beagle.png",
+    "portrait": "/images/operator-portraits/122_beagle.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1399,7 +1399,7 @@
     "rarity": 3,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/123_fang.png",
+    "portrait": "/images/operator-portraits/123_fang.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1421,7 +1421,7 @@
     "rarity": 3,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/124_kroos.png",
+    "portrait": "/images/operator-portraits/124_kroos.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1443,7 +1443,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/126_shotst.png",
+    "portrait": "/images/operator-portraits/126_shotst.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1465,7 +1465,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/127_estell.png",
+    "portrait": "/images/operator-portraits/127_estell.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1487,7 +1487,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/128_plosis.png",
+    "portrait": "/images/operator-portraits/128_plosis.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1509,7 +1509,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/129_bluep.png",
+    "portrait": "/images/operator-portraits/129_bluep.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1531,7 +1531,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/130_doberm.png",
+    "portrait": "/images/operator-portraits/130_doberm.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1553,7 +1553,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/131_flameb.png",
+    "portrait": "/images/operator-portraits/131_flameb.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1575,7 +1575,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/133_mm.png",
+    "portrait": "/images/operator-portraits/133_mm.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1597,7 +1597,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/134_ifrit.png",
+    "portrait": "/images/operator-portraits/134_ifrit.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1619,7 +1619,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/135_halo.png",
+    "portrait": "/images/operator-portraits/135_halo.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1641,7 +1641,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/136_hsguma.png",
+    "portrait": "/images/operator-portraits/136_hsguma.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1663,7 +1663,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/137_brownb.png",
+    "portrait": "/images/operator-portraits/137_brownb.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1685,7 +1685,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/140_whitew.png",
+    "portrait": "/images/operator-portraits/140_whitew.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1707,7 +1707,7 @@
     "rarity": 4,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/141_nights.png",
+    "portrait": "/images/operator-portraits/141_nights.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1729,7 +1729,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/143_ghost.png",
+    "portrait": "/images/operator-portraits/143_ghost.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1751,7 +1751,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/144_red.png",
+    "portrait": "/images/operator-portraits/144_red.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1773,7 +1773,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/145_prove.png",
+    "portrait": "/images/operator-portraits/145_prove.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1795,7 +1795,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/147_shining.png",
+    "portrait": "/images/operator-portraits/147_shining.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1817,7 +1817,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/148_nearl.png",
+    "portrait": "/images/operator-portraits/148_nearl.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1839,7 +1839,7 @@
     "rarity": 4,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/149_scave.png",
+    "portrait": "/images/operator-portraits/149_scave.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1861,7 +1861,7 @@
     "rarity": 4,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/150_snakek.png",
+    "portrait": "/images/operator-portraits/150_snakek.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1883,7 +1883,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/1502_crosly.png",
+    "portrait": "/images/operator-portraits/1502_crosly.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1905,7 +1905,7 @@
     "rarity": 4,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/151_myrtle.png",
+    "portrait": "/images/operator-portraits/151_myrtle.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1927,7 +1927,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/154_morgan.png",
+    "portrait": "/images/operator-portraits/154_morgan.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1949,7 +1949,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/155_tiger.png",
+    "portrait": "/images/operator-portraits/155_tiger.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1971,7 +1971,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/157_dagda.png",
+    "portrait": "/images/operator-portraits/157_dagda.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -1993,7 +1993,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/158_milu.png",
+    "portrait": "/images/operator-portraits/158_milu.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2015,7 +2015,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/159_peacok.png",
+    "portrait": "/images/operator-portraits/159_peacok.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2037,7 +2037,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/163_hpsts.png",
+    "portrait": "/images/operator-portraits/163_hpsts.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2059,7 +2059,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/164_nightm.png",
+    "portrait": "/images/operator-portraits/164_nightm.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2081,7 +2081,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/166_skfire.png",
+    "portrait": "/images/operator-portraits/166_skfire.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2103,7 +2103,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/171_bldsk.png",
+    "portrait": "/images/operator-portraits/171_bldsk.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2125,7 +2125,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/172_svrash.png",
+    "portrait": "/images/operator-portraits/172_svrash.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2147,7 +2147,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/173_slchan.png",
+    "portrait": "/images/operator-portraits/173_slchan.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2169,7 +2169,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/174_slbell.png",
+    "portrait": "/images/operator-portraits/174_slbell.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2191,7 +2191,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/179_cgbird.png",
+    "portrait": "/images/operator-portraits/179_cgbird.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2213,7 +2213,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/180_amgoat.png",
+    "portrait": "/images/operator-portraits/180_amgoat.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2235,7 +2235,7 @@
     "rarity": 4,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/181_flower.png",
+    "portrait": "/images/operator-portraits/181_flower.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2257,7 +2257,7 @@
     "rarity": 4,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/183_skgoat.png",
+    "portrait": "/images/operator-portraits/183_skgoat.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2285,7 +2285,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/185_frncat.png",
+    "portrait": "/images/operator-portraits/185_frncat.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2307,7 +2307,7 @@
     "rarity": 4,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/187_ccheal.png",
+    "portrait": "/images/operator-portraits/187_ccheal.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2329,7 +2329,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/188_helage.png",
+    "portrait": "/images/operator-portraits/188_helage.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2363,7 +2363,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/190_clour.png",
+    "portrait": "/images/operator-portraits/190_clour.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2385,7 +2385,7 @@
     "rarity": 3,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/192_falco.png",
+    "portrait": "/images/operator-portraits/192_falco.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2407,7 +2407,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/193_frostl.png",
+    "portrait": "/images/operator-portraits/193_frostl.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2429,7 +2429,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/194_leto.png",
+    "portrait": "/images/operator-portraits/194_leto.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2451,7 +2451,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/195_glassb.png",
+    "portrait": "/images/operator-portraits/195_glassb.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2473,7 +2473,7 @@
     "rarity": 4,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/196_sunbr.png",
+    "portrait": "/images/operator-portraits/196_sunbr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2495,7 +2495,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/197_poca.png",
+    "portrait": "/images/operator-portraits/197_poca.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2517,7 +2517,7 @@
     "rarity": 4,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/198_blackd.png",
+    "portrait": "/images/operator-portraits/198_blackd.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2539,7 +2539,7 @@
     "rarity": 4,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/199_yak.png",
+    "portrait": "/images/operator-portraits/199_yak.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2561,7 +2561,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/201_moeshd.png",
+    "portrait": "/images/operator-portraits/201_moeshd.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2583,7 +2583,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/2012_typhon.png",
+    "portrait": "/images/operator-portraits/2012_typhon.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2605,7 +2605,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/2013_cerber.png",
+    "portrait": "/images/operator-portraits/2013_cerber.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2627,7 +2627,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/2014_nian.png",
+    "portrait": "/images/operator-portraits/2014_nian.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2649,7 +2649,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/2015_dusk.png",
+    "portrait": "/images/operator-portraits/2015_dusk.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2671,7 +2671,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/202_demkni.png",
+    "portrait": "/images/operator-portraits/202_demkni.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2693,7 +2693,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/2023_ling.png",
+    "portrait": "/images/operator-portraits/2023_ling.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2715,7 +2715,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/2024_chyue.png",
+    "portrait": "/images/operator-portraits/2024_chyue.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2737,7 +2737,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/2025_shu.png",
+    "portrait": "/images/operator-portraits/2025_shu.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2759,7 +2759,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/2026_yu.png",
+    "portrait": "/images/operator-portraits/2026_yu.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2781,7 +2781,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/2027_wang.png",
+    "portrait": "/images/operator-portraits/2027_wang.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2803,7 +2803,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/204_platnm.png",
+    "portrait": "/images/operator-portraits/204_platnm.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2825,7 +2825,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/206_gnosis.png",
+    "portrait": "/images/operator-portraits/206_gnosis.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2847,7 +2847,7 @@
     "rarity": 3,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/208_melan.png",
+    "portrait": "/images/operator-portraits/208_melan.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2869,7 +2869,7 @@
     "rarity": 3,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/209_ardign.png",
+    "portrait": "/images/operator-portraits/209_ardign.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2891,7 +2891,7 @@
     "rarity": 3,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/210_stward.png",
+    "portrait": "/images/operator-portraits/210_stward.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2913,7 +2913,7 @@
     "rarity": 3,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/211_adnach.png",
+    "portrait": "/images/operator-portraits/211_adnach.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2935,7 +2935,7 @@
     "rarity": 3,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/212_ansel.png",
+    "portrait": "/images/operator-portraits/212_ansel.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2957,7 +2957,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/213_mostma.png",
+    "portrait": "/images/operator-portraits/213_mostma.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -2979,7 +2979,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/214_kafka.png",
+    "portrait": "/images/operator-portraits/214_kafka.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3001,7 +3001,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/215_mantic.png",
+    "portrait": "/images/operator-portraits/215_mantic.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3023,7 +3023,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/218_cuttle.png",
+    "portrait": "/images/operator-portraits/218_cuttle.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3045,7 +3045,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/219_meteo.png",
+    "portrait": "/images/operator-portraits/219_meteo.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3067,7 +3067,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/220_grani.png",
+    "portrait": "/images/operator-portraits/220_grani.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3089,7 +3089,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/222_bpipe.png",
+    "portrait": "/images/operator-portraits/222_bpipe.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3111,7 +3111,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/225_haak.png",
+    "portrait": "/images/operator-portraits/225_haak.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3133,7 +3133,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/226_hmau.png",
+    "portrait": "/images/operator-portraits/226_hmau.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3155,7 +3155,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/230_savage.png",
+    "portrait": "/images/operator-portraits/230_savage.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3177,7 +3177,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/235_jesica.png",
+    "portrait": "/images/operator-portraits/235_jesica.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3199,7 +3199,7 @@
     "rarity": 4,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/236_rope.png",
+    "portrait": "/images/operator-portraits/236_rope.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3221,7 +3221,7 @@
     "rarity": 4,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/237_gravel.png",
+    "portrait": "/images/operator-portraits/237_gravel.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3243,7 +3243,7 @@
     "rarity": 3,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/240_wyvern.png",
+    "portrait": "/images/operator-portraits/240_wyvern.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3265,7 +3265,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/241_panda.png",
+    "portrait": "/images/operator-portraits/241_panda.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3287,7 +3287,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/242_otter.png",
+    "portrait": "/images/operator-portraits/242_otter.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3309,7 +3309,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/243_waaifu.png",
+    "portrait": "/images/operator-portraits/243_waaifu.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3331,7 +3331,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/245_cello.png",
+    "portrait": "/images/operator-portraits/245_cello.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3353,7 +3353,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/248_mgllan.png",
+    "portrait": "/images/operator-portraits/248_mgllan.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3375,7 +3375,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 10,
-    "portrait": "/images/operator-portraits/249_mlyss.png",
+    "portrait": "/images/operator-portraits/249_mlyss.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3397,7 +3397,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/250_phatom.png",
+    "portrait": "/images/operator-portraits/250_phatom.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3419,7 +3419,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/252_bibeak.png",
+    "portrait": "/images/operator-portraits/252_bibeak.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3441,7 +3441,7 @@
     "rarity": 4,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/253_greyy.png",
+    "portrait": "/images/operator-portraits/253_greyy.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3463,7 +3463,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/254_vodfox.png",
+    "portrait": "/images/operator-portraits/254_vodfox.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3485,7 +3485,7 @@
     "rarity": 4,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/258_podego.png",
+    "portrait": "/images/operator-portraits/258_podego.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3513,7 +3513,7 @@
     "rarity": 4,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/260_durnar.png",
+    "portrait": "/images/operator-portraits/260_durnar.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3535,7 +3535,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/261_sddrag.png",
+    "portrait": "/images/operator-portraits/261_sddrag.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3557,7 +3557,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/263_skadi.png",
+    "portrait": "/images/operator-portraits/263_skadi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3579,7 +3579,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/264_f12yin.png",
+    "portrait": "/images/operator-portraits/264_f12yin.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3601,7 +3601,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/265_sophia.png",
+    "portrait": "/images/operator-portraits/265_sophia.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3623,7 +3623,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/271_spikes.png",
+    "portrait": "/images/operator-portraits/271_spikes.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3651,7 +3651,7 @@
     "rarity": 4,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/272_strong.png",
+    "portrait": "/images/operator-portraits/272_strong.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3673,7 +3673,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/274_astesi.png",
+    "portrait": "/images/operator-portraits/274_astesi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3695,7 +3695,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/275_breeze.png",
+    "portrait": "/images/operator-portraits/275_breeze.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3717,7 +3717,7 @@
     "rarity": 4,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/277_sqrrel.png",
+    "portrait": "/images/operator-portraits/277_sqrrel.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3739,7 +3739,7 @@
     "rarity": 3,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/278_orchid.png",
+    "portrait": "/images/operator-portraits/278_orchid.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3761,7 +3761,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/279_excu.png",
+    "portrait": "/images/operator-portraits/279_excu.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3783,7 +3783,7 @@
     "rarity": 3,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/281_popka.png",
+    "portrait": "/images/operator-portraits/281_popka.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3805,7 +3805,7 @@
     "rarity": 3,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/282_catap.png",
+    "portrait": "/images/operator-portraits/282_catap.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3827,7 +3827,7 @@
     "rarity": 3,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/283_midn.png",
+    "portrait": "/images/operator-portraits/283_midn.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3849,7 +3849,7 @@
     "rarity": 3,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/284_spot.png",
+    "portrait": "/images/operator-portraits/284_spot.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3871,7 +3871,7 @@
     "rarity": 1,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/285_medic2.png",
+    "portrait": "/images/operator-portraits/285_medic2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3893,7 +3893,7 @@
     "rarity": 1,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/286_cast3.png",
+    "portrait": "/images/operator-portraits/286_cast3.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3915,7 +3915,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/289_gyuki.png",
+    "portrait": "/images/operator-portraits/289_gyuki.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3937,7 +3937,7 @@
     "rarity": 4,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/290_vigna.png",
+    "portrait": "/images/operator-portraits/290_vigna.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3959,7 +3959,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/291_aglina.png",
+    "portrait": "/images/operator-portraits/291_aglina.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -3981,7 +3981,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/293_thorns.png",
+    "portrait": "/images/operator-portraits/293_thorns.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4003,7 +4003,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/294_ayer.png",
+    "portrait": "/images/operator-portraits/294_ayer.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4025,7 +4025,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/297_hamoni.png",
+    "portrait": "/images/operator-portraits/297_hamoni.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4047,7 +4047,7 @@
     "rarity": 4,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/298_susuro.png",
+    "portrait": "/images/operator-portraits/298_susuro.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4069,7 +4069,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/300_phenxi.png",
+    "portrait": "/images/operator-portraits/300_phenxi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4091,7 +4091,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/301_cutter.png",
+    "portrait": "/images/operator-portraits/301_cutter.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4113,7 +4113,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/302_glaze.png",
+    "portrait": "/images/operator-portraits/302_glaze.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4135,7 +4135,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/304_zebra.png",
+    "portrait": "/images/operator-portraits/304_zebra.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4163,7 +4163,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/306_leizi.png",
+    "portrait": "/images/operator-portraits/306_leizi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4185,7 +4185,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/308_swire.png",
+    "portrait": "/images/operator-portraits/308_swire.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4207,7 +4207,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/311_mudrok.png",
+    "portrait": "/images/operator-portraits/311_mudrok.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4229,7 +4229,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/322_lmlee.png",
+    "portrait": "/images/operator-portraits/322_lmlee.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4251,7 +4251,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/325_bison.png",
+    "portrait": "/images/operator-portraits/325_bison.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4273,7 +4273,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/326_glacus.png",
+    "portrait": "/images/operator-portraits/326_glacus.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4295,7 +4295,7 @@
     "rarity": 4,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/328_cammou.png",
+    "portrait": "/images/operator-portraits/328_cammou.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4317,7 +4317,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/332_archet.png",
+    "portrait": "/images/operator-portraits/332_archet.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4339,7 +4339,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/333_sidero.png",
+    "portrait": "/images/operator-portraits/333_sidero.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4361,7 +4361,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/336_folivo.png",
+    "portrait": "/images/operator-portraits/336_folivo.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4383,7 +4383,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/337_utage.png",
+    "portrait": "/images/operator-portraits/337_utage.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4405,7 +4405,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/338_iris.png",
+    "portrait": "/images/operator-portraits/338_iris.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4427,7 +4427,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/340_shwaz.png",
+    "portrait": "/images/operator-portraits/340_shwaz.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4449,7 +4449,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/341_sntlla.png",
+    "portrait": "/images/operator-portraits/341_sntlla.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4471,7 +4471,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/343_tknogi.png",
+    "portrait": "/images/operator-portraits/343_tknogi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4493,7 +4493,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/344_beewax.png",
+    "portrait": "/images/operator-portraits/344_beewax.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4515,7 +4515,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/345_folnic.png",
+    "portrait": "/images/operator-portraits/345_folnic.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4537,7 +4537,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/346_aosta.png",
+    "portrait": "/images/operator-portraits/346_aosta.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4559,7 +4559,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/347_jaksel.png",
+    "portrait": "/images/operator-portraits/347_jaksel.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4581,7 +4581,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/348_ceylon.png",
+    "portrait": "/images/operator-portraits/348_ceylon.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4603,7 +4603,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/349_chiave.png",
+    "portrait": "/images/operator-portraits/349_chiave.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4625,7 +4625,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/350_surtr.png",
+    "portrait": "/images/operator-portraits/350_surtr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4647,7 +4647,7 @@
     "rarity": 4,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/355_ethan.png",
+    "portrait": "/images/operator-portraits/355_ethan.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4669,7 +4669,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/356_broca.png",
+    "portrait": "/images/operator-portraits/356_broca.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4691,7 +4691,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/358_lisa.png",
+    "portrait": "/images/operator-portraits/358_lisa.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4713,7 +4713,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/362_saga.png",
+    "portrait": "/images/operator-portraits/362_saga.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4735,7 +4735,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/363_toddi.png",
+    "portrait": "/images/operator-portraits/363_toddi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4757,7 +4757,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/365_aprl.png",
+    "portrait": "/images/operator-portraits/365_aprl.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4785,7 +4785,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/366_acdrop.png",
+    "portrait": "/images/operator-portraits/366_acdrop.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4807,7 +4807,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/367_swllow.png",
+    "portrait": "/images/operator-portraits/367_swllow.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4829,7 +4829,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/369_bena.png",
+    "portrait": "/images/operator-portraits/369_bena.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4851,7 +4851,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/373_lionhd.png",
+    "portrait": "/images/operator-portraits/373_lionhd.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4873,7 +4873,7 @@
     "rarity": 1,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/376_therex.png",
+    "portrait": "/images/operator-portraits/376_therex.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4895,7 +4895,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/377_gdglow.png",
+    "portrait": "/images/operator-portraits/377_gdglow.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4917,7 +4917,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/378_asbest.png",
+    "portrait": "/images/operator-portraits/378_asbest.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4939,7 +4939,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/379_sesa.png",
+    "portrait": "/images/operator-portraits/379_sesa.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4961,7 +4961,7 @@
     "rarity": 4,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/381_bubble.png",
+    "portrait": "/images/operator-portraits/381_bubble.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -4983,7 +4983,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/383_snsant.png",
+    "portrait": "/images/operator-portraits/383_snsant.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5005,7 +5005,7 @@
     "rarity": 4,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/385_finlpp.png",
+    "portrait": "/images/operator-portraits/385_finlpp.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5027,7 +5027,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/388_mint.png",
+    "portrait": "/images/operator-portraits/388_mint.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5055,7 +5055,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/391_rosmon.png",
+    "portrait": "/images/operator-portraits/391_rosmon.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5083,7 +5083,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/394_hadiya.png",
+    "portrait": "/images/operator-portraits/394_hadiya.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5105,7 +5105,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/400_weedy.png",
+    "portrait": "/images/operator-portraits/400_weedy.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5127,7 +5127,7 @@
     "rarity": 1,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4000_jnight.png",
+    "portrait": "/images/operator-portraits/4000_jnight.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5149,7 +5149,7 @@
     "rarity": 4,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4004_pudd.png",
+    "portrait": "/images/operator-portraits/4004_pudd.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5171,7 +5171,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4006_melnte.png",
+    "portrait": "/images/operator-portraits/4006_melnte.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5193,7 +5193,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4009_irene.png",
+    "portrait": "/images/operator-portraits/4009_irene.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5215,7 +5215,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/401_elysm.png",
+    "portrait": "/images/operator-portraits/401_elysm.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5237,7 +5237,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4010_etlchi.png",
+    "portrait": "/images/operator-portraits/4010_etlchi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5259,7 +5259,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4011_lessng.png",
+    "portrait": "/images/operator-portraits/4011_lessng.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5287,7 +5287,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4013_kjera.png",
+    "portrait": "/images/operator-portraits/4013_kjera.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5315,7 +5315,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4014_lunacu.png",
+    "portrait": "/images/operator-portraits/4014_lunacu.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5337,7 +5337,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/4015_spuria.png",
+    "portrait": "/images/operator-portraits/4015_spuria.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5365,7 +5365,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4016_kazema.png",
+    "portrait": "/images/operator-portraits/4016_kazema.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5387,7 +5387,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4017_puzzle.png",
+    "portrait": "/images/operator-portraits/4017_puzzle.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5409,7 +5409,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4019_ncdeer.png",
+    "portrait": "/images/operator-portraits/4019_ncdeer.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5431,7 +5431,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/402_tuye.png",
+    "portrait": "/images/operator-portraits/402_tuye.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5453,7 +5453,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4023_rfalcn.png",
+    "portrait": "/images/operator-portraits/4023_rfalcn.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5475,7 +5475,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4025_aprot2.png",
+    "portrait": "/images/operator-portraits/4025_aprot2.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5497,7 +5497,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4026_vulpis.png",
+    "portrait": "/images/operator-portraits/4026_vulpis.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5525,7 +5525,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4027_heyak.png",
+    "portrait": "/images/operator-portraits/4027_heyak.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5553,7 +5553,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4031_liesel.png",
+    "portrait": "/images/operator-portraits/4031_liesel.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5575,7 +5575,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4032_provs.png",
+    "portrait": "/images/operator-portraits/4032_provs.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5603,7 +5603,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4036_forcer.png",
+    "portrait": "/images/operator-portraits/4036_forcer.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5625,7 +5625,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4037_demetr.png",
+    "portrait": "/images/operator-portraits/4037_demetr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5653,7 +5653,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4039_horn.png",
+    "portrait": "/images/operator-portraits/4039_horn.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5675,7 +5675,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4040_rockr.png",
+    "portrait": "/images/operator-portraits/4040_rockr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5697,7 +5697,7 @@
     "rarity": 4,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4041_chnut.png",
+    "portrait": "/images/operator-portraits/4041_chnut.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5719,7 +5719,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4042_lumen.png",
+    "portrait": "/images/operator-portraits/4042_lumen.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5741,7 +5741,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4043_erato.png",
+    "portrait": "/images/operator-portraits/4043_erato.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5763,7 +5763,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4045_heidi.png",
+    "portrait": "/images/operator-portraits/4045_heidi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5791,7 +5791,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4046_ebnhlz.png",
+    "portrait": "/images/operator-portraits/4046_ebnhlz.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5819,7 +5819,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4047_pianst.png",
+    "portrait": "/images/operator-portraits/4047_pianst.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5841,7 +5841,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/4048_doroth.png",
+    "portrait": "/images/operator-portraits/4048_doroth.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5863,7 +5863,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/405_absin.png",
+    "portrait": "/images/operator-portraits/405_absin.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5885,7 +5885,7 @@
     "rarity": 4,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4051_akkord.png",
+    "portrait": "/images/operator-portraits/4051_akkord.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5913,7 +5913,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4052_surfer.png",
+    "portrait": "/images/operator-portraits/4052_surfer.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5935,7 +5935,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4054_malist.png",
+    "portrait": "/images/operator-portraits/4054_malist.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5963,7 +5963,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4055_bgsnow.png",
+    "portrait": "/images/operator-portraits/4055_bgsnow.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -5985,7 +5985,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4056_titi.png",
+    "portrait": "/images/operator-portraits/4056_titi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6013,7 +6013,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4058_pepe.png",
+    "portrait": "/images/operator-portraits/4058_pepe.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6035,7 +6035,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4062_totter.png",
+    "portrait": "/images/operator-portraits/4062_totter.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6057,7 +6057,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4063_quartz.png",
+    "portrait": "/images/operator-portraits/4063_quartz.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6079,7 +6079,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4064_mlynar.png",
+    "portrait": "/images/operator-portraits/4064_mlynar.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6101,7 +6101,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4065_judge.png",
+    "portrait": "/images/operator-portraits/4065_judge.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6123,7 +6123,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4066_highmo.png",
+    "portrait": "/images/operator-portraits/4066_highmo.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6145,7 +6145,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4067_lolxh.png",
+    "portrait": "/images/operator-portraits/4067_lolxh.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6167,7 +6167,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4071_peper.png",
+    "portrait": "/images/operator-portraits/4071_peper.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6195,7 +6195,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 9,
-    "portrait": "/images/operator-portraits/4072_ironmn.png",
+    "portrait": "/images/operator-portraits/4072_ironmn.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6217,7 +6217,7 @@
     "rarity": 1,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4077_palico.png",
+    "portrait": "/images/operator-portraits/4077_palico.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6239,7 +6239,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4078_bdhkgt.png",
+    "portrait": "/images/operator-portraits/4078_bdhkgt.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6267,7 +6267,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4079_haini.png",
+    "portrait": "/images/operator-portraits/4079_haini.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6289,7 +6289,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4080_lin.png",
+    "portrait": "/images/operator-portraits/4080_lin.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6311,7 +6311,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4081_warmy.png",
+    "portrait": "/images/operator-portraits/4081_warmy.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6339,7 +6339,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4082_qiubai.png",
+    "portrait": "/images/operator-portraits/4082_qiubai.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6361,7 +6361,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4083_chimes.png",
+    "portrait": "/images/operator-portraits/4083_chimes.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6383,7 +6383,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4087_ines.png",
+    "portrait": "/images/operator-portraits/4087_ines.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6405,7 +6405,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4088_hodrer.png",
+    "portrait": "/images/operator-portraits/4088_hodrer.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6427,7 +6427,7 @@
     "rarity": 1,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4091_ulika.png",
+    "portrait": "/images/operator-portraits/4091_ulika.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6449,7 +6449,7 @@
     "rarity": 1,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4093_frston.png",
+    "portrait": "/images/operator-portraits/4093_frston.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6471,7 +6471,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4098_vvana.png",
+    "portrait": "/images/operator-portraits/4098_vvana.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6493,7 +6493,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4100_caper.png",
+    "portrait": "/images/operator-portraits/4100_caper.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6515,7 +6515,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4102_threye.png",
+    "portrait": "/images/operator-portraits/4102_threye.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6537,7 +6537,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4104_coldst.png",
+    "portrait": "/images/operator-portraits/4104_coldst.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6559,7 +6559,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4105_almond.png",
+    "portrait": "/images/operator-portraits/4105_almond.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6581,7 +6581,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4106_bryota.png",
+    "portrait": "/images/operator-portraits/4106_bryota.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6603,7 +6603,7 @@
     "rarity": 4,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4107_vrdant.png",
+    "portrait": "/images/operator-portraits/4107_vrdant.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6625,7 +6625,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4109_baslin.png",
+    "portrait": "/images/operator-portraits/4109_baslin.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6653,7 +6653,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/411_tomimi.png",
+    "portrait": "/images/operator-portraits/411_tomimi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6675,7 +6675,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4110_delphn.png",
+    "portrait": "/images/operator-portraits/4110_delphn.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6697,7 +6697,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4114_harold.png",
+    "portrait": "/images/operator-portraits/4114_harold.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6719,7 +6719,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4116_blkkgt.png",
+    "portrait": "/images/operator-portraits/4116_blkkgt.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6747,7 +6747,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4117_ray.png",
+    "portrait": "/images/operator-portraits/4117_ray.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6775,7 +6775,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4119_wanqin.png",
+    "portrait": "/images/operator-portraits/4119_wanqin.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6797,7 +6797,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4121_zuole.png",
+    "portrait": "/images/operator-portraits/4121_zuole.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6819,7 +6819,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4122_grabds.png",
+    "portrait": "/images/operator-portraits/4122_grabds.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6841,7 +6841,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/4123_ela.png",
+    "portrait": "/images/operator-portraits/4123_ela.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6863,7 +6863,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4124_iana.png",
+    "portrait": "/images/operator-portraits/4124_iana.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6885,7 +6885,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4125_rdoc.png",
+    "portrait": "/images/operator-portraits/4125_rdoc.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6907,7 +6907,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4126_fuze.png",
+    "portrait": "/images/operator-portraits/4126_fuze.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6929,7 +6929,7 @@
     "rarity": 4,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4130_luton.png",
+    "portrait": "/images/operator-portraits/4130_luton.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6951,7 +6951,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4131_odda.png",
+    "portrait": "/images/operator-portraits/4131_odda.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -6979,7 +6979,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4132_ascln.png",
+    "portrait": "/images/operator-portraits/4132_ascln.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7001,7 +7001,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4133_logos.png",
+    "portrait": "/images/operator-portraits/4133_logos.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7023,7 +7023,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4134_cetsyr.png",
+    "portrait": "/images/operator-portraits/4134_cetsyr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7051,7 +7051,7 @@
     "rarity": 1,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4136_phonor.png",
+    "portrait": "/images/operator-portraits/4136_phonor.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7073,7 +7073,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4137_udflow.png",
+    "portrait": "/images/operator-portraits/4137_udflow.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7095,7 +7095,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4138_narant.png",
+    "portrait": "/images/operator-portraits/4138_narant.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7117,7 +7117,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4139_papyrs.png",
+    "portrait": "/images/operator-portraits/4139_papyrs.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7139,7 +7139,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4140_lasher.png",
+    "portrait": "/images/operator-portraits/4140_lasher.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7161,7 +7161,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4141_marcil.png",
+    "portrait": "/images/operator-portraits/4141_marcil.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7189,7 +7189,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4142_laios.png",
+    "portrait": "/images/operator-portraits/4142_laios.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7211,7 +7211,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4143_sensi.png",
+    "portrait": "/images/operator-portraits/4143_sensi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7233,7 +7233,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4144_chilc.png",
+    "portrait": "/images/operator-portraits/4144_chilc.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7255,7 +7255,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4145_ulpia.png",
+    "portrait": "/images/operator-portraits/4145_ulpia.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7277,7 +7277,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4146_nymph.png",
+    "portrait": "/images/operator-portraits/4146_nymph.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7305,7 +7305,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 10,
-    "portrait": "/images/operator-portraits/4147_mitm.png",
+    "portrait": "/images/operator-portraits/4147_mitm.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7327,7 +7327,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4148_philae.png",
+    "portrait": "/images/operator-portraits/4148_philae.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7349,7 +7349,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/415_flint.png",
+    "portrait": "/images/operator-portraits/415_flint.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7371,7 +7371,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/4151_tinman.png",
+    "portrait": "/images/operator-portraits/4151_tinman.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7393,7 +7393,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4155_talr.png",
+    "portrait": "/images/operator-portraits/4155_talr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7415,7 +7415,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/416_zumama.png",
+    "portrait": "/images/operator-portraits/416_zumama.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7443,7 +7443,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 9,
-    "portrait": "/images/operator-portraits/4162_cathy.png",
+    "portrait": "/images/operator-portraits/4162_cathy.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7471,7 +7471,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4163_rosesa.png",
+    "portrait": "/images/operator-portraits/4163_rosesa.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7493,7 +7493,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4164_tecno.png",
+    "portrait": "/images/operator-portraits/4164_tecno.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7515,7 +7515,7 @@
     "rarity": 4,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4165_ctrail.png",
+    "portrait": "/images/operator-portraits/4165_ctrail.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7537,7 +7537,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4166_varkis.png",
+    "portrait": "/images/operator-portraits/4166_varkis.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7559,7 +7559,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/4171_wulfen.png",
+    "portrait": "/images/operator-portraits/4171_wulfen.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7581,7 +7581,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4172_xingzh.png",
+    "portrait": "/images/operator-portraits/4172_xingzh.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7609,7 +7609,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4173_nowell.png",
+    "portrait": "/images/operator-portraits/4173_nowell.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7631,7 +7631,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4177_brigid.png",
+    "portrait": "/images/operator-portraits/4177_brigid.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7653,7 +7653,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 9,
-    "portrait": "/images/operator-portraits/4178_alanna.png",
+    "portrait": "/images/operator-portraits/4178_alanna.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7681,7 +7681,7 @@
     "rarity": 6,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4179_monstr.png",
+    "portrait": "/images/operator-portraits/4179_monstr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7703,7 +7703,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4182_oblvns.png",
+    "portrait": "/images/operator-portraits/4182_oblvns.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7731,7 +7731,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4183_mortis.png",
+    "portrait": "/images/operator-portraits/4183_mortis.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7753,7 +7753,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4184_dolris.png",
+    "portrait": "/images/operator-portraits/4184_dolris.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7775,7 +7775,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4185_amoris.png",
+    "portrait": "/images/operator-portraits/4185_amoris.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7797,7 +7797,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4186_tmoris.png",
+    "portrait": "/images/operator-portraits/4186_tmoris.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7819,7 +7819,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/4187_graceb.png",
+    "portrait": "/images/operator-portraits/4187_graceb.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7841,7 +7841,7 @@
     "rarity": 1,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4188_confes.png",
+    "portrait": "/images/operator-portraits/4188_confes.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7863,7 +7863,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/4191_tippi.png",
+    "portrait": "/images/operator-portraits/4191_tippi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7885,7 +7885,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4193_lemuen.png",
+    "portrait": "/images/operator-portraits/4193_lemuen.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7907,7 +7907,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4194_rmixer.png",
+    "portrait": "/images/operator-portraits/4194_rmixer.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7935,7 +7935,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4195_radian.png",
+    "portrait": "/images/operator-portraits/4195_radian.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7957,7 +7957,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4196_reckpr.png",
+    "portrait": "/images/operator-portraits/4196_reckpr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -7979,7 +7979,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4198_christ.png",
+    "portrait": "/images/operator-portraits/4198_christ.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8001,7 +8001,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4199_makiri.png",
+    "portrait": "/images/operator-portraits/4199_makiri.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8023,7 +8023,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/420_flamtl.png",
+    "portrait": "/images/operator-portraits/420_flamtl.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8045,7 +8045,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4202_haruka.png",
+    "portrait": "/images/operator-portraits/4202_haruka.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8067,7 +8067,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4203_kichi.png",
+    "portrait": "/images/operator-portraits/4203_kichi.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8089,7 +8089,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4204_mantra.png",
+    "portrait": "/images/operator-portraits/4204_mantra.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8111,7 +8111,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4207_branch.png",
+    "portrait": "/images/operator-portraits/4207_branch.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8133,7 +8133,7 @@
     "rarity": 4,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4208_wintim.png",
+    "portrait": "/images/operator-portraits/4208_wintim.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8155,7 +8155,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/421_crow.png",
+    "portrait": "/images/operator-portraits/421_crow.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8177,7 +8177,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4211_snhunt.png",
+    "portrait": "/images/operator-portraits/4211_snhunt.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8199,7 +8199,7 @@
     "rarity": 6,
     "profession": 5,
     "position": 9,
-    "portrait": "/images/operator-portraits/4212_nasti.png",
+    "portrait": "/images/operator-portraits/4212_nasti.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8221,7 +8221,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4213_skybx.png",
+    "portrait": "/images/operator-portraits/4213_skybx.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8243,7 +8243,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4214_cairn.png",
+    "portrait": "/images/operator-portraits/4214_cairn.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8271,7 +8271,7 @@
     "rarity": 1,
     "profession": 8,
     "position": 10,
-    "portrait": "/images/operator-portraits/4215_buddy.png",
+    "portrait": "/images/operator-portraits/4215_buddy.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8293,7 +8293,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/422_aurora.png",
+    "portrait": "/images/operator-portraits/422_aurora.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8315,7 +8315,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/4221_ju.png",
+    "portrait": "/images/operator-portraits/4221_ju.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8337,7 +8337,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4222_taraxa.png",
+    "portrait": "/images/operator-portraits/4222_taraxa.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8359,7 +8359,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4223_botany.png",
+    "portrait": "/images/operator-portraits/4223_botany.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8381,7 +8381,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/4224_turdus.png",
+    "portrait": "/images/operator-portraits/4224_turdus.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8403,7 +8403,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4225_tanya.png",
+    "portrait": "/images/operator-portraits/4225_tanya.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8425,7 +8425,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4226_veen.png",
+    "portrait": "/images/operator-portraits/4226_veen.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8453,7 +8453,7 @@
     "rarity": 1,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4227_gallus.png",
+    "portrait": "/images/operator-portraits/4227_gallus.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8475,7 +8475,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 10,
-    "portrait": "/images/operator-portraits/4228_closur.png",
+    "portrait": "/images/operator-portraits/4228_closur.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8497,7 +8497,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4229_aphris.png",
+    "portrait": "/images/operator-portraits/4229_aphris.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8519,7 +8519,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/423_blemsh.png",
+    "portrait": "/images/operator-portraits/423_blemsh.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8541,7 +8541,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4230_mcnist.png",
+    "portrait": "/images/operator-portraits/4230_mcnist.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8563,7 +8563,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/4234_pedro.png",
+    "portrait": "/images/operator-portraits/4234_pedro.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8585,7 +8585,7 @@
     "rarity": 6,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/4235_thumpy.png",
+    "portrait": "/images/operator-portraits/4235_thumpy.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8607,7 +8607,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/4236_tmslot.png",
+    "portrait": "/images/operator-portraits/4236_tmslot.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8629,7 +8629,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/4237_jcinta.png",
+    "portrait": "/images/operator-portraits/4237_jcinta.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8651,7 +8651,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/426_billro.png",
+    "portrait": "/images/operator-portraits/426_billro.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8673,7 +8673,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 10,
-    "portrait": "/images/operator-portraits/427_vigil.png",
+    "portrait": "/images/operator-portraits/427_vigil.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8695,7 +8695,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/430_fartth.png",
+    "portrait": "/images/operator-portraits/430_fartth.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8723,7 +8723,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/431_ashlok.png",
+    "portrait": "/images/operator-portraits/431_ashlok.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8745,7 +8745,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 9,
-    "portrait": "/images/operator-portraits/433_windft.png",
+    "portrait": "/images/operator-portraits/433_windft.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8767,7 +8767,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/436_whispr.png",
+    "portrait": "/images/operator-portraits/436_whispr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8789,7 +8789,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/437_mizuki.png",
+    "portrait": "/images/operator-portraits/437_mizuki.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8811,7 +8811,7 @@
     "rarity": 4,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/440_pinecn.png",
+    "portrait": "/images/operator-portraits/440_pinecn.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8833,7 +8833,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/445_wscoot.png",
+    "portrait": "/images/operator-portraits/445_wscoot.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8855,7 +8855,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/446_aroma.png",
+    "portrait": "/images/operator-portraits/446_aroma.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8877,7 +8877,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/449_glider.png",
+    "portrait": "/images/operator-portraits/449_glider.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8905,7 +8905,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/450_necras.png",
+    "portrait": "/images/operator-portraits/450_necras.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8933,7 +8933,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/451_robin.png",
+    "portrait": "/images/operator-portraits/451_robin.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8955,7 +8955,7 @@
     "rarity": 4,
     "profession": 8,
     "position": 10,
-    "portrait": "/images/operator-portraits/452_bstalk.png",
+    "portrait": "/images/operator-portraits/452_bstalk.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8977,7 +8977,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/455_nothin.png",
+    "portrait": "/images/operator-portraits/455_nothin.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -8999,7 +8999,7 @@
     "rarity": 6,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/456_ash.png",
+    "portrait": "/images/operator-portraits/456_ash.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9021,7 +9021,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/457_blitz.png",
+    "portrait": "/images/operator-portraits/457_blitz.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9043,7 +9043,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 10,
-    "portrait": "/images/operator-portraits/458_rfrost.png",
+    "portrait": "/images/operator-portraits/458_rfrost.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9065,7 +9065,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/459_tachak.png",
+    "portrait": "/images/operator-portraits/459_tachak.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9087,7 +9087,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/464_cement.png",
+    "portrait": "/images/operator-portraits/464_cement.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9109,7 +9109,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/466_qanik.png",
+    "portrait": "/images/operator-portraits/466_qanik.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9131,7 +9131,7 @@
     "rarity": 4,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/469_indigo.png",
+    "portrait": "/images/operator-portraits/469_indigo.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9159,7 +9159,7 @@
     "rarity": 6,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/472_pasngr.png",
+    "portrait": "/images/operator-portraits/472_pasngr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9187,7 +9187,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/473_mberry.png",
+    "portrait": "/images/operator-portraits/473_mberry.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9215,7 +9215,7 @@
     "rarity": 6,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/474_glady.png",
+    "portrait": "/images/operator-portraits/474_glady.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9243,7 +9243,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/475_akafyu.png",
+    "portrait": "/images/operator-portraits/475_akafyu.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9265,7 +9265,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 10,
-    "portrait": "/images/operator-portraits/476_blkngt.png",
+    "portrait": "/images/operator-portraits/476_blkngt.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9287,7 +9287,7 @@
     "rarity": 5,
     "profession": 7,
     "position": 9,
-    "portrait": "/images/operator-portraits/478_kirara.png",
+    "portrait": "/images/operator-portraits/478_kirara.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9309,7 +9309,7 @@
     "rarity": 6,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/479_sleach.png",
+    "portrait": "/images/operator-portraits/479_sleach.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9331,7 +9331,7 @@
     "rarity": 4,
     "profession": 5,
     "position": 9,
-    "portrait": "/images/operator-portraits/484_robrta.png",
+    "portrait": "/images/operator-portraits/484_robrta.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9353,7 +9353,7 @@
     "rarity": 6,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/485_pallas.png",
+    "portrait": "/images/operator-portraits/485_pallas.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9375,7 +9375,7 @@
     "rarity": 5,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/486_takila.png",
+    "portrait": "/images/operator-portraits/486_takila.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9397,7 +9397,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/487_bobb.png",
+    "portrait": "/images/operator-portraits/487_bobb.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9419,7 +9419,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/488_buildr.png",
+    "portrait": "/images/operator-portraits/488_buildr.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9441,7 +9441,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/489_serum.png",
+    "portrait": "/images/operator-portraits/489_serum.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9469,7 +9469,7 @@
     "rarity": 4,
     "profession": 1,
     "position": 9,
-    "portrait": "/images/operator-portraits/491_humus.png",
+    "portrait": "/images/operator-portraits/491_humus.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9491,7 +9491,7 @@
     "rarity": 5,
     "profession": 5,
     "position": 10,
-    "portrait": "/images/operator-portraits/492_quercu.png",
+    "portrait": "/images/operator-portraits/492_quercu.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9513,7 +9513,7 @@
     "rarity": 5,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/493_firwhl.png",
+    "portrait": "/images/operator-portraits/493_firwhl.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9535,7 +9535,7 @@
     "rarity": 5,
     "profession": 4,
     "position": 10,
-    "portrait": "/images/operator-portraits/494_vendla.png",
+    "portrait": "/images/operator-portraits/494_vendla.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9557,7 +9557,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/496_wildmn.png",
+    "portrait": "/images/operator-portraits/496_wildmn.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9579,7 +9579,7 @@
     "rarity": 5,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/497_ctable.png",
+    "portrait": "/images/operator-portraits/497_ctable.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9601,7 +9601,7 @@
     "rarity": 5,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/498_inside.png",
+    "portrait": "/images/operator-portraits/498_inside.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9623,7 +9623,7 @@
     "rarity": 5,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/499_kaitou.png",
+    "portrait": "/images/operator-portraits/499_kaitou.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9645,7 +9645,7 @@
     "rarity": 2,
     "profession": 3,
     "position": 9,
-    "portrait": "/images/operator-portraits/500_noirc.png",
+    "portrait": "/images/operator-portraits/500_noirc.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9667,7 +9667,7 @@
     "rarity": 2,
     "profession": 6,
     "position": 10,
-    "portrait": "/images/operator-portraits/501_durin.png",
+    "portrait": "/images/operator-portraits/501_durin.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9689,7 +9689,7 @@
     "rarity": 2,
     "profession": 8,
     "position": 9,
-    "portrait": "/images/operator-portraits/502_nblade.png",
+    "portrait": "/images/operator-portraits/502_nblade.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,
@@ -9711,7 +9711,7 @@
     "rarity": 2,
     "profession": 2,
     "position": 10,
-    "portrait": "/images/operator-portraits/503_rang.png",
+    "portrait": "/images/operator-portraits/503_rang.webp?v=2-44d7474aec68",
     "buildingSkills": [
       {
         "index": 1,

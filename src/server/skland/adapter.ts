@@ -12,7 +12,7 @@ import {
 import type { SklandQrStatusResponse, SklandScheduleSnapshot, SklandStatusSnapshot } from "@/types";
 import type { SklandPolicyConsentRequest } from "@/legal-policy";
 import { DeviceIdCache } from "./device-id-cache";
-import { rolesFromBinding, scheduleSnapshotFromPlayerInfo, snapshotFromPlayerInfo } from "./normalize";
+import { rolesFromBinding, snapshotFromPlayerInfo, snapshotsFromPlayerInfo } from "./normalize";
 import { sklandLayoutSuggestion } from "./layout-suggestion";
 import {
   SKLAND_SESSION_TTL_SECONDS,
@@ -125,7 +125,11 @@ async function refreshedPayload(client: Client, payload: SklandSessionPayload, f
   return { ...payload, token, refreshedAt: Date.now() };
 }
 
-async function scheduleWithClient(client: Client, payload: SklandSessionPayload): Promise<{ payload: SklandSessionPayload; snapshot: SklandScheduleSnapshot }> {
+async function scheduleWithClient(client: Client, payload: SklandSessionPayload): Promise<{
+  payload: SklandSessionPayload;
+  snapshot: SklandScheduleSnapshot;
+  statusSnapshot: SklandStatusSnapshot;
+}> {
   const binding = await client.collections.player.getBinding();
   const roles = rolesFromBinding(binding);
   if (roles.length === 0) throw new SklandServiceError("BAD_DATA", "该森空岛账号没有绑定可用的明日方舟角色。", 422);
@@ -133,9 +137,11 @@ async function scheduleWithClient(client: Client, payload: SklandSessionPayload)
     ? payload.selectedUid
     : roles.find((role) => role.isDefault)?.uid ?? roles[0].uid;
   const info = await client.collections.player.getInfo({ uid: selectedUid });
+  const snapshots = snapshotsFromPlayerInfo(info, roles, selectedUid, sklandLayoutSuggestion(info));
   return {
     payload: { ...payload, selectedUid },
-    snapshot: scheduleSnapshotFromPlayerInfo(info, roles, sklandLayoutSuggestion(info)),
+    snapshot: snapshots.scheduleSnapshot,
+    statusSnapshot: snapshots.statusSnapshot,
   };
 }
 
@@ -143,7 +149,11 @@ async function completeOAuthLogin(
   client: Client,
   oauthToken: string,
   policyConsent: SklandPolicyConsent
-): Promise<{ session: SklandSessionPayload; snapshot: SklandScheduleSnapshot }> {
+): Promise<{
+  session: SklandSessionPayload;
+  snapshot: SklandScheduleSnapshot;
+  statusSnapshot: SklandStatusSnapshot;
+}> {
   const grant = await client.collections.hypergryph.grantAuthorizeCode(oauthToken);
   const auth = await client.signIn(grant.code);
   const binding = await client.collections.player.getBinding();
@@ -156,7 +166,7 @@ async function completeOAuthLogin(
   const dId = (await client.storage.getItem(STORAGE_DID_KEY)) ?? "";
   if (!dId) throw new SklandServiceError("BAD_DATA", "森空岛设备凭证生成失败。", 502);
   const session: SklandSessionPayload = {
-    version: 2,
+    version: 3,
     cred: auth.cred,
     token: auth.token,
     dId,
@@ -165,11 +175,12 @@ async function completeOAuthLogin(
     refreshedAt: Date.now(),
     expiresAt: Date.now() + SKLAND_SESSION_TTL_SECONDS * 1000,
     policyConsent,
-    statusConsent: null,
   };
+  const snapshots = snapshotsFromPlayerInfo(info, roles, selectedUid, sklandLayoutSuggestion(info));
   return {
     session,
-    snapshot: scheduleSnapshotFromPlayerInfo(info, roles, sklandLayoutSuggestion(info)),
+    snapshot: snapshots.scheduleSnapshot,
+    statusSnapshot: snapshots.statusSnapshot,
   };
 }
 
@@ -225,7 +236,12 @@ export async function pollScan(scanId: string): Promise<{
     const completed = await completeOAuthLogin(pending.client, oauthToken, pending.policyConsent);
     pendingScans.delete(scanId);
     return {
-      response: { success: true, status: "authenticated", scheduleSnapshot: completed.snapshot },
+      response: {
+        success: true,
+        status: "authenticated",
+        scheduleSnapshot: completed.snapshot,
+        statusSnapshot: completed.statusSnapshot,
+      },
       session: completed.session,
     };
   } catch (error) {
@@ -249,13 +265,18 @@ export async function pollScan(scanId: string): Promise<{
 export async function loadSessionSnapshot(payload: SklandSessionPayload, forceRefresh = false): Promise<{
   session: SklandSessionPayload;
   snapshot: SklandScheduleSnapshot;
+  statusSnapshot: SklandStatusSnapshot;
 }> {
   try {
     const client = await seedClient(payload);
     const refreshed = await refreshedPayload(client, payload, forceRefresh);
     if (refreshed.token !== payload.token) await client.storage.setItem(STORAGE_OAUTH_TOKEN_KEY, refreshed.token);
     const result = await scheduleWithClient(client, refreshed);
-    return { session: result.payload, snapshot: result.snapshot };
+    return {
+      session: result.payload,
+      snapshot: result.snapshot,
+      statusSnapshot: result.statusSnapshot,
+    };
   } catch (error) {
     throw publicError(error);
   }
@@ -264,6 +285,7 @@ export async function loadSessionSnapshot(payload: SklandSessionPayload, forceRe
 export async function syncSessionSnapshot(payload: SklandSessionPayload): Promise<{
   session: SklandSessionPayload;
   snapshot: SklandScheduleSnapshot;
+  statusSnapshot: SklandStatusSnapshot;
 }> {
   const key = createHash("sha256").update(payload.cred).digest("hex").slice(0, 24);
   assertRate(`sync:${key}`, 30, 60 * 60_000);
@@ -273,6 +295,7 @@ export async function syncSessionSnapshot(payload: SklandSessionPayload): Promis
 export async function selectSessionRole(payload: SklandSessionPayload, uid: string): Promise<{
   session: SklandSessionPayload;
   snapshot: SklandScheduleSnapshot;
+  statusSnapshot: SklandStatusSnapshot;
 }> {
   if (!uid.trim()) throw new SklandServiceError("BAD_DATA", "缺少要切换的角色 UID。", 400);
   return loadSessionSnapshot({ ...payload, selectedUid: uid.trim() });

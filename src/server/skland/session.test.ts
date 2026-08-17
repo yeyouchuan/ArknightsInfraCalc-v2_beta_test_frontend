@@ -20,7 +20,6 @@ import {
   unsealSklandAccountIndex,
   unsealSklandSession,
   upsertSklandAccount,
-  withSklandStatusConsent,
 } from "./session.ts";
 import { isCurrentPolicyConsent, PRIVACY_VERSION, TERMS_VERSION } from "../../legal-policy.ts";
 
@@ -35,7 +34,7 @@ test("credential retention is fixed at seven days", () => {
 
 function sessionFor(userId: string, selectedUid = `${userId}-uid`): SklandSessionPayload {
   return {
-    version: 2,
+    version: 3,
     cred: `cred-${userId}`,
     token: `token-${userId}`,
     dId: `did-${userId}`,
@@ -48,7 +47,6 @@ function sessionFor(userId: string, selectedUid = `${userId}-uid`): SklandSessio
       privacyVersion: PRIVACY_VERSION,
       acceptedAt: now,
     },
-    statusConsent: null,
   };
 }
 
@@ -109,16 +107,19 @@ test("public account summaries recursively exclude every credential and upstream
     "credentialExpiresAt",
     "roles",
     "selectedUid",
-    "statusAuthorized",
   ]);
 });
 
-test("status authorization is independent and does not extend credential expiry", () => {
-  const session = sessionFor("consent");
-  const granted = withSklandStatusConsent(session, true, now + 5_000);
-  assert.equal(granted.expiresAt, session.expiresAt);
-  assert.equal(granted.statusConsent?.privacyVersion, PRIVACY_VERSION);
-  assert.equal(withSklandStatusConsent(granted, false).statusConsent, null);
+test("legacy split-consent sessions are rejected after status access becomes part of login", () => {
+  const legacy = { ...sessionFor("legacy"), version: 2, statusConsent: null };
+  assert.equal(
+    unsealSklandSession(
+      sealSklandSession(legacy as unknown as SklandSessionPayload, secret),
+      secret,
+      now
+    ),
+    null
+  );
 });
 
 test("data owner tags are deterministic, account-specific, and do not reveal the upstream id", () => {

@@ -1,8 +1,7 @@
 "use client";
 
-import { BookOpenText, Calculator, Cloud, GraduationCap } from "lucide-react";
+import { Calculator, Cloud, GraduationCap, Search } from "lucide-react";
 
-import { CLIENT_SKLAND_ENABLED } from "@/client-features";
 import {
   Sidebar,
   SidebarContent,
@@ -14,7 +13,9 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-export type AppPage = "calculator" | "skills" | "training" | "skland";
+
+const CLIENT_SKLAND_ENABLED = process.env.APP_CLIENT_SKLAND_ENABLED === "1";
+export type AppPage = "calculator" | "training" | "skland" | "skill-query";
 
 interface AppSidebarProps {
   page: AppPage;
@@ -49,22 +50,22 @@ export function AppSidebar({ page, onPageChange }: AppSidebarProps) {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={page === "skills"}
-                onClick={() => handlePageChange("skills")}
-                tooltip="技能查询"
-              >
-                <BookOpenText className="size-5" />
-                <span>技能查询</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
                 isActive={page === "training"}
                 onClick={() => handlePageChange("training")}
                 tooltip="练卡建议"
               >
                 <GraduationCap className="size-5" />
                 <span>练卡建议</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={page === "skill-query"}
+                onClick={() => handlePageChange("skill-query")}
+                tooltip="技能查询"
+              >
+                <Search className="size-5" />
+                <span>技能查询</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             {CLIENT_SKLAND_ENABLED ? (

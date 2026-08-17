@@ -60,3 +60,21 @@ const ROOM_VISUALS: Record<string, RoomVisual> = {
 export function roomVisualFor(group: string): RoomVisual {
   return ROOM_VISUALS[group] ?? ROOM_VISUALS.default;
 }
+
+const LIGHT_SURFACE_ROOM_ACCENTS: Record<string, string> = {
+  trading: ROOM_VISUALS.trading.accent,
+  manufacture: ROOM_VISUALS.manufacture.accent,
+  power: ROOM_VISUALS.power.accent,
+  control: "#D58A32",
+  dormitory: ROOM_VISUALS.dormitory.accent,
+  meeting: "#71717A",
+  processing: "#71717A",
+  hire: "#71717A",
+  training: "#71717A",
+  default: "#71717A",
+};
+
+/** Facility identity colour adapted from the dark schedule board for light surfaces. */
+export function roomLightAccentFor(group: string): string {
+  return LIGHT_SURFACE_ROOM_ACCENTS[group] ?? LIGHT_SURFACE_ROOM_ACCENTS.default;
+}

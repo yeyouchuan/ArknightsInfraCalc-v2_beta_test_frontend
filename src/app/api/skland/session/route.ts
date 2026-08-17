@@ -50,6 +50,7 @@ export async function GET(request: Request) {
       accounts: sklandAccountSummaries(loaded.store),
       activeAccountId: loaded.store.activeAccountId,
       ...(loaded.snapshot ? { scheduleSnapshot: loaded.snapshot } : {}),
+      ...(loaded.statusSnapshot ? { statusSnapshot: loaded.statusSnapshot } : {}),
     }, requestId);
     setSklandAccountStoreCookies(response, request, loaded.store, previous);
     return response;
@@ -84,6 +85,7 @@ export async function DELETE(request: Request) {
       accounts: sklandAccountSummaries(loaded.store),
       activeAccountId: loaded.store.activeAccountId,
       ...(loaded.snapshot ? { scheduleSnapshot: loaded.snapshot } : {}),
+      ...(loaded.statusSnapshot ? { statusSnapshot: loaded.statusSnapshot } : {}),
     }, requestId);
     setSklandAccountStoreCookies(response, request, loaded.store, previous);
     return response;

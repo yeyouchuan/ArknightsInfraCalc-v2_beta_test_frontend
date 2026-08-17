@@ -5,8 +5,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
-  Copy,
   Download,
   FileWarning,
   Loader2,
@@ -16,9 +14,10 @@ import {
   Smile,
   Upload,
 } from "lucide-react";
-import { CSSProperties, ChangeEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { ThinkingOrb } from "thinking-orbs";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { CSSProperties, ChangeEvent, ReactElement, ReactNode, useEffect, useRef, useState } from "react";
 
+import { AnimatedNumber, AnimatedText } from "@/components/AnimatedText";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionItem, AccordionPanel, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
@@ -45,8 +44,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { operatorProfessionPresentation } from "@/operatorPortraits";
+import { OperatorSkillTooltip } from "@/components/OperatorSkillTooltip";
+import {
+  BUILDING_SKILL_ENHANCED_WORD,
+  buildingSkillUnlockLabel,
+  buildingSkillUnlockPrefix,
+  operatorProfessionPresentation,
+} from "@/operatorPortraits";
 import { roomVisualFor } from "@/room-visuals";
+import {
+  MOTION_DURATION,
+  MOTION_EASE_IN_OUT,
+  MOTION_EASE_OUT,
+  type ShiftDirection,
+} from "@/motion";
 
 export { roomVisualFor } from "@/room-visuals";
 
@@ -61,7 +72,7 @@ import {
   roomKindLabel,
   tradeOrderFor,
 } from "./blueprint";
-import { CompactScheduleView } from "@/components/CompactScheduleView";
+import { CompactScheduleSkeleton, CompactScheduleView } from "@/components/CompactScheduleView";
 import { manufacturePoolReady, presentRoomEfficiency, profileEfficiency, RoomEfficiencyPresentation } from "./efficiency";
 import {
   relativeMetricDelta,
@@ -93,7 +104,6 @@ import {
 } from "./schedule-list-layout";
 import {
   BaseBlueprint,
-  DisplayError,
   FeedbackData,
   IssueReport,
   MaaJson,
@@ -106,7 +116,7 @@ import {
 
 type Option<T extends string> = {
   value: T;
-  label: string;
+  label: ReactNode;
 };
 
 export function ProductToggleGroup<T extends string>({
@@ -144,7 +154,9 @@ export function ProductToggleGroup<T extends string>({
       className={cn(
         "grid",
         compactRoomProductControls
-          ? "w-fit grid-cols-[repeat(2,70px)] gap-x-2 gap-y-2.5 sm:grid-cols-[repeat(2,90px)]"
+          ? tone === "factory"
+            ? "w-full grid-cols-3 gap-x-2 gap-y-2.5 sm:w-fit sm:grid-cols-[repeat(2,90px)]"
+            : "w-fit grid-cols-[repeat(2,70px)] gap-x-2 gap-y-2.5 sm:grid-cols-[repeat(2,90px)]"
           : cn(
               "w-full",
               fillRoomProductControls && "gap-x-2 gap-y-2.5",
@@ -168,6 +180,7 @@ export function ProductToggleGroup<T extends string>({
               surface === "room" && "infra-room-control border-white/20 bg-[#3C3C3C]/70 px-1.5 text-xs text-white hover:bg-[#4B4B4B] hover:text-white sm:px-2",
               surface === "default" && "min-h-10",
               compactRoomProductControls && "max-w-[90px] max-sm:max-w-[70px]",
+              compactRoomProductControls && tone === "factory" && "w-full",
               fillRoomProductControls && "w-full",
               tone === "trade" &&
                 "aria-pressed:border-[#22BBFF] aria-pressed:bg-[#22BBFF] aria-pressed:text-[#313131] data-[state=on]:border-[#22BBFF] data-[state=on]:bg-[#22BBFF] data-[state=on]:text-[#313131]",
@@ -241,7 +254,7 @@ export function FileDrop({
   }
 
   return (
-    <Label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-[4px] border border-dashed bg-background px-4 py-5 text-center transition-[color,background-color,border-color,scale] duration-150 ease-out active:scale-[0.96] hover:border-primary/40 hover:bg-muted/40 motion-reduce:transform-none">
+    <Label pressable className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-[4px] border border-dashed bg-background px-4 py-5 text-center transition-[color,background-color,border-color] duration-[var(--motion-duration-state)] ease-[var(--motion-ease-out)] hover:border-primary/40 hover:bg-muted/40">
       <Upload className="size-5 text-primary" />
       <span className="font-medium text-foreground">{fileName ?? "上传练度 JSON / XLSX"}</span>
       <span className="text-xs text-muted-foreground">
@@ -278,7 +291,7 @@ export function PresetSelector({
           value={preset.label}
           variant="outline"
           className={cn(
-            "infra-preset-surface group/preset relative isolate h-auto min-h-18 justify-between overflow-hidden rounded-none border border-white/10 bg-[#272A2B] px-3 py-3 text-left text-white transition-[background-color,border-color,scale] duration-150 ease-out hover:border-white/22 hover:bg-[#303435] hover:text-white active:scale-[0.96] motion-reduce:transform-none",
+            "infra-preset-surface group/preset relative isolate h-auto min-h-18 justify-between overflow-hidden rounded-none border border-white/10 bg-[#272A2B] px-3 py-3 text-left text-white transition-[background-color,border-color] duration-[var(--motion-duration-state)] ease-[var(--motion-ease-out)] hover:border-white/22 hover:bg-[#303435] hover:text-white",
             selected.label === preset.label && "border-[#FFD800]/72 bg-[#303027] text-white hover:border-[#FFD800]/82 hover:bg-[#343329] hover:text-white"
           )}
         >
@@ -556,119 +569,24 @@ export function LayoutEditor({
   );
 }
 
-export function StatusBar({
-  loading,
-  result,
-  error,
-  ready,
-  onRetry,
-  onCopyDiagnostic,
-  className,
-}: {
-  loading: boolean;
-  result: PublicPlanData | null;
-  error: DisplayError | null;
-  ready: boolean;
-  onRetry: () => void;
-  onCopyDiagnostic: () => void;
-  className?: string;
-}) {
-  const content = (() => {
-    if (loading) {
-      return {
-        icon: (
-          <ThinkingOrb
-            state="solving"
-            size={20}
-            theme="light"
-            aria-hidden="true"
-            className="shrink-0"
-            data-slot="solving-orb"
-          />
-        ),
-        text: "正在生成排班",
-        className: "border-blue-200 bg-blue-50 text-blue-700",
-      };
-    }
-    if (error) {
-      return {
-        icon: <AlertTriangle className="size-4" />,
-        text: `${error.message}（${error.code}）`,
-        className: "border-destructive/30 bg-destructive/10 text-destructive",
-      };
-    }
-    if (result) {
-      return {
-        icon: <CheckCircle2 className="size-4" />,
-        text: "排班已生成",
-        className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-      };
-    }
-    return {
-      icon: <CircleHelp className="size-4" />,
-      text: ready ? "排班服务已就绪" : "排班暂不可用",
-      className: ready
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-        : "border-border bg-background text-muted-foreground",
-    };
-  })();
-
-  return (
-    <div
-      data-slot="plan-status"
-      className={cn(
-        "surface-shadow flex h-7 min-w-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-0 text-sm max-sm:h-11 max-sm:px-2",
-        content.className,
-        className
-      )}
-      role={error ? "alert" : "status"}
-      aria-live={error ? "assertive" : "polite"}
-    >
-      <span className="flex size-5 shrink-0 items-center justify-center" aria-hidden="true">
-        {content.icon}
-      </span>
-      <span
-        className={cn(
-          "min-w-0 flex-1 truncate",
-          !error && "tabular-nums",
-          loading && "plan-status-shimmer"
-        )}
-        data-slot="status-text"
-        data-text={loading ? content.text : undefined}
-      >
-        {content.text}
-      </span>
-      {error ? (
-        <span className="flex shrink-0 items-center gap-1">
-          {error.retryable ? (
-            <Button type="button" size="icon-sm" variant="ghost" className="max-sm:size-11" aria-label="重试" onClick={onRetry}>
-              <RotateCcw />
-            </Button>
-          ) : null}
-          <Button type="button" size="icon-sm" variant="ghost" className="max-sm:size-11" aria-label="复制诊断编号" onClick={onCopyDiagnostic}>
-            <Copy />
-          </Button>
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
 export function RunButton({
   canRun,
   loading,
+  plannerReady,
   onRun,
 }: {
   canRun: boolean;
   loading: boolean;
+  plannerReady: boolean;
   onRun: () => void;
 }) {
+  const unavailableLabel = plannerReady ? "请先导入干员数据" : "排班服务暂不可用";
   return (
     <Button
       size="sm"
-      className="min-w-0 max-sm:h-11 max-sm:px-3 max-sm:text-xs"
-      aria-label={loading ? "计算中" : canRun ? "生成排班" : "请先导入干员数据"}
-      title={!canRun ? "请先导入干员数据，并等待排班服务就绪。" : undefined}
+      className="h-9 min-w-0 max-sm:h-11 max-sm:px-3 max-sm:text-xs"
+      aria-label={loading ? "计算中" : canRun ? "生成排班" : unavailableLabel}
+      title={!canRun ? (plannerReady ? "请先导入干员数据。" : "排班服务暂不可用，请稍后重试。") : undefined}
       onClick={onRun}
       disabled={!canRun || loading}
     >
@@ -719,7 +637,7 @@ export function ShiftTabs({
               aria-label={teamSummary ? `${label}，${teamSummary}` : label}
             >
               {label}
-              {closest === index ? <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">最接近</span> : null}
+              {closest === index ? <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary max-md:hidden">最接近</span> : null}
             </TabsTrigger>
           );
         })}
@@ -744,12 +662,15 @@ export function PlanTelemetry({
   rotation,
   layout,
   activeShift,
+  planRevision,
 }: {
   profile?: UserProfile;
   rotation?: RotationJson;
   layout: BaseBlueprint;
   activeShift: number;
+  planRevision?: string;
 }) {
+  const shouldReduceMotion = useReducedMotion();
   if (!profile && !rotation) return null;
 
   const active = rotation?.shifts?.[activeShift];
@@ -792,7 +713,29 @@ export function PlanTelemetry({
   const domains = profile?.domains ?? [];
 
   return (
-    <section className="mb-4 overflow-hidden border-y border-[#313131]/15 bg-[#F3F1EA]" aria-label="效率概览">
+    <motion.section
+      className="mb-4 overflow-hidden border-y border-[#313131]/15 bg-[#F3F1EA]"
+      aria-label="效率概览"
+      data-plan-summary
+      data-plan-revision={planRevision}
+      initial={{
+        opacity: 0,
+        y: shouldReduceMotion ? 0 : 8,
+      }}
+      animate={{
+        opacity: 1,
+        y: 0,
+      }}
+      exit={{
+        opacity: 0,
+        y: shouldReduceMotion ? 0 : -4,
+      }}
+      transition={{
+        duration: shouldReduceMotion ? MOTION_DURATION.feedback : MOTION_DURATION.emphasis,
+        delay: shouldReduceMotion ? 0 : 0.06,
+        ease: MOTION_EASE_OUT,
+      }}
+    >
       <div className="grid grid-cols-[auto_1fr] items-stretch max-md:grid-cols-1">
         <div className="flex min-w-36 flex-col justify-center bg-[#313131] px-4 py-3 text-white">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-white/55">效率概览</span>
@@ -805,7 +748,7 @@ export function PlanTelemetry({
           </span>
         </div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] divide-x divide-[#313131]/10 max-sm:divide-x-0 max-sm:grid-cols-2">
-          {dailyMetrics.map((metric) => {
+          {dailyMetrics.map((metric, metricIndex) => {
             const value = rotationMetricValue(metric.kind, metric.value);
             const displayDigits = metric.kind === "trade" ? 3 : 1;
             const baseline = typeof metric.baseline === "number"
@@ -815,10 +758,24 @@ export function PlanTelemetry({
               ? relativeMetricDelta(metric.value, metric.baseline)
               : undefined;
             return (
-              <div key={metric.label} className="px-4 py-3">
+              <motion.div
+                key={metric.label}
+                className="px-4 py-3"
+                data-plan-metric
+                initial={{
+                  opacity: 0,
+                  y: shouldReduceMotion ? 0 : 4,
+                }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: shouldReduceMotion ? MOTION_DURATION.feedback : MOTION_DURATION.content,
+                  delay: shouldReduceMotion ? 0 : 0.06 + metricIndex * 0.045,
+                  ease: MOTION_EASE_OUT,
+                }}
+              >
                 <span className="font-number block text-xs text-[#313131]/58">{metric.label}</span>
                 <strong className="font-technical mt-0.5 block text-lg font-semibold tabular-nums tracking-[0.01em] text-[#313131]">
-                  {compactNumber(value, displayDigits)}{metric.suffix}
+                  <AnimatedNumber value={`${compactNumber(value, displayDigits)}${metric.suffix}`} />
                 </strong>
                 <span className="mt-0.5 block whitespace-nowrap text-[10px] tabular-nums text-[#313131]/52">
                   参考 {baseline === undefined ? "—" : `${compactNumber(baseline, displayDigits)}${metric.suffix}`}
@@ -828,19 +785,34 @@ export function PlanTelemetry({
                     </span>
                   )}
                 </span>
-              </div>
+              </motion.div>
             );
           })}
           {active ? (
-            <div className="px-4 py-3">
+            <motion.div
+              className="px-4 py-3"
+              data-plan-metric
+              initial={{
+                opacity: 0,
+                y: shouldReduceMotion ? 0 : 4,
+              }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: shouldReduceMotion ? MOTION_DURATION.feedback : MOTION_DURATION.content,
+                delay: shouldReduceMotion ? 0 : 0.06 + dailyMetrics.length * 0.045,
+                ease: MOTION_EASE_OUT,
+              }}
+            >
               <span className="block text-xs text-[#313131]/58">当前班次</span>
               <strong className="font-technical mt-0.5 block text-lg font-semibold tabular-nums tracking-[0.01em] text-[#313131]">
-                {compactNumber(active.duration_hours)}h
+                <AnimatedNumber value={`${compactNumber(active.duration_hours)}h`} />
               </strong>
               {activeTeamSummary ? (
-                <span className="mt-0.5 block whitespace-nowrap text-[10px] text-[#313131]/52">{activeTeamSummary}</span>
+                <span className="mt-0.5 block whitespace-nowrap text-[10px] text-[#313131]/52">
+                  <AnimatedText value={activeTeamSummary} />
+                </span>
               ) : null}
-            </div>
+            </motion.div>
           ) : null}
         </div>
       </div>
@@ -908,12 +880,16 @@ export function PlanTelemetry({
           </div>
         </details>
       ) : null}
-    </section>
+    </motion.section>
   );
 }
 
 const ROOM_SLOT_COUNT = 5;
 const AUXILIARY_ROOM_GROUPS = new Set(["dormitory", "hire", "meeting", "processing"]);
+
+function scheduleIssueTriggerId(row: RoomRow) {
+  return `schedule-issue-${row.key}`;
+}
 
 function roomSlotCountFor(group: string) {
   if (group === "trading" || group === "manufacture") return 3;
@@ -952,19 +928,34 @@ export function LevelDiamonds({
   );
 }
 
-export function RoomEfficiencyReadout({ value, details = true }: { value: RoomEfficiencyPresentation; details?: boolean }) {
+export function RoomEfficiencyReadout({
+  value,
+  details = true,
+  trend = 0,
+}: {
+  value: RoomEfficiencyPresentation;
+  details?: boolean;
+  trend?: ShiftDirection;
+}) {
   return (
     <div className="min-w-0" title={value.details.map((detail) => `${detail.label} ${detail.value}`).join(" · ")}>
       <div className="flex min-w-0 items-center gap-1.5">
-        <strong className="infra-room-value font-technical shrink-0 text-base font-semibold tabular-nums tracking-[0.01em] text-[var(--room-accent)] max-sm:text-xs">{value.primaryValue}</strong>
-        <span className="truncate text-xs font-medium text-white/68">{value.primaryLabel}</span>
+        <strong
+          className="infra-room-value font-technical shrink-0 text-base font-semibold tabular-nums tracking-[0.01em] text-[var(--room-accent)] max-sm:text-xs"
+          data-room-primary-efficiency
+        >
+          <AnimatedNumber value={value.primaryValue} trend={trend} />
+        </strong>
+        <span className="truncate text-xs font-medium text-white/68">
+          <AnimatedText value={value.primaryLabel} trend={trend} />
+        </span>
         {value.includesCrossStation ? <span className="shrink-0 bg-white/12 px-1 text-xs font-normal text-white/82">含跨设施</span> : null}
       </div>
       {details && value.details.length ? (
         <div className="font-technical mt-1 flex max-h-9 flex-wrap gap-x-2 gap-y-0.5 overflow-hidden text-xs leading-4 tracking-[0.01em] text-white/60 max-sm:max-h-none">
           {value.details.map((detail) => (
-            <span key={`${detail.label}-${detail.value}`} className={detail.kind === "cross-station" ? "font-semibold text-[#C8F75A]" : undefined}>
-              {detail.label} <span className="font-number">{detail.value}</span>
+            <span key={`${detail.kind}-${detail.label}`} className={detail.kind === "cross-station" ? "font-semibold text-[#C8F75A]" : undefined}>
+              {detail.label} <span className="font-number"><AnimatedText value={detail.value} trend={trend} /></span>
             </span>
           ))}
         </div>
@@ -976,9 +967,11 @@ export function RoomEfficiencyReadout({ value, details = true }: { value: RoomEf
 function RoomEfficiencyDetails({
   value,
   compactFactory = false,
+  trend = 0,
 }: {
   value: RoomEfficiencyPresentation | null;
   compactFactory?: boolean;
+  trend?: ShiftDirection;
 }) {
   if (!value?.details.length) return null;
 
@@ -992,13 +985,13 @@ function RoomEfficiencyDetails({
     >
       {value.details.map((detail) => (
         <span
-          key={`${detail.label}-${detail.value}`}
+          key={`${detail.kind}-${detail.label}`}
           className={cn(
             "whitespace-nowrap",
             detail.kind === "cross-station" && "font-semibold text-[#C8F75A]"
           )}
         >
-          {detail.label} <span className="font-number">{detail.value}</span>
+          {detail.label} <span className="font-number"><AnimatedText value={detail.value} trend={trend} /></span>
         </span>
       ))}
     </div>
@@ -1071,6 +1064,7 @@ function OperatorSlotShell({
   compactView,
   frameClassName,
   frameContent,
+  frameWrapper = (frame) => frame,
   label,
   labelClassName,
   title,
@@ -1081,10 +1075,25 @@ function OperatorSlotShell({
   compactView: boolean;
   frameClassName: string;
   frameContent?: ReactNode;
-  label: string;
+  /** 可选：包装头像框元素（例如包上技能 tooltip 的 trigger）。默认原样返回。 */
+  frameWrapper?: (frame: ReactElement) => ReactElement;
+  label: ReactNode;
   labelClassName: string;
   title?: string;
 }) {
+  const frame = (
+    <div
+      className={cn(
+        "relative aspect-square h-[var(--operator-slot-size)] min-w-0 shrink-0 overflow-hidden border-2 max-sm:border",
+        frameClassName,
+        centerFrameInList && "max-sm:h-auto max-sm:w-full sm:absolute sm:left-0 sm:top-1/2 sm:-translate-y-1/2",
+      )}
+      aria-label={ariaLabel}
+    >
+      {frameContent}
+    </div>
+  );
+
   return (
     <div
       className={cn(
@@ -1097,16 +1106,7 @@ function OperatorSlotShell({
       )}
       title={title}
     >
-      <div
-        className={cn(
-          "relative aspect-square h-[var(--operator-slot-size)] min-w-0 shrink-0 overflow-hidden border-2 max-sm:border",
-          frameClassName,
-          centerFrameInList && "max-sm:h-auto max-sm:w-full sm:absolute sm:left-0 sm:top-1/2 sm:-translate-y-1/2",
-        )}
-        aria-label={ariaLabel}
-      >
-        {frameContent}
-      </div>
+      {frameWrapper(frame)}
       <span
         className={cn(
           "mt-0.5 block truncate text-center leading-tight",
@@ -1121,16 +1121,9 @@ function OperatorSlotShell({
   );
 }
 
-function buildingSkillUnlockLabel(elite: number, level: number): string {
-  if (elite === 0 && level === 1) return "初始解锁";
-  if (elite === 0) return `等级 ${level} 解锁`;
-  if (level === 1) return `精英 ${elite} 解锁`;
-  return `精英 ${elite} · 等级 ${level} 解锁`;
-}
-
 function BuildingSkillBadge({ skill }: { skill: NonNullable<RoomRow["operatorSlots"][number]["buildingSkill"]> }) {
   const [open, setOpen] = useState(false);
-  const unlockLabel = buildingSkillUnlockLabel(skill.elite, skill.level);
+  const unlockLabel = buildingSkillUnlockLabel(skill.elite, skill.level, skill.enhanced);
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
       <TooltipTrigger
@@ -1154,7 +1147,16 @@ function BuildingSkillBadge({ skill }: { skill: NonNullable<RoomRow["operatorSlo
         className="max-w-80 flex-col items-start gap-1.5 whitespace-normal px-3 py-2 text-left leading-relaxed"
       >
         <span className="font-semibold">S<span className="font-number">{skill.index}</span> · {skill.name}</span>
-        <span className="text-background/72">{unlockLabel}</span>
+        <span className="text-background/72">
+          {skill.enhanced ? (
+            <>
+              <span>{buildingSkillUnlockPrefix(skill.elite, skill.level)}</span>
+              <span className="text-[#22BBFF]">{BUILDING_SKILL_ENHANCED_WORD}</span>
+            </>
+          ) : (
+            unlockLabel
+          )}
+        </span>
         <span>{skill.description}</span>
       </TooltipContent>
     </Tooltip>
@@ -1168,6 +1170,11 @@ export function OperatorSlot({
   compactFactory = false,
   compactView = false,
   centerFrameInList = false,
+  shiftDirection = 0,
+  transitionDelay = 0,
+  portraitSize = 180,
+  showSkillTooltip = false,
+  searchQuery = "",
 }: {
   slot: RoomRow["operatorSlots"][number] | undefined;
   currentMorale?: number;
@@ -1175,103 +1182,140 @@ export function OperatorSlot({
   compactFactory?: boolean;
   compactView?: boolean;
   centerFrameInList?: boolean;
+  shiftDirection?: ShiftDirection;
+  transitionDelay?: number;
+  portraitSize?: number;
+  /** 悬停卡片时展示干员全部基建技能 tooltip，并关闭卡片自身的原生 title hover。 */
+  showSkillTooltip?: boolean;
+  searchQuery?: string;
 }) {
-  if (!slot) {
-    if (autofill) {
-      return (
-        <OperatorSlotShell
-          ariaLabel="自动补位"
-          centerFrameInList={centerFrameInList}
-          compactFactory={compactFactory}
-          compactView={compactView}
-          frameClassName="border-[#666] bg-[#3C3C3C] shadow-[inset_0_0_18px_rgba(255,255,255,0.08)]"
-          frameContent={
-            <span className="flex h-full items-center justify-center text-xs font-semibold tracking-[0.14em] text-white/55">
-              AUTO
-            </span>
-          }
-          label="自动补位"
-          labelClassName="text-white/55"
-        />
-      );
-    }
+  const shouldReduceMotion = useReducedMotion();
+  const identity = slot?.name ?? (autofill ? "autofill" : "empty");
+  const suppressNativeTitles = showSkillTooltip && slot !== undefined;
+  const profession = slot ? operatorProfessionPresentation(slot.name) : null;
+  const enterX = shouldReduceMotion ? 0 : shiftDirection * 6;
+  const exitX = shouldReduceMotion ? 0 : shiftDirection * -4;
+  const ariaLabel = slot?.name ?? (autofill ? "自动补位" : "空置");
+  const searchMatched = Boolean(slot && searchQuery && slot.name.toLocaleLowerCase("zh-CN").includes(searchQuery));
+  const frameClassName = slot
+    ? "border-[#7F7F7F] bg-[#3C3C3C] shadow-[inset_0_0_18px_rgba(255,255,255,0.16)]"
+    : autofill
+      ? "border-[#666] bg-[#3C3C3C] shadow-[inset_0_0_18px_rgba(255,255,255,0.08)]"
+      : "border-[#4B4B4B] bg-[#3C3C3C]";
 
-    return (
-      <OperatorSlotShell
-        ariaLabel="空置"
-        centerFrameInList={centerFrameInList}
-        compactFactory={compactFactory}
-        compactView={compactView}
-        frameClassName="border-[#4B4B4B] bg-[#3C3C3C] after:absolute after:left-1/2 after:top-1/2 after:h-0.5 after:w-[78%] after:origin-center after:-translate-x-1/2 after:-translate-y-1/2 after:rotate-[-45deg] after:bg-[#4B4B4B] after:content-['']"
-        label="占"
-        labelClassName="text-transparent select-none"
-      />
-    );
-  }
-
-  const profession = operatorProfessionPresentation(slot.name);
-  return (
+  const shell = (
     <OperatorSlotShell
+      ariaLabel={ariaLabel}
       centerFrameInList={centerFrameInList}
       compactFactory={compactFactory}
       compactView={compactView}
-      frameClassName="border-[#7F7F7F] bg-[#3C3C3C] shadow-[inset_0_0_18px_rgba(255,255,255,0.16)]"
+      frameClassName={frameClassName}
       frameContent={
-        <>
-          {slot.portrait ? (
-            <>
-              <img src={slot.portrait} alt={slot.name} className="absolute inset-0 h-full w-full object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
-              {profession ? (
-                <img
-                  src={profession.icon}
-                  alt={`职业：${profession.label}`}
-                  title={`职业：${profession.label}`}
-                  className="absolute left-0 top-0 z-10 h-[25%] w-auto"
-                />
-              ) : null}
-            </>
-          ) : (
-            <div className="flex h-full items-center justify-center bg-[#4B4B4B] px-2 text-center text-xs font-semibold text-white">
-              {slot.name}
-            </div>
-          )}
-          {slot.buildingSkill ? (
-            <BuildingSkillBadge skill={slot.buildingSkill} />
-          ) : typeof slot.skill === "number" ? (
-            <span
-              className="absolute right-0 top-0 z-10 flex size-9 items-center justify-center border-b border-l border-white/22 bg-black/76 text-xs font-semibold text-white"
-              aria-label={`基建技能 S${slot.skill}，暂无技能资料`}
-            >
-              S<span className="font-number">{slot.skill}</span>
-            </span>
-          ) : null}
-          {typeof currentMorale === "number" ? (
-          <span
-            className="absolute bottom-0.5 left-0.5 flex items-center gap-0.5 whitespace-nowrap rounded-sm bg-black/72 px-1 py-0.5 text-xs font-normal leading-none text-white shadow-[0_1px_3px_rgba(0,0,0,0.5)] [&_svg]:size-2.5 max-sm:bottom-0.5 max-sm:left-0.5 max-sm:px-0.5 max-sm:[&_svg]:size-2.5"
-            aria-label={`当前心情 ${currentMorale}/24`}
-            title={`当前心情 ${currentMorale}/24`}
+        <AnimatePresence initial={false} mode="sync">
+          <motion.div
+            key={identity}
+            className="absolute inset-0"
+            data-operator-identity={identity}
+            initial={{ opacity: 0, x: enterX }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{
+              opacity: 0,
+              x: exitX,
+              pointerEvents: "none",
+              transition: {
+                duration: MOTION_DURATION.fast,
+                ease: MOTION_EASE_OUT,
+              },
+            }}
+            transition={{
+              duration: shouldReduceMotion ? MOTION_DURATION.feedback : MOTION_DURATION.state,
+              delay: shouldReduceMotion ? 0 : transitionDelay,
+              ease: MOTION_EASE_OUT,
+            }}
           >
-            <Smile className="text-[#FFD501]" />
-            <span className="max-sm:hidden">当前</span>
-            <span className="font-number">{currentMorale}</span>
-          </span>
-          ) : null}
-        </>
+            {slot ? (
+              <>
+                {slot.portrait ? (
+                  <>
+                    <img
+                      src={slot.portrait}
+                      alt={slot.name}
+                      width={portraitSize}
+                      height={portraitSize}
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 h-full w-full object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+                    />
+                    {profession ? (
+                      <img
+                        src={profession.icon}
+                        alt=""
+                        aria-hidden="true"
+                        title={suppressNativeTitles ? undefined : `职业：${profession.label}`}
+                        className="absolute left-0 top-0 z-10 h-[25%] w-auto"
+                      />
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="flex h-full items-center justify-center bg-[#4B4B4B] px-2 text-center text-xs font-semibold text-white">
+                    <AnimatedText value={slot.name} trend={shiftDirection} />
+                  </div>
+                )}
+                {slot.buildingSkill ? (
+                  <BuildingSkillBadge skill={slot.buildingSkill} />
+                ) : typeof slot.skill === "number" ? (
+                  <span
+                    className="absolute right-0 top-0 z-10 flex size-9 items-center justify-center border-b border-l border-white/22 bg-black/76 text-xs font-semibold text-white"
+                    aria-label={`基建技能 S${slot.skill}，暂无技能资料`}
+                  >
+                    S<span className="font-number">{slot.skill}</span>
+                  </span>
+                ) : null}
+                {typeof currentMorale === "number" ? (
+                  <span
+                    className="absolute bottom-0.5 left-0.5 flex items-center gap-0.5 whitespace-nowrap rounded-sm bg-black/72 px-1 py-0.5 text-xs font-normal leading-none text-white shadow-[0_1px_3px_rgba(0,0,0,0.5)] [&_svg]:size-2.5 max-sm:bottom-0.5 max-sm:left-0.5 max-sm:px-0.5 max-sm:[&_svg]:size-2.5"
+                    aria-label={`当前心情 ${currentMorale}/24`}
+                    title={suppressNativeTitles ? undefined : `当前心情 ${currentMorale}/24`}
+                  >
+                    <Smile className="text-[#FFD501]" />
+                    <span className="max-sm:hidden">当前</span>
+                    <span className="font-number"><AnimatedText value={currentMorale} trend={shiftDirection} /></span>
+                  </span>
+                ) : null}
+              </>
+            ) : autofill ? (
+              <span className="flex h-full items-center justify-center text-xs font-semibold tracking-[0.14em] text-white/55">
+                AUTO
+              </span>
+            ) : (
+              <span className="absolute left-1/2 top-1/2 h-0.5 w-[78%] origin-center -translate-x-1/2 -translate-y-1/2 rotate-[-45deg] bg-[#4B4B4B]" aria-hidden="true" />
+            )}
+          </motion.div>
+        </AnimatePresence>
       }
-      label={slot.name}
-      labelClassName="text-white"
-      title={slot.label}
+      frameWrapper={showSkillTooltip && slot ? (frame) => <OperatorSkillTooltip name={slot.name} trigger={frame} /> : undefined}
+      label={slot ? <AnimatedText value={slot.name} trend={shiftDirection} /> : autofill ? "自动补位" : "占"}
+      labelClassName={slot ? (searchMatched ? "bg-[#FFD501] px-1 text-[#202020]" : "text-white") : autofill ? "text-white/55" : "text-transparent select-none"}
+      title={suppressNativeTitles ? undefined : slot?.label}
     />
   );
+
+  return shell;
 }
 
 export function ScheduleBoard({
   rows,
   layout,
+  planRevision,
   currentMoraleByOperator,
+  viewControlsSlot,
+  mobileActionsSlot,
   shiftInfoSlot,
   activeShift,
+  shiftDirection = 0,
   activePlan,
+  changedRoomIds = new Set<string>(),
+  searchQuery = "",
   onIssue,
   onFactoryRecipeChange,
   onTradeOrderChange,
@@ -1279,10 +1323,16 @@ export function ScheduleBoard({
 }: {
   rows: RoomRow[];
   layout: BaseBlueprint;
+  planRevision?: string;
   currentMoraleByOperator?: ReadonlyMap<string, number>;
+  viewControlsSlot?: ReactNode;
+  mobileActionsSlot?: ReactNode;
   shiftInfoSlot?: ReactNode;
   activeShift: number;
+  shiftDirection?: ShiftDirection;
   activePlan?: MaaPlan;
+  changedRoomIds?: ReadonlySet<string>;
+  searchQuery?: string;
   onIssue: (row: RoomRow) => void;
   onFactoryRecipeChange: (roomId: string, recipe: FactoryRecipe) => void;
   onTradeOrderChange: (roomId: string, order: TradeOrder) => void;
@@ -1292,7 +1342,10 @@ export function ScheduleBoard({
   const [hiddenGroups, setHiddenGroups] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<"list" | "compact">("list");
   const [supportsCompactLayout, setSupportsCompactLayout] = useState(false);
+  const [viewModeReady, setViewModeReady] = useState(false);
   const preferredViewMode = useRef<"list" | "compact" | null>(null);
+  const shouldReduceMotion = useReducedMotion();
+
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
     const syncViewMode = (canUseCompactLayout: boolean) => {
@@ -1302,6 +1355,7 @@ export function ScheduleBoard({
         : "list";
       setViewMode(nextViewMode);
       onViewModeChange?.(nextViewMode);
+      setViewModeReady(true);
     };
 
     syncViewMode(mq.matches);
@@ -1318,7 +1372,11 @@ export function ScheduleBoard({
     );
   }
 
-  const rowGroups = buildListScheduleGroups(rows);
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase("zh-CN");
+  const visibleRows = normalizedQuery
+    ? rows.filter((row) => row.title.toLocaleLowerCase("zh-CN").includes(normalizedQuery) || row.operators.some((name) => name.toLocaleLowerCase("zh-CN").includes(normalizedQuery)))
+    : rows;
+  const rowGroups = buildListScheduleGroups(visibleRows);
   const auxiliaryGroups = rowGroups.filter((group) => AUXILIARY_ROOM_GROUPS.has(group.rows[0]?.group ?? ""));
   const hiddenAuxiliaryCount = auxiliaryGroups.filter((group) => hiddenGroups[group.label]).length;
   const allAuxiliaryCollapsed =
@@ -1368,6 +1426,7 @@ export function ScheduleBoard({
       <div className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
         <div className="flex flex-wrap items-center gap-2">
           <Tabs
+            className="max-md:hidden"
             value={viewMode}
             onValueChange={(value) => {
               const nextViewMode = value as "list" | "compact";
@@ -1383,24 +1442,63 @@ export function ScheduleBoard({
               <TabsTrigger value="list">列表式布局</TabsTrigger>
             </TabsList>
           </Tabs>
+          {viewControlsSlot}
+          {changedRoomIds.size ? <span className="text-xs text-amber-700">较上次求解变更 {changedRoomIds.size} 个房间</span> : null}
+          {viewMode === "list" && hiddenAuxiliaryCount ? (
+            <Button type="button" variant="ghost" size="sm" onClick={restoreHiddenAuxiliaryGroups}>
+              恢复已隐藏（<span className="font-number">{hiddenAuxiliaryCount}</span>）
+            </Button>
+          ) : null}
           {viewMode === "list" && auxiliaryGroups.length ? (
-            <div className="flex flex-wrap justify-end gap-2">
-              {hiddenAuxiliaryCount ? (
-                <Button type="button" variant="ghost" size="sm" onClick={restoreHiddenAuxiliaryGroups}>
-                  恢复已隐藏（<span className="font-number">{hiddenAuxiliaryCount}</span>）
-                </Button>
-              ) : null}
+            <div className="flex flex-wrap justify-end gap-2 max-md:w-full max-md:flex-nowrap max-md:items-center max-md:justify-between">
               <Button type="button" variant="outline" size="sm" onClick={toggleAuxiliaryGroups}>
-                <ChevronDown className={cn("transition-transform", allAuxiliaryCollapsed ? "-rotate-90" : "rotate-0")} />
+                <motion.span
+                  className="flex size-4 items-center justify-center"
+                  animate={{ rotate: allAuxiliaryCollapsed ? -90 : 0 }}
+                  transition={{ duration: MOTION_DURATION.fast, ease: MOTION_EASE_IN_OUT }}
+                  aria-hidden="true"
+                >
+                  <ChevronDown className="size-4" />
+                </motion.span>
                 {allAuxiliaryCollapsed ? "展开辅助设施" : "一键折叠辅助设施"}
               </Button>
+              {mobileActionsSlot ? <div className="min-w-0 flex-1 md:hidden">{mobileActionsSlot}</div> : null}
             </div>
-          ) : null}
+          ) : mobileActionsSlot ? <div className="w-full md:hidden">{mobileActionsSlot}</div> : null}
         </div>
         {shiftInfoSlot ? <div className="min-w-0 max-sm:w-full">{shiftInfoSlot}</div> : null}
       </div>
-      {viewMode === "list" ? (
-        <>
+      <motion.div
+        data-plan-board
+        data-plan-revision={planRevision || undefined}
+      >
+          <AnimatePresence initial={false} mode="wait">
+            <motion.div
+              key={viewMode}
+              data-schedule-view={viewMode}
+              initial={{
+                opacity: 0,
+                y: shouldReduceMotion ? 0 : 8,
+              }}
+              animate={{ opacity: 1, y: 0, pointerEvents: "auto" }}
+              exit={{
+                opacity: 0,
+                y: shouldReduceMotion ? 0 : -6,
+                pointerEvents: "none",
+                transition: {
+                  duration: shouldReduceMotion ? MOTION_DURATION.feedback : MOTION_DURATION.fast,
+                  ease: MOTION_EASE_IN_OUT,
+                },
+              }}
+              transition={{
+                duration: shouldReduceMotion ? MOTION_DURATION.feedback : MOTION_DURATION.content,
+                ease: MOTION_EASE_OUT,
+              }}
+            >
+        {!viewModeReady ? (
+          <CompactScheduleSkeleton />
+        ) : viewMode === "list" ? (
+          <>
           {rowGroups.map((group) => {
         const visual = roomVisualFor(group.rows[0]?.group ?? "default");
         const groupStyle = {
@@ -1422,7 +1520,14 @@ export function ScheduleBoard({
                 <span className="infra-room-accent h-7 w-1.5 shrink-0 bg-[var(--room-accent)]" aria-hidden="true" />
                 <h3 className="truncate text-[21px] font-medium leading-none text-[#313131]">{group.label}</h3>
                 <span className="font-number text-xs text-[#313131]/56">{group.rows.length}</span>
-                <ChevronDown className={cn("size-4 shrink-0 text-[#313131]/45 transition-transform", collapsed && "-rotate-90")} />
+                <motion.span
+                  className="flex size-4 shrink-0 items-center justify-center text-[#313131]/45"
+                  animate={{ rotate: collapsed ? -90 : 0 }}
+                  transition={{ duration: MOTION_DURATION.fast, ease: MOTION_EASE_IN_OUT }}
+                  aria-hidden="true"
+                >
+                  <ChevronDown className="size-4" />
+                </motion.span>
               </button>
               {auxiliary && collapsed ? (
                 <Button
@@ -1472,7 +1577,8 @@ export function ScheduleBoard({
                       listRoomHeightClass(row.group),
                       compactInlineRoom && "[container-type:inline-size]",
                       listFunctionalRoomSpanClass(row.group),
-                      row.suspicious && "ring-2 ring-destructive ring-offset-2"
+                      row.suspicious && "ring-2 ring-destructive ring-offset-2",
+                      changedRoomIds.has(row.roomId) && "ring-2 ring-amber-400 ring-offset-2"
                     )}
                     data-room-group={row.group}
                     data-room-title={row.title}
@@ -1489,7 +1595,7 @@ export function ScheduleBoard({
                         aria-hidden="true"
                       />
                       <div className="relative z-10 flex h-full flex-col justify-center gap-2 px-3 py-3 max-sm:justify-start max-sm:gap-2 max-sm:px-3 max-sm:py-3">
-                        <div className="max-sm:flex max-sm:items-center max-sm:gap-2">
+                        <div className="flex flex-col gap-2 max-sm:flex-row max-sm:items-center">
                           <div>
                             <div className="flex items-center gap-2.5 max-sm:gap-1.5">
                               <div className={cn("font-number min-w-0 truncate font-medium tracking-[-0.02em] text-white [text-shadow:0_2px_3px_rgba(0,0,0,0.75)]", listRoomTitleSizeClass())}>
@@ -1499,16 +1605,11 @@ export function ScheduleBoard({
                             </div>
                           </div>
                           {efficiency ? (
-                            <div className="hidden max-sm:block shrink-0">
-                              <RoomEfficiencyReadout value={efficiency} details={false} />
+                            <div className="shrink-0">
+                              <RoomEfficiencyReadout value={efficiency} details={false} trend={shiftDirection} />
                             </div>
                           ) : null}
                         </div>
-                        {efficiency ? (
-                          <div className="max-sm:hidden">
-                            <RoomEfficiencyReadout value={efficiency} details={false} />
-                          </div>
-                        ) : null}
                         <RoomProductControls
                           row={row}
                           layoutRoom={layoutRoom}
@@ -1544,17 +1645,21 @@ export function ScheduleBoard({
                       >
                         {slots.map((slot, index) => (
                           <OperatorSlot
-                            key={`${slot?.name ?? "empty"}-${index}`}
+                            key={`${row.key}-${index}`}
                             slot={slot}
                             currentMorale={slot ? currentMoraleByOperator?.get(slot.name) : undefined}
                             autofill={row.group === "dormitory" && row.autofill}
                             compactFactory={compactFactoryRoom}
                             centerFrameInList
+                            showSkillTooltip
+                            shiftDirection={shiftDirection}
+                            transitionDelay={Math.min(index, 2) * 0.02}
+                            searchQuery={normalizedQuery}
                           />
                         ))}
                       </div>
                       {compactInlineRoom ? null : (
-                        <RoomEfficiencyDetails value={efficiency} compactFactory={compactFactoryRoom} />
+                        <RoomEfficiencyDetails value={efficiency} compactFactory={compactFactoryRoom} trend={shiftDirection} />
                       )}
                     </div>
 
@@ -1562,6 +1667,7 @@ export function ScheduleBoard({
                       <TooltipTrigger
                         render={
                           <Button
+                            id={scheduleIssueTriggerId(row)}
                             type="button"
                             variant="ghost"
                             size="icon-sm"
@@ -1582,17 +1688,21 @@ export function ScheduleBoard({
           </section>
         );
       })}
-        </>
-      ) : (
-        <CompactScheduleView
-          rows={rows}
-          layout={layout}
-          currentMoraleByOperator={currentMoraleByOperator}
-          activeShift={activeShift}
-          activePlan={activePlan}
-          onIssue={onIssue}
-        />
-      )}
+          </>
+        ) : (
+          <CompactScheduleView
+            rows={visibleRows}
+            layout={layout}
+            currentMoraleByOperator={currentMoraleByOperator}
+            activeShift={activeShift}
+            activePlan={activePlan}
+            shiftDirection={shiftDirection}
+            onIssue={onIssue}
+          />
+        )}
+            </motion.div>
+          </AnimatePresence>
+      </motion.div>
     </div>
   );
 }
@@ -1615,19 +1725,28 @@ export function IssueNoteModal({
   onCancel: () => void;
 }) {
   const [consented, setConsented] = useState(false);
+  const returnFocusId = useRef<string | null>(null);
 
   useEffect(() => {
     if (open) setConsented(false);
   }, [open, row?.key]);
 
+  useEffect(() => {
+    if (row) returnFocusId.current = scheduleIssueTriggerId(row);
+  }, [row]);
+
   return (
     <Dialog
       open={open && Boolean(row)}
+      triggerId={row ? scheduleIssueTriggerId(row) : null}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) onCancel();
       }}
     >
-      <DialogContent className="max-w-[min(620px,calc(100vw-2rem))] sm:max-w-xl">
+      <DialogContent
+        className="max-w-[min(620px,calc(100vw-2rem))] sm:max-w-xl"
+        finalFocus={() => returnFocusId.current ? document.getElementById(returnFocusId.current) : true}
+      >
         <DialogHeader>
           <DialogTitle>{row?.title ?? "反馈排班问题"}</DialogTitle>
           <DialogDescription>反馈排班问题</DialogDescription>

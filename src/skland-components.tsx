@@ -132,6 +132,7 @@ export function SklandLoginPanel({
             accounts: result.accounts,
             activeAccountId: result.activeAccountId,
             scheduleSnapshot: result.scheduleSnapshot,
+            statusSnapshot: result.statusSnapshot,
           });
           setScanId(null);
           setScanUrl(null);
@@ -204,21 +205,14 @@ export function SklandLoginPanel({
           <div className="mt-7 grid gap-4 text-sm text-muted-foreground" data-ui-number-font>
             <p className="flex items-start gap-2">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
-              <span className="md:hidden">登录凭证加密存入 HttpOnly Cookie，最长保留 7 天。</span>
-              <span className="hidden md:inline">
-                登录凭证会加密存入此浏览器的 HttpOnly Cookie，请求期间由服务端解密使用，最长保留 7 天，不写入业务数据库。
-              </span>
+              <span>登录信息会加密保存在你的浏览器中，7 天后自动失效；本站不会另行长期保存。</span>
             </p>
             <CardDescription className="w-full text-pretty leading-6">
-              <span className="md:hidden">打开森空岛 App 扫码登录，成功后同步排班所需数据。</span>
+              <span className="md:hidden">打开森空岛 App 扫码登录，成功后同步排班与状态中心数据。</span>
               <span className="hidden md:inline">
-                打开森空岛 App，扫描页面中的二维码完成登录。登录成功后会同步当前角色的干员、基建布局和当前进驻。
+                打开森空岛 App，扫描页面中的二维码完成登录。登录成功后会同步当前角色的干员、基建布局和状态中心完整数据。
               </span>
             </CardDescription>
-            <p>
-              <span className="md:hidden">排班同步不会自动签到；状态中心需要另行授权。</span>
-              <span className="hidden md:inline">排班同步不会自动签到或读取社区内容；头像、理智、任务和游戏进度仅在你单独授权状态中心后展示。</span>
-            </p>
           </div>
         </div>
 
@@ -301,7 +295,14 @@ export function SklandLoginPanel({
                 <div className="grid w-full gap-2 sm:hidden">
                   <Button
                     nativeButton={false}
-                    render={<a href={sklandAppOpenUrl} target="_blank" rel="noreferrer" />}
+                    render={(
+                      <a
+                        data-motion-pressable
+                        href={sklandAppOpenUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      />
+                    )}
                     size={dialogPresentation ? "dialog" : "default"}
                     className="w-full"
                   >
