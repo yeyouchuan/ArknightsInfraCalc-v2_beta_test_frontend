@@ -1265,6 +1265,14 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
     openSetup();
   }
 
+  function handleProtectedSetup() {
+    if (!websiteSession) {
+      requestWebsiteAccount("setup");
+      return;
+    }
+    openSetup();
+  }
+
   function handleProtectedRun() {
     if (hasPersonalBox && !websiteSession) {
       requestWebsiteAccount("run");
@@ -1469,7 +1477,7 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
       onLoadSample: handleLoadSample,
       onStartPersonalFlow: handleStartPersonalFlow,
       onDismissOnboarding: dismissOnboarding,
-      onOpenSetup: openSetup,
+      onOpenSetup: handleProtectedSetup,
       onRun: handleProtectedRun,
       onCancelRun: handleCancelRun,
       onSetActiveShift: setActiveShift,
