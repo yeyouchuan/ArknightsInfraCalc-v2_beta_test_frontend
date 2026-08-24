@@ -3153,6 +3153,7 @@ test("dialog and mobile sheet motion preserve direction, exit timing, and focus"
   await setupTrigger.click();
   const setupDialog = page.getByRole("dialog");
   await expect(setupDialog).toBeVisible({ timeout: 30_000 });
+  await expect(setupDialog).toHaveCSS("transform-origin", /.+/);
   await setupDialog.getByRole("button", { name: "Close" }).click();
   await expect(setupDialog).toHaveCount(0);
   await expect(setupTrigger).toBeFocused();
