@@ -66,18 +66,18 @@ function RunButton({
     ? "请先登录网站账号"
     : plannerReady
       ? "请先导入干员数据"
-      : "排班服务暂不可用";
+      : "排班服务尚未就绪";
   return (
     <Button
       size="sm"
       className="h-9 min-w-0 max-sm:h-11 max-sm:px-3 max-sm:text-xs"
-      aria-label={canRun || (requiresAccount && hasBox && plannerReady) ? "生成排班" : unavailableLabel}
+      aria-label={canRun || hasBox ? "生成排班" : unavailableLabel}
       title={!canRun && !(requiresAccount && hasBox && plannerReady) ? unavailableLabel : undefined}
       onClick={onRun}
       disabled={!canRun && !(requiresAccount && hasBox && plannerReady)}
     >
       <Play />
-      <span>{requiresAccount && hasBox ? "登录后生成" : canRun ? "生成排班" : "导入后生成"}</span>
+      <span>{requiresAccount && hasBox ? "登录后生成" : !plannerReady ? "排班服务未就绪" : canRun ? "生成排班" : "导入后生成"}</span>
     </Button>
   );
 }
@@ -86,7 +86,6 @@ function CalculatorStartPanel({
   websiteAuthenticated,
   hasPersonalBox,
   hasSampleBox,
-  showOnboarding,
   sampleLoading,
   loading,
   plannerReady,
@@ -96,12 +95,10 @@ function CalculatorStartPanel({
   onRun,
   onOpenSetup,
   onDismissOnboarding,
-  onRestartOnboarding,
 }: {
   websiteAuthenticated: boolean;
   hasPersonalBox: boolean;
   hasSampleBox: boolean;
-  showOnboarding: boolean;
   sampleLoading: boolean;
   loading: boolean;
   plannerReady: boolean;
@@ -111,7 +108,6 @@ function CalculatorStartPanel({
   onRun: () => void;
   onOpenSetup: () => void;
   onDismissOnboarding: () => void;
-  onRestartOnboarding: () => void;
 }) {
   const statuses = onboardingStepStatuses({
     authenticated: websiteAuthenticated,
@@ -140,18 +136,11 @@ function CalculatorStartPanel({
   ] as const;
   const personalActionLabel = !websiteAuthenticated
     ? hasPersonalBox ? "登录并继续生成" : "登录并导入 BOX"
-    : hasPersonalBox && !plannerReady
-      ? "排班服务未就绪"
-      : hasPersonalBox
-        ? showOnboarding ? "生成第一份方案" : "生成排班"
-        : "导入自己的 BOX";
+    : hasPersonalBox && !plannerReady ? "排班服务未就绪" : hasPersonalBox ? "生成第一份方案" : "导入自己的 BOX";
   const personalActionAriaLabel = hasPersonalBox ? "生成排班" : "配置Box与布局";
   const personalPlanUnavailable = websiteAuthenticated && hasPersonalBox && !plannerReady;
   const actionControls = (
-    <div className={cn(
-      "flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center",
-      showOnboarding && "mt-7",
-    )} data-calculator-controls>
+    <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center" data-calculator-controls>
       <Button
         type="button"
         size="lg"
@@ -162,9 +151,7 @@ function CalculatorStartPanel({
         onClick={hasPersonalBox && websiteAuthenticated ? onRun : onStartPersonalFlow}
       >
         {loading && hasPersonalBox ? <Loader2 className="animate-spin" /> : <Play />}
-        {loading && hasPersonalBox
-          ? showOnboarding ? "正在生成第一份方案…" : "正在生成排班…"
-          : personalActionLabel}
+        {loading && hasPersonalBox ? "正在生成第一份方案…" : personalActionLabel}
       </Button>
       <Button
         type="button"
@@ -196,38 +183,25 @@ function CalculatorStartPanel({
         </div>
       ) : null}
       {!hasPersonalBox && accountControl ? <div className="self-center">{accountControl}</div> : null}
-      {showOnboarding ? (
-        <Button type="button" variant="ghost" className="min-h-11" onClick={onDismissOnboarding}>
-          暂时跳过引导
-        </Button>
-      ) : (
-        <Button type="button" variant="ghost" className="min-h-11" onClick={onRestartOnboarding}>
-          重新查看三步起步卡
-        </Button>
-      )}
+      <Button type="button" variant="ghost" className="min-h-11" onClick={onDismissOnboarding}>
+        暂时跳过引导
+      </Button>
     </div>
   );
 
   return (
     <section
-      className={cn(
-        "relative isolate flex items-center overflow-hidden px-4 sm:px-6 lg:px-8",
-        showOnboarding
-          ? "min-h-[calc(100svh-3.5rem)] bg-[#f7f5ec] py-8 md:min-h-svh"
-          : "min-h-[22rem] py-12",
-      )}
-      aria-label={showOnboarding ? "生成排班起步区" : "重新生成排班"}
-      data-calculator-start-panel={showOnboarding ? "" : undefined}
-      data-calculator-regenerate-panel={!showOnboarding ? "" : undefined}
-      data-onboarding-active={showOnboarding ? "true" : "false"}
+      className="relative isolate flex min-h-[calc(100svh-3.5rem)] items-center overflow-hidden bg-[#f7f5ec] px-4 py-8 sm:px-6 md:min-h-svh lg:px-8"
+      aria-label="生成排班起步区"
+      data-calculator-start-panel
+      data-onboarding-active="true"
     >
-      {showOnboarding ? <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[34%] bg-[linear-gradient(135deg,transparent_0_38%,rgb(49_49_49/0.035)_38%_62%,transparent_62%)] lg:block" aria-hidden="true" /> : null}
+      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[34%] bg-[linear-gradient(135deg,transparent_0_38%,rgb(49_49_49/0.035)_38%_62%,transparent_62%)] lg:block" aria-hidden="true" />
       <div className="relative mx-auto flex w-full max-w-5xl flex-col justify-center">
-        {showOnboarding ? (
-          <ol
-            className="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-3"
-            aria-label="生成个人排班的步骤"
-          >
+        <ol
+          className="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-3"
+          aria-label="生成个人排班的步骤"
+        >
             {steps.map((step, index) => {
               const status = statuses[index];
               const statusLabel = status === "complete" ? "已完成" : status === "current" ? "当前步骤" : "待开始";
@@ -275,10 +249,7 @@ function CalculatorStartPanel({
                 </li>
               );
             })}
-          </ol>
-        ) : (
-          <h2 className="mb-5 text-center text-lg font-semibold tracking-tight">按当前配置生成排班</h2>
-        )}
+        </ol>
 
         {actionControls}
       </div>
@@ -314,7 +285,6 @@ export interface InfraCalculatorProps {
   onLoadSample: () => Promise<boolean>;
   onStartPersonalFlow: () => void;
   onDismissOnboarding: () => void;
-  onRestartOnboarding: () => void;
   onOpenSetup: () => void;
   onRun: () => void;
   onCancelRun: () => void;
@@ -336,7 +306,7 @@ export function InfraCalculator(props: InfraCalculatorProps) {
     resultClearNotice,
     feedbackResult,
     sampleLoading, loading, canRun, hasBox, hasPersonalBox, hasSampleBox, plannerReady, websiteAuthenticated, showOnboarding, animatePlanEntrance, animateEmptyScheduleEntrance, onPlanEntranceConsumed, requiresAccount = false, accountControl,
-    onLoadSample, onStartPersonalFlow, onDismissOnboarding, onRestartOnboarding, onOpenSetup, onRun, onCancelRun,
+    onLoadSample, onStartPersonalFlow, onDismissOnboarding, onOpenSetup, onRun, onCancelRun,
     onSetActiveShift, onMarkIssue, onPerformanceIssue,
     onFactoryRecipeChange, onTradeOrderChange,
     onDownloadMaa,
@@ -453,7 +423,7 @@ export function InfraCalculator(props: InfraCalculatorProps) {
               "min-h-[calc(100vh-112px)]",
               !scheduleResult && showOnboarding && "py-0",
             )}
-            action={scheduleResult ? (
+            action={!showOnboarding ? (
               <div
                 className="grid w-full grid-cols-[minmax(14rem,1fr)_auto_auto] items-center gap-2 max-sm:grid-cols-[auto_auto_minmax(0,1fr)]"
                 data-calculator-controls
@@ -516,12 +486,11 @@ export function InfraCalculator(props: InfraCalculatorProps) {
                 </Suspense>
               </>
             ) : null}
-            {!scheduleResult ? (
+            {!scheduleResult && showOnboarding ? (
               <CalculatorStartPanel
                 websiteAuthenticated={websiteAuthenticated}
                 hasPersonalBox={hasPersonalBox}
                 hasSampleBox={hasSampleBox}
-                showOnboarding={showOnboarding}
                 sampleLoading={sampleLoading}
                 loading={loading}
                 plannerReady={plannerReady}
@@ -531,7 +500,6 @@ export function InfraCalculator(props: InfraCalculatorProps) {
                 onRun={onRun}
                 onOpenSetup={onOpenSetup}
                 onDismissOnboarding={onDismissOnboarding}
-                onRestartOnboarding={onRestartOnboarding}
               />
             ) : rows.length > 0 ? <ScheduleBoard
               rows={rows}

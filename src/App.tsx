@@ -1171,15 +1171,6 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
     persistOnboardingPreference("dismissed");
   }
 
-  function restartOnboarding() {
-    setOnboardingPreference("active");
-    try {
-      window.localStorage.removeItem(ONBOARDING_STORAGE_KEY);
-    } catch {
-      // The current page can still reopen the cards when storage is unavailable.
-    }
-  }
-
   function completeOnboarding() {
     persistOnboardingPreference("completed");
   }
@@ -1478,7 +1469,6 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
       onLoadSample: handleLoadSample,
       onStartPersonalFlow: handleStartPersonalFlow,
       onDismissOnboarding: dismissOnboarding,
-      onRestartOnboarding: restartOnboarding,
       onOpenSetup: openSetup,
       onRun: handleProtectedRun,
       onCancelRun: handleCancelRun,
