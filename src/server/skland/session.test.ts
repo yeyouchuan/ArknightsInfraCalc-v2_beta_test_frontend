@@ -6,9 +6,11 @@ import {
   createSklandStoredAccount,
   removeSklandAccount,
   sealSklandAccount,
+  sealOwnedSklandAccount,
   sealSklandAccountIndex,
   sealSklandSession,
   sklandDataOwnerTag,
+  sklandBindingKey,
   SKLAND_ACCOUNT_COOKIE_PREFIX,
   SKLAND_ACCOUNT_INDEX_COOKIE,
   SKLAND_ACCOUNT_LIMIT,
@@ -17,9 +19,11 @@ import {
   type SklandStoredAccount,
   toPublicSklandAccount,
   unsealSklandAccount,
+  unsealOwnedSklandAccount,
   unsealSklandAccountIndex,
   unsealSklandSession,
   upsertSklandAccount,
+  websiteUserOwnerTag,
 } from "./session.ts";
 import { isCurrentPolicyConsent, PRIVACY_VERSION, TERMS_VERSION } from "../../legal-policy.ts";
 
@@ -128,6 +132,30 @@ test("data owner tags are deterministic, account-specific, and do not reveal the
   assert.equal(first, sklandDataOwnerTag("upstream-user-one", secret));
   assert.notEqual(first, sklandDataOwnerTag("upstream-user-two", secret));
   assert.equal(first.includes("upstream-user-one"), false);
+});
+
+test("database binding keys use a separate HMAC domain from private run ownership", () => {
+  const binding = sklandBindingKey("upstream-user", secret);
+  assert.equal(binding, sklandBindingKey("upstream-user", secret));
+  assert.notEqual(binding, sklandDataOwnerTag("upstream-user", secret));
+  assert.equal(binding.includes("upstream-user"), false);
+});
+
+test("Skland account cookies are bound to one website user", () => {
+  const account = createSklandStoredAccount(sessionFor("skland-user"), rolesFor("skland-user"), "account_owned");
+  const firstOwner = websiteUserOwnerTag("website-user-one", secret);
+  const secondOwner = websiteUserOwnerTag("website-user-two", secret);
+  const sealed = sealOwnedSklandAccount(account, firstOwner, secret);
+  assert.deepEqual(unsealOwnedSklandAccount(sealed, firstOwner, secret, now), account);
+  assert.equal(unsealOwnedSklandAccount(sealed, secondOwner, secret, now), null);
+  assert.equal(sealed.includes("website-user-one"), false);
+});
+
+test("expired owned account cookies cannot produce an identity summary", () => {
+  const account = createSklandStoredAccount(sessionFor("expired-user"), rolesFor("expired-user"), "account_expired");
+  const owner = websiteUserOwnerTag("website-user", secret);
+  const sealed = sealOwnedSklandAccount(account, owner, secret);
+  assert.equal(unsealOwnedSklandAccount(sealed, owner, secret, account.session.expiresAt), null);
 });
 
 test("QR consent requires both current policy versions", () => {

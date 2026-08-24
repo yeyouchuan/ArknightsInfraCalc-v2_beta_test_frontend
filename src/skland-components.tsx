@@ -131,6 +131,8 @@ export function SklandLoginPanel({
             configured: true,
             accounts: result.accounts,
             activeAccountId: result.activeAccountId,
+            bindingCount: result.bindingCount ?? result.accounts.length,
+            bindingSummary: result.bindingSummary,
             scheduleSnapshot: result.scheduleSnapshot,
             statusSnapshot: result.statusSnapshot,
           });
@@ -163,12 +165,132 @@ export function SklandLoginPanel({
     };
   }, [onAuthenticated, scanId]);
 
+  useEffect(() => {
+    if (
+      dialogPresentation ||
+      !configured ||
+      !termsAccepted ||
+      !privacyAccepted ||
+      scanError ||
+      (scanState !== "idle" && scanState !== "expired")
+    ) {
+      return;
+    }
+    void createQr();
+  }, [
+    configured,
+    createQr,
+    dialogPresentation,
+    privacyAccepted,
+    scanError,
+    scanState,
+    termsAccepted,
+  ]);
+
+  const pageStatusText = scanState === "loading"
+    ? preparingSlow
+      ? "正在连接登录服务，请稍候…"
+      : "正在生成二维码…"
+    : scanState === "scanned"
+      ? "已扫码，正在等待森空岛 App 确认并完成登录…"
+      : scanState === "expired"
+        ? "二维码已过期，正在刷新…"
+        : scanUrl
+          ? "请使用森空岛 App 扫描二维码"
+          : "勾选下方两项授权后显示二维码";
+
+  if (!dialogPresentation) {
+    return (
+      <div
+        className={cn("grid w-full justify-items-center", className)}
+        data-skland-login-panel
+      >
+        {!configured ? (
+          <Alert className="w-full max-w-md text-start">
+            <AlertDescription>
+              {disabledReason ?? "当前未开放森空岛登录，可继续使用 MAA 导入。"}
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <div className="grid w-full max-w-md justify-items-center gap-5" data-skland-login-qr>
+            <div
+              className="grid size-52 place-items-center rounded-xl bg-white p-3 ring-1 ring-black/10 sm:size-56"
+              data-skland-qr-visual
+            >
+              {scanState === "scanned" ? (
+                <LoaderCircle
+                  className="size-9 animate-spin text-muted-foreground motion-reduce:animate-none"
+                  aria-hidden="true"
+                  data-skland-login-progress
+                />
+              ) : scanUrl ? (
+                <QRCodeSVG
+                  value={scanUrl}
+                  size={196}
+                  className="size-full"
+                  title="森空岛登录二维码"
+                  role="img"
+                  aria-label="森空岛登录二维码"
+                />
+              ) : scanState === "loading" ? (
+                <LoaderCircle className="size-8 animate-spin text-muted-foreground" aria-hidden="true" />
+              ) : (
+                <ScanLine className="size-12 text-muted-foreground" aria-hidden="true" />
+              )}
+            </div>
+
+            <p className="text-center text-sm leading-6 text-muted-foreground" role="status" aria-live="polite">
+              {pageStatusText}
+            </p>
+
+            {scanError ? (
+              <Alert className="w-full text-start" variant="destructive">
+                <AlertDescription>{scanError}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            <div className="grid w-full gap-3 text-start text-xs leading-5 text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <input
+                  id={termsId}
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(event) => setTermsAccepted(event.target.checked)}
+                  className="mt-1 size-4 shrink-0 accent-primary"
+                />
+                <label htmlFor={termsId}>
+                  我已阅读并同意
+                  <Link className="mx-1 font-medium text-foreground underline underline-offset-4" href="/terms" target="_blank">本站服务条款</Link>
+                  。
+                </label>
+              </div>
+              <div className="flex items-start gap-2">
+                <input
+                  id={privacyId}
+                  type="checkbox"
+                  checked={privacyAccepted}
+                  onChange={(event) => setPrivacyAccepted(event.target.checked)}
+                  className="mt-1 size-4 shrink-0 accent-primary"
+                />
+                <label htmlFor={privacyId}>
+                  我已阅读
+                  <Link className="mx-1 font-medium text-foreground underline underline-offset-4" href="/privacy" target="_blank">本站隐私政策</Link>
+                  ，并授权本站处理森空岛凭证、角色、干员与基建数据。
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const statusText = scanState === "loading"
     ? preparingSlow
       ? "正在连接鹰角登录服务，首次准备可能需要更久。"
       : "正在生成二维码…"
     : scanState === "scanned"
-      ? "已扫码，请在森空岛中确认登录。"
+      ? "已扫码，正在等待森空岛确认并完成登录。"
       : scanState === "expired"
         ? "二维码已过期，请重新生成。"
         : scanUrl
@@ -179,7 +301,7 @@ export function SklandLoginPanel({
       ? "正在连接登录服务…"
       : "正在生成二维码…"
     : scanState === "scanned"
-      ? "已扫码，请在 App 中确认。"
+      ? "已扫码，正在等待确认并完成登录…"
       : scanState === "expired"
         ? "二维码已过期，请重新生成。"
         : scanUrl
@@ -230,7 +352,13 @@ export function SklandLoginPanel({
             <div className="grid w-full place-items-center gap-4">
               {scanUrl || scanState === "loading" ? (
                 <div className="grid size-52 place-items-center rounded-xl bg-white p-3 ring-1 ring-black/10 sm:size-56">
-                  {scanUrl ? (
+                  {scanState === "scanned" ? (
+                    <LoaderCircle
+                      className="size-9 animate-spin text-muted-foreground motion-reduce:animate-none"
+                      aria-hidden="true"
+                      data-skland-login-progress
+                    />
+                  ) : scanUrl ? (
                     <QRCodeSVG
                       value={scanUrl}
                       size={196}

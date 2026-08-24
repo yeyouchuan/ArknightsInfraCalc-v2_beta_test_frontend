@@ -8,6 +8,8 @@ import type {
   UserProfile,
 } from "./types";
 import { stripInternalFields } from "./internal-field-safety.ts";
+import { parseTrainingAdviceReport } from "./training-advice-contract.ts";
+import { parseTrainingRoomSchedule } from "./training-room-contract.ts";
 import { sanitizeMaaJson } from "./maa-safety.ts";
 import { normalizeRotationProfile } from "./rotation-settings.ts";
 import { normalizeRotationResult } from "./rotation-result.ts";
@@ -35,8 +37,6 @@ export interface PersistedSessionV5 {
   localLayoutBackup: BaseBlueprint | null;
   rotationProfile: RotationProfile;
   fiammettaEnabled?: boolean;
-  fiammettaTarget?: string | null;
-  fiammettaOrder?: "pre" | "post";
   result: PublicPlanData | null;
   activeShift: number;
 }
@@ -118,6 +118,24 @@ export function normalizePersistedPlanData(value: unknown, fallbackProfile: Rota
   if (!isObject(profile) || !isObject(maa) || !isObject(rotation)) return null;
   if (!Array.isArray(maa.plans) || !Array.isArray(rotation.shifts)) return null;
 
+  let trainingAdvice: PublicPlanData["trainingAdvice"];
+  if (value.trainingAdvice !== undefined) {
+    try {
+      trainingAdvice = parseTrainingAdviceReport(value.trainingAdvice);
+    } catch {
+      trainingAdvice = undefined;
+    }
+  }
+
+  let trainingRoom: PublicPlanData["trainingRoom"];
+  if (value.trainingRoom !== undefined) {
+    try {
+      trainingRoom = parseTrainingRoomSchedule(value.trainingRoom, maa);
+    } catch {
+      trainingRoom = undefined;
+    }
+  }
+
   return {
     profile: stripInternalFields(structuredClone(profile)),
     maa: sanitizeMaaJson(maa),
@@ -126,6 +144,8 @@ export function normalizePersistedPlanData(value: unknown, fallbackProfile: Rota
       profile,
       fallbackProfile,
     }),
+    ...(trainingRoom ? { trainingRoom } : {}),
+    ...(trainingAdvice ? { trainingAdvice } : {}),
     durationMs: safeDuration(value.durationMs),
     diagnosticId:
       typeof value.diagnosticId === "string"
@@ -193,8 +213,6 @@ function normalizeSession(value: unknown, now: number): PersistedSessionV5 | nul
     localLayoutBackup: localLayoutBackup ? structuredClone(localLayoutBackup) : null,
     rotationProfile,
     fiammettaEnabled: Boolean(value.fiammettaEnabled),
-    fiammettaTarget: typeof value.fiammettaTarget === "string" ? value.fiammettaTarget.slice(0, 64) : null,
-    fiammettaOrder: value.fiammettaOrder === "post" ? "post" : "pre",
     result,
     activeShift: clampActiveShift(value.activeShift, result),
   };

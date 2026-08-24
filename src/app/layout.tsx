@@ -3,10 +3,6 @@ import { Barlow_Condensed } from "next/font/google";
 import localFont from "next/font/local";
 import "overlayscrollbars/overlayscrollbars.css";
 
-import { AppMotionProvider } from "@/components/MotionProvider";
-import { PageScrollbar } from "@/components/ui/page-scrollbar";
-import { TooltipProvider } from "@/components/ui/tooltip";
-
 import "./globals.css";
 
 const technicalFont = Barlow_Condensed({
@@ -46,12 +42,7 @@ export default function RootLayout({
       className={`${technicalFont.variable} ${numberFont.variable} antialiased`}
       suppressHydrationWarning
     >
-      <body>
-        <AppMotionProvider>
-          <PageScrollbar />
-          <TooltipProvider>{children}</TooltipProvider>
-        </AppMotionProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

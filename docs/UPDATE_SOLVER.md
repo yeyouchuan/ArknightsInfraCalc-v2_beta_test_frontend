@@ -15,11 +15,11 @@
 
 ## 当前仓库制品基线
 
-- 求解器提交：`55801b7d141a302281d959ec60677f4d7f9f70be`
-- 构建主机：生产服务器 Debian 13 x86-64（隔离临时目录，不覆盖线上 CLI）
-- 工具链：`rustc 1.97.0`、`cargo 1.97.0`、`cargo build --locked --offline --release -p infra-cli`
-- 构建与验证时间：`2026-08-13T16:46:18+08:00`
-- `bin/infra-cli` SHA-256：`cab7f0572345cc96323a446e069074051e14ce424a831fc74951dca99022eb34`
+- 求解器提交：`960b2e4b128978167502d578803e22d192c3e985`
+- 构建主机：本地 Linux x86-64（隔离临时目录，不覆盖线上 CLI）
+- 工具链：`rustc 1.96.0`、`cargo 1.96.0`、`cargo build --release -p infra-cli --locked`
+- 构建与验证时间：`2026-08-17T10:21:53Z`
+- `bin/infra-cli` SHA-256：`ae517578b464c60abe54ace71429373f84fc7c795560cc179d3b366bf2ef4610`
 - 最低观测到的运行时上界：最高引用 `GLIBC_2.34`；发布前仍以目标服务器真实执行为准
 
 构建时间只作审计记录，不参与兼容性或构建身份判定。以后更新仓库制品时，必须同步更新本节、
@@ -219,7 +219,7 @@ systemctl is-active arknights-infra
 ss -ltnp 'sport = :4175'
 curl -fsS http://127.0.0.1:4175/api/health
 curl -fsS \
-  -H 'Host: instance-pi2ohhfj.tail2dca9.ts.net:8443' \
+  -H 'Host: riic.autos' \
   -H 'X-Forwarded-Proto: https' \
   http://127.0.0.1:4176/api/health
 journalctl -u arknights-infra -n 80 --no-pager
@@ -243,7 +243,7 @@ journalctl -u arknights-infra -n 120 --no-pager
 `plan_contract_sha256` 仅进入私有运行记录和反馈归因，不参与路由或健康判定；
 因此 schema 文件的 LF/CRLF 字节差异不会触发 legacy。
 
-然后在 production 公网 HTTPS `https://instance-pi2ohhfj.tail2dca9.ts.net:8443/` 载入 Full E2 并生成一次排班，
+然后在 production 公网 HTTPS `https://riic.autos/` 载入 Full E2 并生成一次排班，
 确认 `infra-cli serve` 的真实调用链正常。若前端仍可通过 legacy 模式完成求解，则不应仅为切换内部协议而绕过核心仓库测试门禁更新二进制。
 
 ## 4. 手动回滚

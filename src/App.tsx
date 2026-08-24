@@ -1,24 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar, type AppPage } from "@/components/layout/AppSidebar";
+import { WebsiteAccountDialogLoading } from "@/components/auth/WebsiteAccountDialogLoading";
+import { useAccountCloudWorkspace } from "account-cloud-workspace-bridge";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppTopBar, SklandAccountControl } from "@/components/layout/AppTopBar";
-import { InfraCalculator } from "@/components/pages/InfraCalculator";
-import { SklandStatus } from "@/components/pages/SklandStatus";
+import { AppMotionProvider } from "@/components/MotionProvider";
+import { PrimaryPageTransition } from "@/components/layout/PrimaryPageTransition";
+import { SetupDialogSkeleton } from "@/components/setup/SetupDialogSkeleton";
 import { LiveActivity, usePlanActivity } from "@/components/ui/live-activity";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { loadClientFeature } from "@/client-lazy-loader";
+import { preloadProductIcons } from "@/product-assets";
+import { WorkbenchContext } from "@/workbench-context";
+import { WORKBENCH_PAGE_PATHS, workbenchHref, workbenchPageFromPathname, type AppPage } from "@/workbench-routes";
+import { useWebsiteSession } from "@/website-session";
 
 import {
-  deleteAllSklandData,
+  deleteAllSklandAccountData,
+  deleteSklandAccount,
   getHealth,
   getSampleOperbox,
-  getSklandSession,
-  getSklandStatus,
-  logoutSkland,
-  runPlan,
+  getSklandAccounts,
+  refreshSklandStatus,
+  computePlan,
   saveFeedback,
   selectSklandRole,
   toDisplayError,
@@ -27,8 +36,6 @@ import {
   buildBlueprint,
   computePowerBudget,
   FACTORY_RECIPE_OPTIONS,
-  factoryRecipeFor,
-  factoryRecipeFromMaaProduct,
   FactoryRecipe,
   PRESETS,
   TRADE_ORDER_OPTIONS,
@@ -38,9 +45,18 @@ import {
   updateTradeOrder,
 } from "./blueprint";
 import { copyText, downloadJson } from "./download";
-import { ONBOARDING_STORAGE_KEY, initialSetupStep, shouldAutoOpenSetup, type SetupStep } from "./onboarding";
+import {
+  ONBOARDING_COMPLETED_VALUE,
+  ONBOARDING_DISMISSED_VALUE,
+  ONBOARDING_STORAGE_KEY,
+  initialSetupStep,
+  resolveOnboardingPreference,
+  type OnboardingPreference,
+  type SetupStep,
+} from "./onboarding";
 import { readOperboxFile, readOperboxText } from "./operbox";
 import { normalizeOperboxEntries } from "./operbox-normalization";
+import { effectiveFiammettaSetting, resolvePlanPresentationLayout } from "./plan-presentation";
 import {
   applyLocalLayoutPatch,
   clearLocalProductData,
@@ -50,61 +66,68 @@ import {
 } from "./persistence";
 import { planToRows, RoomRow } from "./schedule";
 import { DEFAULT_ROTATION_PROFILE } from "./rotation-settings";
-import { readPlanHistory, writePlanHistory, type PlanHistoryEntry } from "./plan-history";
+import { MOTION_DURATION } from "./motion";
 import { closestShift, compareShifts } from "./skland";
+import { emptySklandBindingSummary } from "./skland-binding-state";
+import { createSklandRestoreGuard } from "./skland-restore-guard";
 import { setupConfigurationFingerprint } from "./setup-configuration";
-import { applyFiammettaSettings, scheduledOperatorNames, validateFiammettaExport } from "./fiammetta-settings";
 import {
   BaseBlueprint,
   BoxSource,
   BlueprintRoom,
   DisplayError,
   FeedbackData,
-  IssueReport,
+  FeedbackKind,
   OperBoxEntry,
   PublicPlanData,
   PresetDef,
   RotationProfile,
+  SavedPlanData,
   SklandAccountSummary,
+  SklandBindingSummary,
   SklandSessionData,
   SklandScheduleSnapshot,
   SklandStatusSnapshot,
 } from "./types";
 
 const CLIENT_SKLAND_ENABLED = process.env.APP_CLIENT_SKLAND_ENABLED === "1";
+const CLIENT_ACCOUNT_CLOUD_SYNC_ENABLED = process.env.APP_CLIENT_ACCOUNT_CLOUD_SYNC_ENABLED === "1";
+const WEBSITE_AUTH_FOCUS_RETURN_DELAY_MS = Math.ceil(MOTION_DURATION.fast * 1_000) + 50;
 
-function DeferredPageLoading() {
-  return (
-    <div className="grid min-h-64 place-items-center" role="status" aria-live="polite">
-      <span className="text-sm text-muted-foreground">正在加载页面…</span>
-    </div>
-  );
+function bindingSummaryFromSession(session: Pick<SklandSessionData, "accounts" | "bindingCount" | "bindingSummary">): SklandBindingSummary {
+  if (session.bindingSummary) return session.bindingSummary;
+  const totalCount = Number.isFinite(session.bindingCount) ? session.bindingCount : session.accounts.length;
+  const activeCount = session.accounts.length > 0 ? Math.min(totalCount, session.accounts.length) : totalCount;
+  const expiries = session.accounts.map((account) => account.credentialExpiresAt).filter(Number.isFinite);
+  return {
+    totalCount,
+    activeCount,
+    renewalDueCount: Math.max(0, totalCount - activeCount),
+    nextExpiresAt: expiries.length ? Math.min(...expiries) : null,
+    latestExpiredAt: null,
+  };
 }
 
-const TrainingAdvice = dynamic(
-  () => import("@/components/pages/TrainingAdvice").then((module) => module.TrainingAdvice),
-  { loading: DeferredPageLoading, ssr: false },
-);
-const SkillQuery = dynamic(
-  () => import("@/components/pages/SkillQuery").then((module) => module.SkillQuery),
-  { loading: DeferredPageLoading, ssr: false },
-);
-const SetupDialog = dynamic(
-  () => import("./setup-dialog").then((module) => module.SetupDialog),
-  { ssr: false },
-);
-const IssueNoteModal = dynamic(
-  () => import("./components").then((module) => module.IssueNoteModal),
-  { ssr: false },
-);
-const ProductChangeConfirmModal = dynamic(
-  () => import("./components").then((module) => module.ProductChangeConfirmModal),
-  { ssr: false },
-);
+const loadWebsiteAccountDialog = () => loadClientFeature("websiteAccountDialog");
+const loadSetupDialog = () => loadClientFeature("setupDialog");
+const loadComponents = () => loadClientFeature("sharedComponents");
 
+const WebsiteAccountDialog = lazy(() => loadWebsiteAccountDialog().then((module) => ({
+  default: module.WebsiteAccountDialog,
+})));
+const SetupDialog = lazy(() => loadSetupDialog().then((module) => ({ default: module.SetupDialog })));
+const IssueNoteModal = lazy(() => loadComponents().then((module) => ({ default: module.IssueNoteModal })));
+const ProductChangeConfirmModal = lazy(() => loadComponents().then((module) => ({
+  default: module.ProductChangeConfirmModal,
+})));
 type ProductChange =
   | { type: "factory"; roomId: string; recipe: FactoryRecipe }
   | { type: "trade"; roomId: string; order: TradeOrder };
+type WebsiteAuthIntent = "account" | "run" | "setup" | "skland";
+
+type SklandFullRestoreResult =
+  | { session: SklandSessionData; error?: never }
+  | { session?: never; error: unknown };
 
 function layoutWithProductChange(layout: BaseBlueprint, change: ProductChange): BaseBlueprint {
   return change.type === "factory"
@@ -114,19 +137,6 @@ function layoutWithProductChange(layout: BaseBlueprint, change: ProductChange): 
 
 function displayError(code: DisplayError["code"], message: string, retryable = false): DisplayError {
   return { code, message, retryable };
-}
-
-async function eligibleFiammettaTargetsFor(
-  operbox: OperBoxEntry[],
-  maa: PublicPlanData["maa"],
-): Promise<ReadonlySet<string>> {
-  const { operatorBuildingSkillList } = await import("./operatorPortraits");
-  const scheduled = scheduledOperatorNames(maa);
-  return new Set(
-    operbox
-      .filter((operator) => operator.own && scheduled.has(operator.name) && operatorBuildingSkillList(operator.name).length > 0)
-      .map((operator) => operator.name),
-  );
 }
 
 function resolvePreset(value: PresetDef | undefined): PresetDef {
@@ -201,36 +211,24 @@ function mergeSklandLayout(current: BaseBlueprint, suggestion: BaseBlueprint): B
   };
 }
 
-function buildIssueReport(
-  issue: { row: RoomRow; note: string } | null,
-  sourceName: string | null,
-  command?: string
-): IssueReport | null {
-  if (!issue) return null;
-  return {
-    type: "room_issue",
-    sourceName,
-    room: {
-      title: issue.row.title,
-      group: issue.row.group,
-      product: issue.row.product,
-      operators: issue.row.operators,
-      inferredRule: issue.row.rule,
-      efficiency: issue.row.efficiency,
-      efficiencyLabel: issue.row.efficiencyLabel,
-    },
-    command,
-    note: issue.note,
-  };
-}
-
-function WorkbenchApp() {
+function WorkbenchApp({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const page = workbenchPageFromPathname(pathname);
+  const { data: websiteSession, isPending: websiteSessionPending, refetch: refetchWebsiteSession } = useWebsiteSession();
   const defaultPreset = PRESETS[0];
   const defaultLayout = buildBlueprint(defaultPreset);
-  const [page, setPage] = useState<AppPage>("calculator");
-  const [betaRequested, setBetaRequested] = useState(false);
-  const [debugToolsEnabled, setDebugToolsEnabled] = useState(false);
+  const hasRenderedCalculator = useRef(false);
+  const revealedPlanRevisions = useRef(new Set<string>());
+  const websiteAuthReturnFocusRef = useRef<HTMLElement | null>(null);
+  const websiteAuthIntentRef = useRef<WebsiteAuthIntent | null>(null);
+  const websiteIntentContinuationRef = useRef<(intent: WebsiteAuthIntent) => void>(() => undefined);
+  const websiteAuthFocusReturnTimerRef = useRef<number | null>(null);
+  const [websiteAuthReloadKey, setWebsiteAuthReloadKey] = useState(0);
+  const [websiteAuthDialogOpen, setWebsiteAuthDialogOpen] = useState(false);
+  const [websiteAuthDialogMounted, setWebsiteAuthDialogMounted] = useState(false);
   const [hasRestoredSession, setHasRestoredSession] = useState(false);
+  const [onboardingPreference, setOnboardingPreference] = useState<OnboardingPreference>("active");
   const [preset, setPreset] = useState<PresetDef>(defaultPreset);
   const [layout, setLayout] = useState<BaseBlueprint>(defaultLayout);
   const powerBudget = useMemo(() => computePowerBudget(layout), [layout]);
@@ -242,8 +240,6 @@ function WorkbenchApp() {
   const [localLayoutBackup, setLocalLayoutBackup] = useState<BaseBlueprint | null>(null);
   const [rotationProfile, setRotationProfile] = useState<RotationProfile>(DEFAULT_ROTATION_PROFILE);
   const [fiammettaEnabled, setFiammettaEnabled] = useState(false);
-  const [fiammettaTarget, setFiammettaTarget] = useState<string | null>(null);
-  const [fiammettaOrder, setFiammettaOrder] = useState<"pre" | "post">("pre");
   const [inputMode, setInputMode] = useState<"skland" | "maa">(CLIENT_SKLAND_ENABLED ? "skland" : "maa");
   const [maaPaste, setMaaPaste] = useState("");
   const [sklandScheduleSnapshot, setSklandScheduleSnapshot] = useState<SklandScheduleSnapshot | null>(null);
@@ -251,9 +247,10 @@ function WorkbenchApp() {
   const [sklandStatusReloadKey, setSklandStatusReloadKey] = useState(0);
   const [sklandAccounts, setSklandAccounts] = useState<SklandAccountSummary[]>([]);
   const [sklandActiveAccountId, setSklandActiveAccountId] = useState<string | null>(null);
+  const [sklandBindingSummary, setSklandBindingSummary] = useState<SklandBindingSummary>(emptySklandBindingSummary);
   const [sklandConfigured, setSklandConfigured] = useState(false);
   const [sklandDisabledReason, setSklandDisabledReason] = useState<string | null>(null);
-  const [sklandSessionLoading, setSklandSessionLoading] = useState(CLIENT_SKLAND_ENABLED);
+  const [sklandSessionLoading, setSklandSessionLoading] = useState(false);
   const [sklandError, setSklandError] = useState<DisplayError | null>(null);
   const [sklandBusy, setSklandBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -268,26 +265,30 @@ function WorkbenchApp() {
   const initialLayoutSource = useRef<"local" | "skland">("local");
   const initialLocalLayoutBackup = useRef<BaseBlueprint | null>(null);
   const skipNextPersistence = useRef(false);
+  const hadPersistedSession = useRef(false);
   const statusLoadingAccount = useRef<string | null>(null);
+  const sklandRestoreGuard = useRef(createSklandRestoreGuard());
+  const sklandFullRestore = useRef<{
+    generation: number;
+    reloadKey: number;
+    result: Promise<SklandFullRestoreResult>;
+  } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [inputErrorCode, setInputErrorCode] = useState<DisplayError["code"]>("AIC-BOX-1101");
   const [sampleLoading, setSampleLoading] = useState(false);
   const [result, setResult] = useState<PublicPlanData | null>(null);
-  const [previousResult, setPreviousResult] = useState<PublicPlanData | null>(null);
-  const [planHistory, setPlanHistory] = useState<PlanHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const planAbortRef = useRef<AbortController | null>(null);
   const [cliReady, setCliReady] = useState(false);
   const [apiError, setApiError] = useState<DisplayError | null>(null);
   const [storageNotice, setStorageNotice] = useState<DisplayError | null>(null);
   const [activeShift, setActiveShift] = useState(0);
+  const [issueDraftKind, setIssueDraftKind] = useState<FeedbackKind>("room_issue");
   const [issueDraftRow, setIssueDraftRow] = useState<RoomRow | null>(null);
   const [issueDraftNote, setIssueDraftNote] = useState("");
-  const [savedIssue, setSavedIssue] = useState<{ row: RoomRow; note: string } | null>(null);
   const [issueOpen, setIssueOpen] = useState(false);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedbackResult, setFeedbackResult] = useState<FeedbackData | null>(null);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [resultClearNotice, setResultClearNotice] = useState<string | null>(null);
   const [resultClearWarningDismissed, setResultClearWarningDismissed] = useState(false);
   const [pendingProductChange, setPendingProductChange] = useState<ProductChange | null>(null);
@@ -296,22 +297,35 @@ function WorkbenchApp() {
   const scheduleResult = result;
   const activePlan = scheduleResult?.maa.plans?.[activeShift];
   const activeRotationShift = scheduleResult?.rotation.shifts?.[activeShift];
-  const rows = useMemo(() => planToRows(activePlan, activeRotationShift, layout), [activePlan, activeRotationShift, layout]);
-  const scheduledOperators = useMemo(() => scheduledOperatorNames(scheduleResult?.maa), [scheduleResult?.maa]);
-  const ownsFiammetta = Boolean(operbox?.some((operator) => operator.own && operator.name === "菲亚梅塔"));
+  const activeTrainingRoomShift = result?.trainingRoom?.shifts[activeShift];
+  const baseRows = useMemo(
+    () => planToRows(activePlan, activeRotationShift, layout, activeTrainingRoomShift),
+    [activePlan, activeRotationShift, activeTrainingRoomShift, layout],
+  );
+  const [presentedRows, setPresentedRows] = useState<{ source: RoomRow[]; rows: RoomRow[] } | null>(null);
+  useEffect(() => {
+    if (!baseRows.some((row) => row.operatorSlots.length > 0)) {
+      setPresentedRows(null);
+      return;
+    }
+
+    let cancelled = false;
+    void import("./schedule-presentation")
+      .then(({ addOperatorPresentations }) => {
+        if (!cancelled) setPresentedRows({ source: baseRows, rows: addOperatorPresentations(baseRows) });
+      })
+      .catch(() => {
+        if (!cancelled) setPresentedRows(null);
+      });
+    return () => { cancelled = true; };
+  }, [baseRows]);
+  const rows = presentedRows?.source === baseRows ? presentedRows.rows : baseRows;
+  const effectiveFiammettaEnabled = effectiveFiammettaSetting(operbox, rotationProfile, fiammettaEnabled);
   const setupConfigurationKey = useMemo(() => setupConfigurationFingerprint({
     layout,
     rotationProfile,
     fiammettaEnabled,
-    fiammettaTarget,
-    fiammettaOrder,
-  }), [fiammettaEnabled, fiammettaOrder, fiammettaTarget, layout, rotationProfile]);
-  const changedRoomIds = useMemo(() => {
-    const previousPlan = previousResult?.maa.plans?.[activeShift];
-    if (!previousPlan || !activePlan) return new Set<string>();
-    const before = new Map(planToRows(previousPlan, previousResult?.rotation.shifts?.[activeShift], layout).map((row) => [row.roomId, JSON.stringify([row.operators, row.efficiency])]));
-    return new Set(rows.filter((row) => before.get(row.roomId) !== JSON.stringify([row.operators, row.efficiency])).map((row) => row.roomId));
-  }, [activePlan, activeShift, layout, previousResult, rows]);
+  }), [fiammettaEnabled, layout, rotationProfile]);
   const currentMoraleByOperator = useMemo(() => {
     if (!CLIENT_SKLAND_ENABLED || boxSource !== "skland" || !sklandScheduleSnapshot) return undefined;
 
@@ -344,22 +358,88 @@ function WorkbenchApp() {
       : null,
     [sklandAccounts, sklandActiveAccountId]
   );
-  const canRun = Boolean(operbox && operbox.length > 0 && cliReady);
-  const showBetaPanels = betaRequested && debugToolsEnabled;
+  const accountCanUseCurrentBox = boxSource === "sample" || Boolean(websiteSession);
+  const hasBox = Boolean(operbox?.length);
+  const hasPersonalBox = hasBox && boxSource !== "sample";
+  const hasSampleBox = hasBox && boxSource === "sample";
+  const canRun = Boolean(operbox && operbox.length > 0 && cliReady && accountCanUseCurrentBox);
+  const sklandBindingCount = sklandBindingSummary.totalCount;
+  const websiteUserId = websiteSession?.user.id ?? null;
+  const accountCloudWorkspace = useAccountCloudWorkspace(CLIENT_ACCOUNT_CLOUD_SYNC_ENABLED ? {
+    userId: websiteUserId,
+    hasRestoredSession,
+    hasLocalSession: hadPersistedSession.current,
+    preset,
+    setPreset,
+    layout,
+    setLayout,
+    operbox,
+    setOperbox,
+    fileName,
+    setFileName,
+    boxSource,
+    setBoxSource,
+    layoutDirty,
+    setLayoutDirty,
+    layoutSource,
+    setLayoutSource,
+    localLayoutBackup,
+    setLocalLayoutBackup,
+    rotationProfile,
+    setRotationProfile,
+    fiammettaEnabled,
+    setFiammettaEnabled,
+    result,
+    setResult,
+    activeShift,
+    setActiveShift,
+  } : null);
+
+  function beginSklandStateChange(): number {
+    sklandFullRestore.current = null;
+    return sklandRestoreGuard.current.begin();
+  }
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const syncBetaPanels = () => setBetaRequested(new URLSearchParams(window.location.search).has("beta"));
-    syncBetaPanels();
-    window.addEventListener("popstate", syncBetaPanels);
-    return () => window.removeEventListener("popstate", syncBetaPanels);
-  }, []);
+    if (page === "calculator") hasRenderedCalculator.current = true;
+  }, [page]);
 
-  useEffect(() => setPlanHistory(readPlanHistory(window.localStorage)), []);
+  useEffect(() => {
+    if (!hasRestoredSession) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      for (const target of Object.keys(WORKBENCH_PAGE_PATHS) as AppPage[]) {
+        if (target === page || (target === "skland" && !CLIENT_SKLAND_ENABLED)) continue;
+        router.prefetch(workbenchHref(target));
+      }
+    });
+
+    const preloadDeferredComponents = () => {
+      void Promise.allSettled([
+        loadWebsiteAccountDialog(),
+        loadSetupDialog(),
+        loadComponents(),
+      ]);
+    };
+    const idleCallback = window.requestIdleCallback?.(preloadDeferredComponents, { timeout: 1_500 });
+    const fallbackTimer = idleCallback === undefined
+      ? window.setTimeout(preloadDeferredComponents, 250)
+      : undefined;
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback);
+      if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
+    };
+  }, [hasRestoredSession, page, router]);
 
   useEffect(() => {
     if (setupOpen) setSetupMounted(true);
   }, [setupOpen]);
+
+  useEffect(() => {
+    if (websiteAuthDialogOpen) setWebsiteAuthDialogMounted(true);
+  }, [websiteAuthDialogOpen]);
 
   useEffect(() => {
     if (issueOpen) setIssueModalMounted(true);
@@ -381,6 +461,11 @@ function WorkbenchApp() {
     if (typeof window === "undefined") return;
     try {
       const restored = loadPersistedSession(window.localStorage);
+      hadPersistedSession.current = Boolean(restored);
+      setOnboardingPreference(resolveOnboardingPreference(
+        window.localStorage.getItem(ONBOARDING_STORAGE_KEY),
+        Boolean(restored?.result),
+      ));
       const warningDismissed = window.localStorage.getItem(RESULT_CLEAR_WARNING_DISMISSED_KEY) === "1";
       setResultClearWarningDismissed(warningDismissed);
       if (restored) {
@@ -401,8 +486,6 @@ function WorkbenchApp() {
         setLocalLayoutBackup(CLIENT_SKLAND_ENABLED ? restored.localLayoutBackup : null);
         setRotationProfile(restored.rotationProfile);
         setFiammettaEnabled(Boolean(restored.fiammettaEnabled));
-        setFiammettaTarget(restored.fiammettaTarget ?? null);
-        setFiammettaOrder(restored.fiammettaOrder === "post" ? "post" : "pre");
         setResult(restored.result);
         setActiveShift(restored.activeShift);
         initialLayoutForRestore.current = restoredLayout;
@@ -437,8 +520,6 @@ function WorkbenchApp() {
         localLayoutBackup,
         rotationProfile,
         fiammettaEnabled,
-        fiammettaTarget,
-        fiammettaOrder,
         result,
         activeShift,
       });
@@ -446,28 +527,16 @@ function WorkbenchApp() {
     } catch {
       setStorageNotice(displayError("AIC-LOCAL-7001", "浏览器无法保存本地数据，但仍可继续生成排班。"));
     }
-  }, [hasRestoredSession, preset, layout, operbox, fileName, boxSource, layoutDirty, layoutSource, localLayoutBackup, rotationProfile, fiammettaEnabled, fiammettaTarget, fiammettaOrder, result, activeShift]);
-
-  useEffect(() => {
-    if (!hasRestoredSession || typeof window === "undefined") return;
-    if (shouldAutoOpenSetup(window.localStorage.getItem(ONBOARDING_STORAGE_KEY), Boolean(initialOperbox.current?.length))) {
-      setSetupInitialStep("box");
-      setSetupOpen(true);
-    }
-  }, [hasRestoredSession]);
+  }, [hasRestoredSession, preset, layout, operbox, fileName, boxSource, layoutDirty, layoutSource, localLayoutBackup, rotationProfile, fiammettaEnabled, result, activeShift]);
 
   useEffect(() => {
     let cancelled = false;
     if (!hasRestoredSession) return;
-    setSklandSessionLoading(CLIENT_SKLAND_ENABLED);
-    const sessionRequest = CLIENT_SKLAND_ENABLED ? getSklandSession() : Promise.resolve(null);
-    void Promise.allSettled([getHealth(), sessionRequest]).then(([healthResult, sessionResult]) => {
-      if (cancelled) return;
-      if (healthResult.status === "fulfilled") {
-        const health = healthResult.value;
+    void getHealth()
+      .then((health) => {
+        if (cancelled) return;
         setSklandConfigured(Boolean(CLIENT_SKLAND_ENABLED && health.skland?.available));
         setSklandDisabledReason(CLIENT_SKLAND_ENABLED ? health.skland?.message ?? null : null);
-        setDebugToolsEnabled(health.features.debugTools);
         if (health.plannerReady) {
           setCliReady(true);
           setApiError(null);
@@ -475,18 +544,116 @@ function WorkbenchApp() {
           setCliReady(false);
           setApiError(displayError("AIC-PLAN-3001", "排班服务暂不可用，请稍后重试。", true));
         }
-      } else {
+      })
+      .catch((error) => {
+        if (cancelled) return;
         setCliReady(false);
-        setApiError(toDisplayError(healthResult.reason, "排班服务暂不可用，请稍后重试。"));
-      }
+        setApiError(toDisplayError(error, "排班服务暂不可用，请稍后重试。"));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasRestoredSession]);
 
-      if (CLIENT_SKLAND_ENABLED && sessionResult.status === "fulfilled" && sessionResult.value) {
-        const session = sessionResult.value;
+  useEffect(() => {
+    if (
+      !CLIENT_SKLAND_ENABLED
+      || !hasRestoredSession
+      || websiteSessionPending
+      || !websiteUserId
+    ) return;
+    const existingRestore = sklandFullRestore.current?.reloadKey === websiteAuthReloadKey
+      ? sklandFullRestore.current
+      : null;
+    const generation = existingRestore?.generation ?? sklandRestoreGuard.current.begin();
+    let cancelled = false;
+    setSklandSessionLoading(true);
+    if (!existingRestore) {
+      sklandFullRestore.current = {
+        generation,
+        reloadKey: websiteAuthReloadKey,
+        result: getSklandAccounts()
+          .then((session) => ({ session }))
+          .catch((error: unknown) => ({ error })),
+      };
+    }
+    void getSklandAccounts("summary")
+      .then((session) => {
+        if (
+          cancelled
+          || !sklandRestoreGuard.current.canApplySummary(generation)
+        ) return;
+        setSklandConfigured(session.configured);
+        setSklandDisabledReason(session.disabledReason ?? null);
+        setSklandAccounts(session.accounts);
+        setSklandActiveAccountId(session.activeAccountId);
+        setSklandBindingSummary(bindingSummaryFromSession(session));
+      })
+      .catch(() => {
+        // 完整恢复会在网站 Session 确认后提供可操作错误；摘要失败不清除已有身份。
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasRestoredSession, websiteAuthReloadKey, websiteSessionPending, websiteUserId]);
+
+  useEffect(() => {
+    if (websiteSessionPending || !websiteSession || !websiteAuthDialogOpen) return;
+    const intent = websiteAuthIntentRef.current;
+    if (!intent) return;
+    websiteAuthIntentRef.current = null;
+    websiteAuthReturnFocusRef.current = null;
+    setWebsiteAuthDialogOpen(false);
+    websiteIntentContinuationRef.current(intent);
+  }, [websiteAuthDialogOpen, websiteSession, websiteSessionPending]);
+
+  useEffect(() => {
+    if (!hasRestoredSession || websiteSessionPending) return;
+    if (!CLIENT_SKLAND_ENABLED) {
+      setSklandSessionLoading(false);
+      return;
+    }
+
+    const generation = sklandRestoreGuard.current.current();
+    let cancelled = false;
+    statusLoadingAccount.current = null;
+
+    if (!websiteUserId) {
+      sklandRestoreGuard.current.acceptFull(generation);
+      setSklandAccounts([]);
+      setSklandActiveAccountId(null);
+      setSklandBindingSummary(emptySklandBindingSummary());
+      setSklandScheduleSnapshot(null);
+      setSklandStatusSnapshot(null);
+      setSklandError(null);
+      setSklandSessionLoading(false);
+      return;
+    }
+
+    setSklandSessionLoading(true);
+    let restore = sklandFullRestore.current;
+    if (!restore || restore.generation !== generation) {
+      restore = {
+        generation,
+        reloadKey: websiteAuthReloadKey,
+        result: getSklandAccounts()
+          .then((session) => ({ session }))
+          .catch((error: unknown) => ({ error })),
+      };
+      sklandFullRestore.current = restore;
+    }
+    void restore.result
+      .then((resolved) => {
+        if ("error" in resolved) throw resolved.error;
+        if (cancelled || !sklandRestoreGuard.current.acceptFull(generation)) return;
+        const session = resolved.session;
+        const bindingSummary = bindingSummaryFromSession(session);
         setSklandError(null);
         setSklandConfigured(session.configured);
         setSklandDisabledReason(session.disabledReason ?? null);
         setSklandAccounts(session.accounts);
         setSklandActiveAccountId(session.activeAccountId);
+        setSklandBindingSummary(bindingSummary);
         setSklandStatusSnapshot(session.statusSnapshot ?? null);
         if (session.authenticated && session.scheduleSnapshot) {
           setSklandScheduleSnapshot(session.scheduleSnapshot);
@@ -510,16 +677,22 @@ function WorkbenchApp() {
             setLayoutSource("skland");
             setPreset(resolvePreset(PRESETS.find((item) => item.label === session.scheduleSnapshot?.infrastructure.layoutLabel)));
           }
+        } else {
+          setSklandScheduleSnapshot(null);
+          setSklandStatusSnapshot(null);
         }
-      } else if (CLIENT_SKLAND_ENABLED && sessionResult.status === "rejected") {
-        setSklandError(toDisplayError(sessionResult.reason, "森空岛会话恢复失败，请稍后刷新。"));
-      }
-      setSklandSessionLoading(false);
-    });
+      })
+      .catch((error) => {
+        if (cancelled || !sklandRestoreGuard.current.isCurrent(generation)) return;
+        setSklandError(toDisplayError(error, "森空岛会话恢复失败，请稍后刷新。"));
+      })
+      .finally(() => {
+        if (!cancelled && sklandRestoreGuard.current.isCurrent(generation)) setSklandSessionLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [hasRestoredSession]);
+  }, [hasRestoredSession, websiteAuthReloadKey, websiteSessionPending, websiteUserId]);
 
   useEffect(() => {
     if (
@@ -532,7 +705,7 @@ function WorkbenchApp() {
     let cancelled = false;
     statusLoadingAccount.current = activeSklandAccount.accountId;
     setSklandBusy(true);
-    void getSklandStatus()
+    void refreshSklandStatus()
       .then((status) => {
         if (cancelled) return;
         setSklandAccounts(status.accounts);
@@ -588,6 +761,7 @@ function WorkbenchApp() {
   function applySklandSession(session: SklandSessionData, applyLayoutWhenClean = true) {
     setSklandAccounts(session.accounts);
     setSklandActiveAccountId(session.activeAccountId);
+    setSklandBindingSummary(bindingSummaryFromSession(session));
     setSklandStatusSnapshot(session.statusSnapshot ?? null);
     if (session.authenticated && session.scheduleSnapshot) {
       applySklandSnapshot(session.scheduleSnapshot, applyLayoutWhenClean);
@@ -619,17 +793,22 @@ function WorkbenchApp() {
   }
 
   async function handleSklandRole(accountId: string, uid: string) {
+    const generation = beginSklandStateChange();
     setSklandBusy(true);
     setSklandError(null);
     try {
       const session = await selectSklandRole(accountId, uid);
+      if (!sklandRestoreGuard.current.isCurrent(generation)) return;
       if (!session.authenticated || !session.scheduleSnapshot) throw new Error("角色切换失败。");
+      sklandRestoreGuard.current.acceptFull(generation);
       applySklandSession(session, false);
     } catch (error) {
+      if (!sklandRestoreGuard.current.isCurrent(generation)) return;
       const normalized = toDisplayError(error, "角色切换失败，请稍后重试。");
       setSklandError(normalized);
       try {
-        const current = await getSklandSession();
+        const current = await getSklandAccounts();
+        if (!sklandRestoreGuard.current.acceptFull(generation)) return;
         setSklandAccounts(current.accounts);
         setSklandActiveAccountId(current.activeAccountId);
         setSklandStatusSnapshot(current.statusSnapshot ?? null);
@@ -638,22 +817,25 @@ function WorkbenchApp() {
         // 保留上一份成功快照，等待用户再次操作。
       }
     } finally {
-      setSklandBusy(false);
+      if (sklandRestoreGuard.current.isCurrent(generation)) setSklandBusy(false);
     }
   }
 
   async function handleSklandLogout() {
     if (!sklandActiveAccountId) return;
+    const generation = beginSklandStateChange();
     setSklandBusy(true);
     setSklandError(null);
     try {
-      const session = await logoutSkland(sklandActiveAccountId);
+      const session = await deleteSklandAccount(sklandActiveAccountId);
+      if (!sklandRestoreGuard.current.acceptFull(generation)) return;
       applySklandSession(session, false);
     } catch (error) {
+      if (!sklandRestoreGuard.current.isCurrent(generation)) return;
       const normalized = toDisplayError(error, "退出森空岛失败，请稍后重试。");
       setSklandError(normalized);
     } finally {
-      setSklandBusy(false);
+      if (sklandRestoreGuard.current.isCurrent(generation)) setSklandBusy(false);
     }
   }
 
@@ -679,6 +861,7 @@ function WorkbenchApp() {
       setApiError(displayError("AIC-PLAN-3001", "排班服务暂不可用，请稍后重试。", true));
       return;
     }
+    preloadProductIcons();
     setLoading(true);
     const controller = new AbortController();
     planAbortRef.current?.abort();
@@ -689,60 +872,20 @@ function WorkbenchApp() {
     clearIssueState();
 
     try {
-      const response = await runPlan({
+      const response = await computePlan({
         layout: planLayout,
         operbox: normalizeOperboxEntries(operbox),
         sourceName: fileName,
         boxSource,
         rotation: rotationProfile,
-      }, controller.signal);
+        fiammetta_enable: effectiveFiammettaEnabled,
+      }, { signal: controller.signal });
       setCliReady(true);
       setActiveShift(0);
-      const responseTargets = await eligibleFiammettaTargetsFor(operbox, response.maa);
-      const fiammettaError = validateFiammettaExport({
-        settings: { enabled: fiammettaEnabled, target: fiammettaTarget, order: fiammettaOrder },
-        ownsFiammetta,
-        eligibleTargets: responseTargets,
-      });
-      setPreviousResult(result);
-      const finalizedResult = {
-        ...response,
-        maa: applyFiammettaSettings(response.maa, {
-          enabled: fiammettaEnabled && !fiammettaError,
-          target: fiammettaTarget,
-          order: fiammettaOrder,
-        }),
-      };
+      const finalizedResult = response;
       setResult(finalizedResult);
-      if (fiammettaError && fiammettaEnabled) {
-        setApiError(displayError("AIC-BOX-1101", `${fiammettaError} 本次结果未写入菲亚梅塔换人。`));
-      }
-      setPlanHistory((current) => {
-        const compact = { ...finalizedResult, debug: undefined };
-        const next = [{ savedAt: new Date().toISOString(), result: compact }, ...current.filter((entry) => entry.result.diagnosticId !== response.diagnosticId)].slice(0, 5);
-        try { writePlanHistory(window.localStorage, next); } catch { /* Keep history in memory when storage is full. */ }
-        return next;
-      });
-      if (response.maa.plans[0]) {
-        const plan = response.maa.plans[0];
-        const maaFactoryRooms = plan.rooms?.manufacture;
-        if (maaFactoryRooms) {
-          setLayout((current) => {
-            let next = current;
-            const factoryLayoutRooms = next.rooms.filter((r) => r.kind === "factory");
-            maaFactoryRooms.forEach((maaRoom, index) => {
-              const layoutRoom = factoryLayoutRooms[index];
-              if (!layoutRoom || !maaRoom.product) return;
-              if (factoryRecipeFor(layoutRoom) !== "all") return;
-              const recipe = factoryRecipeFromMaaProduct(maaRoom.product);
-              if (recipe) {
-                next = updateFactoryRecipe(next, layoutRoom.id, recipe);
-              }
-            });
-            return next;
-          });
-        }
-      }
+      completeOnboarding();
+      setLayout((current) => resolvePlanPresentationLayout(current, response));
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setApiError(toDisplayError(error, "排班请求失败，请稍后重试。"));
@@ -758,12 +901,6 @@ function WorkbenchApp() {
     planAbortRef.current?.abort();
     planAbortRef.current = null;
     setLoading(false);
-  }
-
-  function handleRestorePlan(entry: PlanHistoryEntry) {
-    setPreviousResult(result);
-    setResult(entry.result);
-    setActiveShift(0);
   }
 
   async function handleRun() {
@@ -792,51 +929,40 @@ function WorkbenchApp() {
     }
   }
 
-  async function handleDownloadMaa() {
-    if (!result?.maa || !operbox) return;
-    const eligibleTargets = await eligibleFiammettaTargetsFor(operbox, result.maa);
-    const validationError = validateFiammettaExport({
-      settings: { enabled: fiammettaEnabled, target: fiammettaTarget, order: fiammettaOrder },
-      ownsFiammetta,
-      eligibleTargets,
-    });
-    if (validationError) {
-      setApiError(displayError("AIC-BOX-1101", validationError));
-      return;
-    }
+  function handleDownloadMaa() {
+    if (!result?.maa) return;
     downloadJson("arknights-infra-schedule-maa.json", result.maa);
   }
 
-  function handleDownloadBundle() {
-    if (result?.debug?.debugBundle) downloadJson("arknights-infra-debug-bundle.json", result.debug.debugBundle);
-  }
-
-  function handleCopyCommand() {
-    if (result?.debug?.command) void copyText(result.debug.command);
-  }
-
   function clearIssueState() {
+    setIssueDraftKind("room_issue");
     setIssueDraftRow(null);
     setIssueDraftNote("");
-    setSavedIssue(null);
     setIssueOpen(false);
     setFeedbackResult(null);
-    setFeedbackError(null);
   }
 
   function handleMarkIssue(row: RoomRow) {
+    setIssueDraftKind("room_issue");
     setIssueDraftRow(row);
     setIssueDraftNote("");
-    setSavedIssue(null);
     setFeedbackResult(null);
-    setFeedbackError(null);
+    setIssueOpen(true);
+  }
+
+  function handlePerformanceIssue() {
+    if (!result?.diagnosticId) return;
+    setIssueDraftKind("performance_issue");
+    setIssueDraftRow(null);
+    setIssueDraftNote("本次求解耗时明显偏长。");
+    setFeedbackResult(null);
     setIssueOpen(true);
   }
 
   async function handleSaveIssue() {
-    if (!issueDraftRow || !issueDraftNote.trim()) return;
+    if (!issueDraftNote.trim() || (issueDraftKind === "room_issue" && !issueDraftRow)) return;
     if (!result?.diagnosticId) {
-      setFeedbackError("请先生成排班，再提交问题。");
+      setApiError(displayError("AIC-FEEDBACK-4001", "请先生成排班，再提交问题。"));
       return;
     }
 
@@ -846,31 +972,42 @@ function WorkbenchApp() {
       `换班方式：${rotationProfile}`,
       `布局：${preset.label}`,
     ].join("；");
-    const issue = { row: issueDraftRow, note: `${issueDraftNote.trim()}\n\n[运行环境] ${environment}` };
+    const note = `${issueDraftNote.trim()}\n\n[运行环境] ${environment}`;
 
     setFeedbackSaving(true);
-    setFeedbackError(null);
     setApiError(null);
     try {
-      const response = await saveFeedback({
-        diagnosticId: result.diagnosticId,
-        room: {
-          id: issue.row.roomId,
-          title: issue.row.title,
-          group: issue.row.group,
-          operators: issue.row.operators,
-        },
-        note: issue.note,
-        consent: true,
-      });
-      setSavedIssue(issue);
+      let response: FeedbackData;
+      if (issueDraftKind === "performance_issue") {
+        response = await saveFeedback({
+          kind: "performance_issue",
+          diagnosticId: result.diagnosticId,
+          note,
+          consent: true,
+        });
+      } else {
+        const row = issueDraftRow;
+        if (!row) return;
+        response = await saveFeedback({
+          kind: "room_issue",
+          diagnosticId: result.diagnosticId,
+          room: {
+            id: row.roomId,
+            title: row.title,
+            group: row.group,
+            operators: row.operators,
+          },
+          note,
+          consent: true,
+        });
+      }
       setFeedbackResult(response);
       setIssueOpen(false);
+      setIssueDraftKind("room_issue");
       setIssueDraftRow(null);
       setIssueDraftNote("");
     } catch (error) {
       const normalized = toDisplayError(error, "反馈保存失败，请稍后重试。");
-      setFeedbackError(normalized.message);
       setApiError(normalized);
     } finally {
       setFeedbackSaving(false);
@@ -879,6 +1016,7 @@ function WorkbenchApp() {
 
   function handleCancelIssue() {
     setIssueOpen(false);
+    setIssueDraftKind("room_issue");
     setIssueDraftRow(null);
     setIssueDraftNote("");
   }
@@ -896,17 +1034,6 @@ function WorkbenchApp() {
 
   function handleFiammettaEnabledChange(enabled: boolean) {
     setFiammettaEnabled(enabled);
-    clearPlanResult();
-  }
-
-  function handleFiammettaTargetChange(target: string) {
-    setFiammettaTarget(target);
-    setFiammettaEnabled(true);
-    clearPlanResult();
-  }
-
-  function handleFiammettaOrderChange(order: "pre" | "post") {
-    setFiammettaOrder(order);
     clearPlanResult();
   }
 
@@ -1028,12 +1155,33 @@ function WorkbenchApp() {
     }
   }
 
-  function markOnboardingSeen() {
+  function persistOnboardingPreference(value: OnboardingPreference) {
+    setOnboardingPreference(value);
     try {
-      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
-    } catch (error) {
-      console.warn("Failed to persist onboarding state", error);
+      window.localStorage.setItem(
+        ONBOARDING_STORAGE_KEY,
+        value === "completed" ? ONBOARDING_COMPLETED_VALUE : ONBOARDING_DISMISSED_VALUE,
+      );
+    } catch {
+      // The current page can still honor the preference when storage is unavailable.
     }
+  }
+
+  function dismissOnboarding() {
+    persistOnboardingPreference("dismissed");
+  }
+
+  function restartOnboarding() {
+    setOnboardingPreference("active");
+    try {
+      window.localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+    } catch {
+      // The current page can still reopen the cards when storage is unavailable.
+    }
+  }
+
+  function completeOnboarding() {
+    persistOnboardingPreference("completed");
   }
 
   function openSetup() {
@@ -1043,14 +1191,10 @@ function WorkbenchApp() {
 
   function handleSetupOpenChange(next: boolean) {
     setSetupOpen(next);
-    if (!next) {
-      setInputError(null);
-      markOnboardingSeen();
-    }
+    if (!next) setInputError(null);
   }
 
   function closeSetup() {
-    markOnboardingSeen();
     setInputError(null);
     setSetupOpen(false);
   }
@@ -1058,14 +1202,112 @@ function WorkbenchApp() {
   function openSklandFromSetup() {
     setInputError(null);
     setSetupOpen(false);
-    setPage("skland");
+    navigateToPage("skland");
   }
+
+  function handleAppPageChange(nextPage: AppPage, trigger?: HTMLElement): boolean {
+    if ((nextPage === "account" || nextPage === "skland") && !websiteSession) {
+      requestWebsiteAccount(nextPage, trigger);
+      return false;
+    }
+    if (nextPage === "calculator") hasRenderedCalculator.current = true;
+    return true;
+  }
+
+  function requestWebsiteAccount(intent: WebsiteAuthIntent, trigger?: HTMLElement | null) {
+    websiteAuthIntentRef.current = intent;
+    websiteAuthReturnFocusRef.current = trigger ?? document.activeElement as HTMLElement | null;
+    setWebsiteAuthDialogOpen(true);
+  }
+
+  function handleWebsiteAuthDialogOpenChange(open: boolean) {
+    if (websiteAuthFocusReturnTimerRef.current !== null) {
+      window.clearTimeout(websiteAuthFocusReturnTimerRef.current);
+      websiteAuthFocusReturnTimerRef.current = null;
+    }
+    setWebsiteAuthDialogOpen(open);
+    if (open) return;
+    websiteAuthIntentRef.current = null;
+    const trigger = websiteAuthReturnFocusRef.current;
+    websiteAuthReturnFocusRef.current = null;
+    websiteAuthFocusReturnTimerRef.current = window.setTimeout(() => {
+      websiteAuthFocusReturnTimerRef.current = null;
+      const focusTarget = trigger?.isConnected
+        ? trigger
+        : document.querySelector<HTMLElement>('[data-primary-navigation-page="account"]');
+      focusTarget?.focus();
+    }, WEBSITE_AUTH_FOCUS_RETURN_DELAY_MS);
+  }
+
+  function navigateToPage(nextPage: AppPage) {
+    if (!handleAppPageChange(nextPage)) return;
+    router.push(workbenchHref(nextPage));
+  }
+
+  async function handleWebsiteSessionChanged(authenticated: boolean) {
+    beginSklandStateChange();
+    if (!authenticated) {
+      websiteAuthIntentRef.current = null;
+      websiteAuthReturnFocusRef.current = null;
+      setWebsiteAuthDialogOpen(false);
+      router.push(workbenchHref("calculator"));
+      setSklandAccounts([]);
+      setSklandActiveAccountId(null);
+      setSklandBindingSummary(emptySklandBindingSummary());
+      setSklandScheduleSnapshot(null);
+      setSklandStatusSnapshot(null);
+      setSklandError(null);
+    }
+    await refetchWebsiteSession();
+    setWebsiteAuthReloadKey((current) => current + 1);
+  }
+
+  function handleStartPersonalFlow() {
+    if (!websiteSession) {
+      requestWebsiteAccount(hasPersonalBox ? "run" : "setup");
+      return;
+    }
+    if (hasPersonalBox) {
+      void handleRun();
+      return;
+    }
+    openSetup();
+  }
+
+  function handleProtectedRun() {
+    if (hasPersonalBox && !websiteSession) {
+      requestWebsiteAccount("run");
+      return;
+    }
+    if (!canRun) return;
+    void handleRun();
+  }
+
+  function requireWebsiteAccountFromSetup() {
+    setSetupOpen(false);
+    requestWebsiteAccount("setup");
+  }
+
+  websiteIntentContinuationRef.current = (intent) => {
+    if (intent === "setup") {
+      setSetupInitialStep("box");
+      setSetupOpen(true);
+      return;
+    }
+    if (intent === "run") {
+      if (cliReady) void handleRun();
+      return;
+    }
+    router.push(workbenchHref(intent === "skland" ? "skland" : "account"));
+  };
 
   function useSklandSnapshotFromSetup() {
     if (sklandScheduleSnapshot) applySklandSnapshot(sklandScheduleSnapshot);
   }
 
   function handleSklandAuthenticated(session: SklandSessionData) {
+    const generation = beginSklandStateChange();
+    sklandRestoreGuard.current.acceptFull(generation);
     setSklandError(null);
     applySklandSession(session);
   }
@@ -1077,10 +1319,12 @@ function WorkbenchApp() {
   }
 
   async function handleDeleteAllSklandData() {
+    const generation = beginSklandStateChange();
     setSklandBusy(true);
     setSklandError(null);
     try {
-      await deleteAllSklandData();
+      await deleteAllSklandAccountData();
+      if (!sklandRestoreGuard.current.acceptFull(generation)) return;
       const clearsBox = boxSource === "skland";
       const clearsLayout = layoutSource === "skland";
       const retainedLayout = clearsLayout
@@ -1113,6 +1357,7 @@ function WorkbenchApp() {
       }
       setSklandAccounts([]);
       setSklandActiveAccountId(null);
+      setSklandBindingSummary(emptySklandBindingSummary());
       setSklandScheduleSnapshot(null);
       setSklandStatusSnapshot(null);
       if (clearsBox) {
@@ -1133,10 +1378,11 @@ function WorkbenchApp() {
       }
       clearIssueState();
     } catch (error) {
+      if (!sklandRestoreGuard.current.isCurrent(generation)) return;
       setSklandError(toDisplayError(error, "森空岛数据删除失败，请稍后重试。"));
       throw error;
     } finally {
-      setSklandBusy(false);
+      if (sklandRestoreGuard.current.isCurrent(generation)) setSklandBusy(false);
     }
   }
 
@@ -1156,6 +1402,7 @@ function WorkbenchApp() {
       setResult(null);
       setActiveShift(0);
       setResultClearWarningDismissed(false);
+      setOnboardingPreference("active");
       setStorageNotice(null);
       clearIssueState();
     } catch {
@@ -1175,7 +1422,6 @@ function WorkbenchApp() {
     try {
       const health = await getHealth();
       setCliReady(health.plannerReady);
-      setDebugToolsEnabled(health.features.debugTools);
       setApiError(
         health.plannerReady
           ? null
@@ -1186,34 +1432,141 @@ function WorkbenchApp() {
     }
   }
 
-  const issueForPanel = useMemo(
-    () => savedIssue ?? (issueDraftRow && issueOpen ? { row: issueDraftRow, note: issueDraftNote } : null),
-    [issueDraftNote, issueDraftRow, issueOpen, savedIssue]
-  );
-  const issueReport = useMemo(
-    () => buildIssueReport(issueForPanel, fileName, result?.debug?.command),
-    [issueForPanel, fileName, result?.debug?.command]
-  );
   const statusError = inputError && !setupOpen
     ? displayError(inputErrorCode, inputError)
     : apiError ?? storageNotice;
   const activity = usePlanActivity({ loading, result, error: statusError });
-
-  if (!hasRestoredSession) {
-    return (
-      <main className="grid min-h-dvh place-items-center bg-background px-6" role="status" aria-live="polite">
-        <div className="w-full max-w-md space-y-3" aria-label="正在恢复本地数据">
-          <div className="h-10 animate-pulse rounded-lg bg-muted" />
-          <div className="h-56 animate-pulse rounded-lg bg-muted/70" />
-          <span className="sr-only">正在恢复本地数据</span>
-        </div>
-      </main>
-    );
-  }
+  const visiblePlanRevision = scheduleResult?.diagnosticId;
+  const animatePlanEntrance = Boolean(
+    page === "calculator"
+    && visiblePlanRevision
+    && !revealedPlanRevisions.current.has(visiblePlanRevision)
+  );
+  const animateEmptyScheduleEntrance = page === "calculator" && hasRenderedCalculator.current;
+  const workbenchContext = {
+    calculator: {
+      layout,
+      result,
+      scheduleResult,
+      activeShift,
+      rows,
+      currentMoraleByOperator,
+      activePlan,
+      closestComparison,
+      resultClearNotice,
+      feedbackResult,
+      sampleLoading,
+      loading,
+      canRun,
+      hasBox,
+      hasPersonalBox,
+      hasSampleBox,
+      plannerReady: cliReady,
+      websiteAuthenticated: Boolean(websiteSession),
+      showOnboarding: onboardingPreference === "active" && !result,
+      animatePlanEntrance,
+      animateEmptyScheduleEntrance,
+      onPlanEntranceConsumed: (revision: string) => revealedPlanRevisions.current.add(revision),
+      requiresAccount: !accountCanUseCurrentBox,
+      accountControl: CLIENT_SKLAND_ENABLED && activeSklandAccount ? (
+        <SklandAccountControl
+          account={activeSklandAccount}
+          statusSnapshot={sklandStatusSnapshot}
+          onOpenSkland={() => navigateToPage("skland")}
+        />
+      ) : undefined,
+      onLoadSample: handleLoadSample,
+      onStartPersonalFlow: handleStartPersonalFlow,
+      onDismissOnboarding: dismissOnboarding,
+      onRestartOnboarding: restartOnboarding,
+      onOpenSetup: openSetup,
+      onRun: handleProtectedRun,
+      onCancelRun: handleCancelRun,
+      onSetActiveShift: setActiveShift,
+      onMarkIssue: handleMarkIssue,
+      onPerformanceIssue: handlePerformanceIssue,
+      onFactoryRecipeChange: handleScheduleFactoryRecipeChange,
+      onTradeOrderChange: handleScheduleTradeOrderChange,
+      onDownloadMaa: handleDownloadMaa,
+      onClearResultNotice: () => setResultClearNotice(null),
+      onDismissResultClearWarning: dismissResultClearWarning,
+    },
+    training: {
+      operbox: accountCanUseCurrentBox ? operbox : null,
+      layout,
+      profile: accountCanUseCurrentBox ? result?.profile : null,
+      trainingAdvice: accountCanUseCurrentBox ? result?.trainingAdvice ?? null : null,
+      requiresAccount: !accountCanUseCurrentBox,
+      onOpenCalculator: () => navigateToPage("calculator"),
+    },
+    account: {
+      authenticated: Boolean(websiteSession),
+      pending: websiteSessionPending,
+      onSessionChanged: handleWebsiteSessionChanged,
+      ...(CLIENT_ACCOUNT_CLOUD_SYNC_ENABLED ? {
+        cloudWorkspace: accountCloudWorkspace.cloudWorkspaceData,
+        onRestoreSavedPlan: (saved: SavedPlanData) => {
+          const context = saved.calculationContext;
+          if (!context) return;
+          const restoredPreset = resolvePreset(PRESETS.find((item) => item.label === context.presetLabel));
+          const restoredLayout = structuredClone(context.layout);
+          setPreset(restoredPreset);
+          setLayout(restoredLayout);
+          setLayoutDirty(JSON.stringify(restoredLayout) !== JSON.stringify(buildBlueprint(restoredPreset)));
+          setLayoutSource("local");
+          setLocalLayoutBackup(null);
+          setRotationProfile(context.rotationProfile);
+          setFiammettaEnabled(context.fiammettaEnabled);
+          setResult(saved.result);
+          setActiveShift(0);
+          router.push(workbenchHref("calculator"));
+        },
+        onCloudDataChanged: accountCloudWorkspace.refreshCloudData,
+      } : {}),
+    },
+    skland: CLIENT_SKLAND_ENABLED ? {
+      websiteAuthenticated: Boolean(websiteSession),
+      websiteSessionPending,
+      bindingSummary: sklandBindingSummary,
+      onOpenAccount: () => navigateToPage("account"),
+      skland: {
+        scheduleSnapshot: sklandScheduleSnapshot,
+        snapshot: sklandStatusSnapshot,
+        accounts: sklandAccounts,
+        activeAccountId: sklandActiveAccountId,
+        bindingCount: sklandBindingCount,
+        sessionLoading: sklandSessionLoading,
+        layoutMatches: sklandLayoutMatches ?? false,
+        layoutDirty,
+        configured: sklandConfigured,
+        disabledReason: sklandDisabledReason,
+        busy: sklandBusy,
+        error: sklandError,
+        onAuthenticated: handleSklandAuthenticated,
+        onRoleChange: handleSklandRole,
+        onLogout: handleSklandLogout,
+        onRetryStatus: handleRetrySklandStatus,
+        onDeleteAllData: handleDeleteAllSklandData,
+        onApplyLayout: handleApplySklandLayout,
+        onContinueSetup: () => {
+          setSetupInitialStep("layout");
+          setSetupOpen(true);
+        },
+        onOpenCalculator: () => navigateToPage("calculator"),
+        onCopyUid: (uid: string) => void copyText(uid),
+      },
+    } : null,
+  };
 
   return (
+    <AppMotionProvider>
+      <TooltipProvider>
+    <div
+      className="contents"
+      data-workbench-hydrated={hasRestoredSession ? "true" : "false"}
+    >
     <SidebarProvider defaultOpen={false}>
-      <AppSidebar page={page} onPageChange={setPage} />
+      <AppSidebar page={page} onPageChange={handleAppPageChange} />
       <SidebarInset>
         <AppTopBar />
         <LiveActivity
@@ -1224,103 +1577,64 @@ function WorkbenchApp() {
           }}
         />
 
-      <div className="app-content-track py-4" data-app-content>
-      {page === "calculator" ? (
-        <InfraCalculator
-          layout={layout}
-          showBetaPanels={showBetaPanels}
-          result={result}
-          scheduleResult={scheduleResult}
-          activeShift={activeShift}
-          rows={rows}
-          changedRoomIds={changedRoomIds}
-          planHistory={planHistory}
-          currentMoraleByOperator={currentMoraleByOperator}
-          activePlan={activePlan}
-          closestComparison={closestComparison}
-          resultClearNotice={resultClearNotice}
-          issueForPanel={issueForPanel}
-          issueReport={issueReport}
-          feedbackResult={feedbackResult}
-          feedbackError={feedbackError}
-          sampleLoading={sampleLoading}
-          loading={loading}
-          canRun={canRun}
-          plannerReady={cliReady}
-          accountControl={CLIENT_SKLAND_ENABLED ? (
-            <SklandAccountControl
-              account={activeSklandAccount}
-              statusSnapshot={sklandStatusSnapshot}
-              sessionLoading={sklandSessionLoading}
-              onOpenSkland={() => setPage("skland" as const)}
-            />
-          ) : undefined}
-          onLoadSample={handleLoadSample}
-          onOpenSetup={openSetup}
-          onRun={handleRun}
-          onCancelRun={handleCancelRun}
-          onRestorePlan={handleRestorePlan}
-          onSetActiveShift={setActiveShift}
-          onMarkIssue={handleMarkIssue}
-          onFactoryRecipeChange={handleScheduleFactoryRecipeChange}
-          onTradeOrderChange={handleScheduleTradeOrderChange}
-          onDownloadMaa={handleDownloadMaa}
-          onDownloadBundle={handleDownloadBundle}
-          onCopyCommand={handleCopyCommand}
-          onClearResultNotice={() => setResultClearNotice(null)}
-          onDismissResultClearWarning={dismissResultClearWarning}
-        />
-      ) : CLIENT_SKLAND_ENABLED && page === "skland" ? (
-        <SklandStatus
-          scheduleSnapshot={sklandScheduleSnapshot}
-          snapshot={sklandStatusSnapshot}
-          accounts={sklandAccounts}
-          activeAccountId={sklandActiveAccountId}
-          sessionLoading={sklandSessionLoading}
-          layoutMatches={sklandLayoutMatches ?? false}
-          layoutDirty={layoutDirty}
-          configured={sklandConfigured}
-          disabledReason={sklandDisabledReason}
-          busy={sklandBusy}
-          error={sklandError}
-          onAuthenticated={handleSklandAuthenticated}
-          onRoleChange={handleSklandRole}
-          onLogout={handleSklandLogout}
-          onRetryStatus={handleRetrySklandStatus}
-          onDeleteAllData={handleDeleteAllSklandData}
-          onApplyLayout={handleApplySklandLayout}
-          onContinueSetup={() => {
-            setSetupInitialStep("layout");
-            setSetupOpen(true);
-          }}
-          onOpenCalculator={() => setPage("calculator")}
-          onCopyUid={(uid) => void copyText(uid)}
-        />
-      ) : page === "skill-query" ? (
-        <SkillQuery />
-      ) : (
-        <TrainingAdvice operbox={operbox} layout={layout} profile={result?.profile} onOpenCalculator={() => setPage("calculator")} />
-      )}
+      <div
+        className={page === "calculator" && !scheduleResult
+          ? "w-full flex-1"
+          : "app-content-track py-4"}
+        data-app-content
+        inert={!hasRestoredSession}
+        aria-busy={!hasRestoredSession}
+      >
+      <WorkbenchContext.Provider value={workbenchContext}>
+        <PrimaryPageTransition pageKey={page}>{children}</PrimaryPageTransition>
+      </WorkbenchContext.Provider>
       </div>
 
       <footer className="app-content-track mt-auto flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 py-5 text-xs text-muted-foreground">
         <span>非官方、小范围测试中的排班辅助工具</span>
-        <Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/terms">本站服务条款</Link>
-        <Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/privacy">本站隐私政策</Link>
-        {debugToolsEnabled ? (
-          <Link
-            className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground"
-            href={betaRequested ? "/" : "/?beta"}
-            onClick={() => setBetaRequested((current) => !current)}
-          >
-            {betaRequested ? "退出调试工具" : "开启调试工具"}
-          </Link>
-        ) : null}
+        <Link prefetch={false} className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/terms">本站服务条款</Link>
+        <Link prefetch={false} className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/privacy">本站隐私政策</Link>
+        <a
+          href="https://www.rainyun.com/riic_"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="由雨云提供计算服务（在新标签页打开雨云官网）"
+          data-rainyun-link
+          className="ml-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm px-1 text-[11px] leading-none opacity-70 outline-none transition-[opacity,transform] duration-180 ease-[var(--motion-ease-out)] hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100 max-sm:mt-1"
+        >
+          <span className="block leading-none" data-rainyun-copy>由</span>
+          <img
+            src="/images/partners/rainyun-logo.png"
+            alt=""
+            width={1120}
+            height={390}
+            loading="eager"
+            decoding="async"
+            className="block h-5 w-14 object-contain sm:h-[23px] sm:w-16"
+          />
+          <span className="block leading-none" data-rainyun-copy>提供计算服务</span>
+        </a>
       </footer>
 
-      {setupMounted ? <SetupDialog
+      {CLIENT_ACCOUNT_CLOUD_SYNC_ENABLED ? accountCloudWorkspace.syncElement : null}
+
+      {websiteAuthDialogMounted ? <Suspense fallback={(
+        <WebsiteAccountDialogLoading
+          open={websiteAuthDialogOpen}
+          onOpenChange={handleWebsiteAuthDialogOpenChange}
+        />
+      )}><WebsiteAccountDialog
+          open={websiteAuthDialogOpen}
+          onOpenChange={handleWebsiteAuthDialogOpenChange}
+          onSessionChanged={handleWebsiteSessionChanged}
+        /></Suspense> : null}
+
+      {setupMounted ? <Suspense fallback={(
+        <SetupDialogSkeleton open={setupOpen} onOpenChange={handleSetupOpenChange} />
+      )}><SetupDialog
         {...(CLIENT_SKLAND_ENABLED ? {
           sklandSnapshot: sklandScheduleSnapshot,
+          sklandBindingCount,
           sklandConfigured,
           sklandDisabledReason,
           onOpenSkland: openSklandFromSetup,
@@ -1340,19 +1654,15 @@ function WorkbenchApp() {
         resultClearWarningDismissed={resultClearWarningDismissed}
         onMaaFile={handleFile}
         onMaaPaste={handleMaaPaste}
+        onRequireWebsiteAccount={requireWebsiteAccountFromSetup}
         presets={PRESETS}
         preset={preset}
         layout={layout}
         configurationKey={setupConfigurationKey}
         rotationProfile={rotationProfile}
         onRotationProfileChange={handleRotationProfileChange}
-        fiammettaEnabled={fiammettaEnabled}
-        fiammettaTarget={fiammettaTarget}
-        fiammettaOrder={fiammettaOrder}
-        scheduledOperators={scheduledOperators}
+        fiammettaEnabled={effectiveFiammettaEnabled}
         onFiammettaEnabledChange={handleFiammettaEnabledChange}
-        onFiammettaTargetChange={handleFiammettaTargetChange}
-        onFiammettaOrderChange={handleFiammettaOrderChange}
         onPresetSelect={handlePresetSelect}
         onLayoutFile={handleLayoutFile}
         onDownloadLayout={() => downloadJson(`layout-${layout.template}.json`, layout)}
@@ -1365,18 +1675,19 @@ function WorkbenchApp() {
         powerBudget={powerBudget}
         onFinish={closeSetup}
         onSkip={closeSetup}
-      /> : null}
+      /></Suspense> : null}
 
-      {issueModalMounted ? <IssueNoteModal
+      {issueModalMounted ? <Suspense fallback={null}><IssueNoteModal
         open={issueOpen}
+        kind={issueDraftKind}
         row={issueDraftRow}
         note={issueDraftNote}
         saving={feedbackSaving}
         onNoteChange={setIssueDraftNote}
         onSave={handleSaveIssue}
         onCancel={handleCancelIssue}
-      /> : null}
-      {productModalMounted ? <ProductChangeConfirmModal
+      /></Suspense> : null}
+      {productModalMounted ? <Suspense fallback={null}><ProductChangeConfirmModal
         open={Boolean(pendingProductChange)}
         roomLabel={rows.find((row) => row.roomId === pendingProductChange?.roomId)?.title ?? pendingProductChange?.roomId ?? "当前设施"}
         changeKind={pendingProductChange?.type === "trade" ? "贸易策略" : "制造配方"}
@@ -1384,9 +1695,12 @@ function WorkbenchApp() {
         busy={loading && Boolean(pendingProductChange)}
         onConfirm={() => void confirmScheduleProductChange()}
         onCancel={() => setPendingProductChange(null)}
-      /> : null}
+      /></Suspense> : null}
       </SidebarInset>
     </SidebarProvider>
+    </div>
+      </TooltipProvider>
+    </AppMotionProvider>
   );
 }
 

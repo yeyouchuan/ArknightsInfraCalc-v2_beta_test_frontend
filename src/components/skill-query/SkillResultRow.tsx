@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { OperatorSlot } from "@/components";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RichText } from "@/components/RichText";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   BUILDING_SKILL_CATALOG,
@@ -62,7 +63,14 @@ export function SkillResultRow({ operator }: SkillResultRowProps) {
       {/* 左右布局：左侧干员卡片（不展示心情），右侧技能（PC 每技能一列，移动端按钮列表+弹窗） */}
       <div className="relative z-10 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
         <div className="shrink-0">
-          <OperatorSlot slot={{ name: operator.name, label: operator.name, portrait: operator.portrait }} />
+          <OperatorSlot
+            slot={{
+              name: operator.name,
+              label: operator.name,
+              portrait: operator.portrait,
+              profession: operator.profession,
+            }}
+          />
         </div>
         {isMobile ? (
           <MobileSkillList skills={skills} />
@@ -132,7 +140,9 @@ function SkillColumn({
             </div>
           </div>
         </div>
-        <p className="min-w-0 text-pretty text-xs leading-5 text-white/70">{skill.description}</p>
+        <p className="min-w-0 text-pretty text-sm leading-5 text-white/70">
+          {skill.descriptionRich ? <RichText text={skill.descriptionRich} /> : skill.description}
+        </p>
       </div>
     </div>
   );
@@ -227,7 +237,11 @@ function SkillDetailDialog({
               )}
             </span>
           </div>
-          {skill ? <p className="text-pretty text-sm leading-6 text-foreground">{skill.description}</p> : null}
+          {skill ? (
+            <p className="text-pretty text-sm leading-6 text-foreground">
+              {skill.descriptionRich ? <RichText text={skill.descriptionRich} /> : skill.description}
+            </p>
+          ) : null}
         </DialogBody>
       </DialogContent>
     </Dialog>

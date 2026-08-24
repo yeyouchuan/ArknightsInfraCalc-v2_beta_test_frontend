@@ -3,9 +3,11 @@ import layout243 from "./layouts/243.json";
 import layout252 from "./layouts/252.json";
 import layout333 from "./layouts/333.json";
 import layout342 from "./layouts/342.json";
-import { BaseBlueprint, BlueprintRoom, FactoryProduct, PresetDef, RoomKind, TradeProduct } from "./types";
+import { BaseBlueprint, BlueprintRoom, PresetDef, RoomKind, TradeProduct } from "./types";
+import { factoryRecipeFromMaaProduct, type FactoryRecipe } from "./factory-recipes";
 
-export type FactoryRecipe = FactoryProduct["factory"]["recipe"];
+export { factoryRecipeFromMaaProduct };
+export type { FactoryRecipe } from "./factory-recipes";
 export type TradeOrder = TradeProduct["trade"]["order"];
 
 export const PRESETS: PresetDef[] = [
@@ -91,19 +93,6 @@ export function tradeOrderFor(room: BlueprintRoom): TradeOrder {
   return "gold";
 }
 
-const MAA_PRODUCT_TO_RECIPE: Record<string, FactoryRecipe> = {
-  "Pure Gold": "gold",
-  "贵金属": "gold",
-  "Battle Record": "battle_record",
-  "作战记录": "battle_record",
-  "Originium Shard": "originium",
-  "源石碎片": "originium",
-};
-
-export function factoryRecipeFromMaaProduct(product: string): FactoryRecipe | null {
-  return MAA_PRODUCT_TO_RECIPE[product] ?? null;
-}
-
 export function productLabel(room: BlueprintRoom): string | undefined {
   if (!room.product) return undefined;
 
@@ -170,4 +159,3 @@ export function computePowerBudget(layout: BaseBlueprint): PowerBudget {
 
   return { ok: generated >= consumed, generated, consumed };
 }
-

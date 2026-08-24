@@ -15,6 +15,17 @@ export default function TermsPage() {
   const sklandEnabled = isSklandFeatureEnabled();
   return (
     <LegalDocument eyebrow="可露希尔基建终端" title="服务条款" effectiveDate={LEGAL_EFFECTIVE_DATE}>
+      <section>
+        <h2>网站账号</h2>
+        <ul>
+          <li>你可以自行注册网站账号，但必须提供本人有权使用的邮箱地址，并完成邮箱验证后登录。</li>
+          <li>你应妥善保管密码和登录设备，不得共享、转让账号或利用账号绕过访问限制。</li>
+          <li>出现接口滥用、安全风险或违反本条款的行为时，本站可以封禁账号并撤销全部 Session；你可以通过本页列明的渠道提出异议。</li>
+          <li>你可以在账号设置中退出其他设备或永久注销账号。注销不可撤销，且不会删除或影响任何游戏官方账号。</li>
+          <li>登录本身不会上传已有工作区；只有确认当前版本服务条款和隐私政策后，本站才会自动同步 MAA Box、布局、设置与有限排班历史。</li>
+          <li>你可以拒绝或撤销同步并继续使用纯本地模式；撤销会删除账号关联的云端工作区和缓存引用。</li>
+        </ul>
+      </section>
       {sklandEnabled ? <>
       <section>
         <h2 className="font-number">1. 服务说明</h2>

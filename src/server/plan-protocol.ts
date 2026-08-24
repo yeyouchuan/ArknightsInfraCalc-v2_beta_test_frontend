@@ -1,9 +1,17 @@
-import type { OperBoxEntry, SolverObservation } from "../types";
+import type {
+  MaaJson,
+  OperBoxEntry,
+  SolverObservation,
+  TrainingAdviceReport,
+  TrainingRoomSchedule,
+} from "../types";
+import { parseTrainingAdviceReport } from "../training-advice-contract.ts";
+import { parseTrainingRoomSchedule } from "../training-room-contract.ts";
 
 export type ProtocolRecord = Record<string, unknown>;
 
 export const PLAN_PROTOCOL_VERSION = 1;
-export const PLAN_SCHEMA_VERSION = 1;
+export const PLAN_SCHEMA_VERSION = 3;
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
@@ -11,6 +19,7 @@ export type PlanComputeCapability = {
   supported: boolean;
   protocolVersion: number | null;
   schemaVersion: number | null;
+  supportedSchemaVersions: number[];
   contractSha256: string | null;
   solverExecutableSha256: string | null;
   reason: string | null;
@@ -25,6 +34,8 @@ export type PlanComputePayload = {
   profile: ProtocolRecord;
   rotation: ProtocolRecord & { shifts: unknown[] };
   maa: ProtocolRecord;
+  trainingRoom?: TrainingRoomSchedule;
+  trainingAdvice: TrainingAdviceReport;
 };
 
 export function isProtocolRecord(value: unknown): value is ProtocolRecord {
@@ -40,46 +51,46 @@ export function inspectPlanComputeCapability(response: unknown): PlanComputeCapa
   const result = isProtocolRecord(envelope.result) ? envelope.result : {};
   const protocolVersion = typeof result.protocol_version === "number" ? result.protocol_version : null;
   const schemaVersion = typeof result.plan_schema_version === "number" ? result.plan_schema_version : null;
+  const supportedSchemaVersions = Array.isArray(result.supported_plan_schema_versions)
+    ? result.supported_plan_schema_versions.filter((value): value is number => Number.isInteger(value))
+    : [];
   const contractSha256 = normalizeSha256(result.plan_contract_sha256);
   const solverExecutableSha256 = normalizeSha256(result.solver_executable_sha256);
+  const base = {
+    protocolVersion,
+    schemaVersion,
+    supportedSchemaVersions,
+    contractSha256,
+    solverExecutableSha256,
+  };
 
   if (envelope.ok !== true) {
     return {
+      ...base,
       supported: false,
-      protocolVersion,
-      schemaVersion,
-      contractSha256,
-      solverExecutableSha256,
       reason: "ping 未返回成功响应",
     };
   }
   if (protocolVersion !== PLAN_PROTOCOL_VERSION) {
     return {
+      ...base,
       supported: false,
-      protocolVersion,
-      schemaVersion,
-      contractSha256,
-      solverExecutableSha256,
       reason: `protocol_version 需要 ${PLAN_PROTOCOL_VERSION}，当前为 ${protocolVersion ?? "缺失"}`,
     };
   }
-  if (schemaVersion !== PLAN_SCHEMA_VERSION) {
+  if (!supportedSchemaVersions.includes(PLAN_SCHEMA_VERSION)) {
     return {
+      ...base,
       supported: false,
-      protocolVersion,
-      schemaVersion,
-      contractSha256,
-      solverExecutableSha256,
-      reason: `plan_schema_version 需要 ${PLAN_SCHEMA_VERSION}，当前为 ${schemaVersion ?? "缺失"}`,
+      reason: `plan_schema_version 需要支持 ${PLAN_SCHEMA_VERSION}，当前支持 ${
+        supportedSchemaVersions.length ? supportedSchemaVersions.join(", ") : "缺失"
+      }`,
     };
   }
 
   return {
+    ...base,
     supported: true,
-    protocolVersion,
-    schemaVersion,
-    contractSha256,
-    solverExecutableSha256,
     reason: null,
   };
 }
@@ -198,9 +209,15 @@ export function parsePlanComputePayload(response: unknown): PlanComputePayload |
     throw new Error("plan.compute 成功响应缺少 maa 对象。");
   }
 
+  const trainingRoom = result.training_room === undefined
+    ? undefined
+    : parseTrainingRoomSchedule(result.training_room, result.maa as unknown as MaaJson);
+
   return {
     profile: result.profile,
     rotation: { ...result.rotation, shifts: result.rotation.shifts },
     maa: result.maa,
+    ...(trainingRoom ? { trainingRoom } : {}),
+    trainingAdvice: parseTrainingAdviceReport(result.training_advice),
   };
 }

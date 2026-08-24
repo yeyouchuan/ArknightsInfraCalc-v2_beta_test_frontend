@@ -1,37 +1,33 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { Download, FileJson, FlaskConical, HeartPulse, Keyboard, Loader2, Play, Search, Settings2, Terminal, X } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Download, Ellipsis, FlaskConical, HeartPulse, Keyboard, Loader2, Play, Search, Settings2, X } from "lucide-react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 
+import { ScheduleBoard, ShiftTabs } from "@/components";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { PlanResultSummarySkeleton } from "@/components/PlanResultSummarySkeleton";
 
 import type { FactoryRecipe, TradeOrder } from "@/blueprint";
+import { loadClientFeature } from "@/client-lazy-loader";
 import { cn } from "@/lib/utils";
 import type { ShiftDirection } from "@/motion";
+import { onboardingStepStatuses } from "@/onboarding";
 import type { RoomRow } from "@/schedule";
 import type {
   BaseBlueprint,
   FeedbackData,
-  IssueReport,
   MaaPlan,
   PublicPlanData,
   ShiftComparison,
 } from "@/types";
 
-const ScheduleBoard = dynamic(() => import("@/components").then((module) => module.ScheduleBoard), { ssr: false });
-const ShiftTabs = dynamic(() => import("@/components").then((module) => module.ShiftTabs), { ssr: false });
-const PlanResultSummary = dynamic(
-  () => import("@/components/PlanResultSummary").then((module) => module.PlanResultSummary),
-  { ssr: false },
-);
-const DebugActions = dynamic(() => import("@/components").then((module) => module.DebugActions), { ssr: false });
-const IssuePanel = dynamic(() => import("@/components").then((module) => module.IssuePanel), { ssr: false });
+const PlanResultSummary = lazy(() => loadClientFeature("planResultSummary").then((module) => ({ default: module.PlanResultSummary })));
+const ShortcutGuideDialog = lazy(() => loadClientFeature("sharedComponents").then((module) => ({ default: module.ShortcutGuideDialog })));
+
+function DeferredResultLoading() {
+  return <PlanResultSummarySkeleton />;
+}
 
 function Panel({ children, className = "", action, title, icon }: {
   children: ReactNode;
@@ -42,91 +38,298 @@ function Panel({ children, className = "", action, title, icon }: {
 }) {
   return (
     <section className={cn("min-w-0 py-5", className)}>
-      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        {title || icon ? <div className="flex min-w-0 items-start gap-2">{icon}<h2 className="text-sm font-semibold tracking-tight">{title}</h2></div> : null}
-        {action ? <div className={cn("ms-auto min-w-0 max-sm:w-full", !title && !icon && "w-full")}>{action}</div> : null}
-      </header>
+      {title || icon || action ? (
+        <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          {title || icon ? <div className="flex min-w-0 items-start gap-2">{icon}<h2 className="text-sm font-semibold tracking-tight">{title}</h2></div> : null}
+          {action ? <div className={cn("ms-auto min-w-0 max-sm:w-full", !title && !icon && "w-full")}>{action}</div> : null}
+        </header>
+      ) : null}
       <div>{children}</div>
     </section>
   );
 }
 
-function RunButton({ canRun, plannerReady, onRun }: { canRun: boolean; plannerReady: boolean; onRun: () => void }) {
-  const unavailableLabel = plannerReady ? "请先导入干员数据" : "排班服务暂不可用";
+function RunButton({
+  canRun,
+  hasBox,
+  plannerReady,
+  requiresAccount,
+  onRun,
+}: {
+  canRun: boolean;
+  hasBox: boolean;
+  plannerReady: boolean;
+  requiresAccount: boolean;
+  onRun: () => void;
+}) {
+  const unavailableLabel = requiresAccount
+    ? "请先登录网站账号"
+    : plannerReady
+      ? "请先导入干员数据"
+      : "排班服务暂不可用";
   return (
     <Button
       size="sm"
       className="h-9 min-w-0 max-sm:h-11 max-sm:px-3 max-sm:text-xs"
-      aria-label={canRun ? "生成排班" : unavailableLabel}
-      title={!canRun ? unavailableLabel : undefined}
+      aria-label={canRun || (requiresAccount && hasBox && plannerReady) ? "生成排班" : unavailableLabel}
+      title={!canRun && !(requiresAccount && hasBox && plannerReady) ? unavailableLabel : undefined}
       onClick={onRun}
-      disabled={!canRun}
+      disabled={!canRun && !(requiresAccount && hasBox && plannerReady)}
     >
       <Play />
-      <span>{canRun ? "生成排班" : "导入后生成"}</span>
+      <span>{requiresAccount && hasBox ? "登录后生成" : canRun ? "生成排班" : "导入后生成"}</span>
     </Button>
   );
 }
 
-interface InfraCalculatorProps {
+function CalculatorStartPanel({
+  websiteAuthenticated,
+  hasPersonalBox,
+  hasSampleBox,
+  showOnboarding,
+  sampleLoading,
+  loading,
+  plannerReady,
+  accountControl,
+  onStartPersonalFlow,
+  onLoadSample,
+  onRun,
+  onOpenSetup,
+  onDismissOnboarding,
+  onRestartOnboarding,
+}: {
+  websiteAuthenticated: boolean;
+  hasPersonalBox: boolean;
+  hasSampleBox: boolean;
+  showOnboarding: boolean;
+  sampleLoading: boolean;
+  loading: boolean;
+  plannerReady: boolean;
+  accountControl?: ReactNode;
+  onStartPersonalFlow: () => void;
+  onLoadSample: () => Promise<boolean>;
+  onRun: () => void;
+  onOpenSetup: () => void;
+  onDismissOnboarding: () => void;
+  onRestartOnboarding: () => void;
+}) {
+  const statuses = onboardingStepStatuses({
+    authenticated: websiteAuthenticated,
+    hasPersonalBox,
+    hasSuccessfulPlan: false,
+  });
+  const steps = [
+    {
+      title: "登录网站账号",
+      eyebrow: "网站账号",
+      description: websiteAuthenticated ? "账号状态已确认，可以继续导入个人数据。" : "保护个人 BOX、排班记录与后续同步。",
+      group: "control",
+    },
+    {
+      title: "导入自己的 BOX",
+      eyebrow: "干员数据",
+      description: hasPersonalBox ? "个人 BOX 已就绪，可以配置布局并生成方案。" : "支持 MAA JSON 与兼容的一图流表格。",
+      group: "trading",
+    },
+    {
+      title: "生成第一份方案",
+      eyebrow: "三班排班",
+      description: "得到三班排班、关键房间提示与 MAA 文件。",
+      group: "manufacture",
+    },
+  ] as const;
+  const personalActionLabel = !websiteAuthenticated
+    ? hasPersonalBox ? "登录并继续生成" : "登录并导入 BOX"
+    : hasPersonalBox && !plannerReady ? "排班服务未就绪" : hasPersonalBox ? "生成第一份方案" : "导入自己的 BOX";
+  const personalActionAriaLabel = hasPersonalBox ? "生成排班" : "配置Box与布局";
+  const personalPlanUnavailable = websiteAuthenticated && hasPersonalBox && !plannerReady;
+
+  return (
+    <section
+      className="relative isolate flex min-h-[calc(100svh-3.5rem)] items-center overflow-hidden bg-[#f7f5ec] px-4 py-8 sm:px-6 md:min-h-svh lg:px-8"
+      aria-label="生成排班起步区"
+      data-calculator-start-panel
+      data-onboarding-active={showOnboarding ? "true" : "false"}
+    >
+      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[34%] bg-[linear-gradient(135deg,transparent_0_38%,rgb(49_49_49/0.035)_38%_62%,transparent_62%)] lg:block" aria-hidden="true" />
+      <div className="relative mx-auto flex w-full max-w-5xl flex-col justify-center">
+        {showOnboarding ? (
+          <ol
+            className="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-3"
+            aria-label="生成个人排班的步骤"
+          >
+            {steps.map((step, index) => {
+              const status = statuses[index];
+              const statusLabel = status === "complete" ? "已完成" : status === "current" ? "当前步骤" : "待开始";
+              return (
+                <li
+                  key={step.title}
+                  className={cn(
+                    "min-w-0",
+                    index === 2 && "md:col-span-2 xl:col-span-1",
+                  )}
+                  aria-current={status === "current" ? "step" : undefined}
+                >
+                  <article
+                    className={cn(
+                      "infra-room-surface onboarding-technical-card relative h-full min-h-40 overflow-hidden px-4 py-4 text-white",
+                      status === "current" && "ring-1 ring-[var(--room-accent)]",
+                    )}
+                    data-room-group={step.group}
+                  >
+                    <div className="infra-room-emblem onboarding-technical-card-emblem pointer-events-none absolute inset-0 bg-left bg-no-repeat" aria-hidden="true" />
+                    <div className="relative z-10 flex h-full flex-col">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-h-6 items-center gap-2">
+                          <span className="h-5 w-1 shrink-0 bg-[var(--room-accent)]" aria-hidden="true" />
+                          <p className="text-xs font-medium tracking-wide text-white/66">
+                            <span className="font-number">0{index + 1}</span> · {step.eyebrow}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 border border-white/14 bg-white/6 px-2 py-1 text-[0.68rem] font-medium tracking-wide text-white/58",
+                            status === "current" && "border-[var(--room-accent)] text-[var(--room-accent)]",
+                            status === "complete" && "text-white/78",
+                          )}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <h2 className="mt-5 text-xl font-semibold tracking-[-0.025em] text-[var(--room-accent)]">
+                        {step.title}
+                      </h2>
+                      <p className="mt-2 text-xs leading-5 text-white/58">{step.description}</p>
+                    </div>
+                  </article>
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
+
+        <div className={cn(
+          "flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center",
+          showOnboarding && "mt-7",
+        )} data-calculator-controls>
+          <Button
+            type="button"
+            size="lg"
+            className="min-h-11 sm:min-w-44"
+            aria-label={personalActionAriaLabel}
+            title={personalPlanUnavailable ? "排班服务尚未就绪" : undefined}
+            disabled={loading || personalPlanUnavailable}
+            onClick={hasPersonalBox && websiteAuthenticated ? onRun : onStartPersonalFlow}
+          >
+            {loading && hasPersonalBox ? <Loader2 className="animate-spin" /> : <Play />}
+            {loading && hasPersonalBox ? "正在生成第一份方案…" : personalActionLabel}
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            variant="outline"
+            className="min-h-11 bg-white/72 sm:min-w-44"
+            aria-label={hasSampleBox ? "生成排班" : "全角色导入"}
+            disabled={sampleLoading || loading || (hasSampleBox && !plannerReady)}
+            onClick={hasSampleBox ? onRun : () => void onLoadSample()}
+          >
+            {sampleLoading || (loading && hasSampleBox) ? <Loader2 className="animate-spin" /> : <FlaskConical />}
+            {sampleLoading ? "正在载入示例…" : loading && hasSampleBox ? "正在生成示例…" : hasSampleBox ? "生成示例排班" : "先看全角色示例"}
+          </Button>
+          {hasPersonalBox ? (
+            <div className="inline-flex min-w-0 max-sm:[&_[data-skland-account-control]]:rounded-l-none" data-calculator-setup-group>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={accountControl
+                  ? "h-9 rounded-r-none max-sm:h-11"
+                  : "h-9 max-sm:h-11"}
+                aria-label="配置Box与布局"
+                onClick={onOpenSetup}
+              >
+                <Settings2 />调整 BOX 与布局
+              </Button>
+              {accountControl}
+            </div>
+          ) : null}
+          {!hasPersonalBox && accountControl ? <div className="self-center">{accountControl}</div> : null}
+          {showOnboarding ? (
+            <Button type="button" variant="ghost" className="min-h-11" onClick={onDismissOnboarding}>
+              暂时跳过引导
+            </Button>
+          ) : (
+            <Button type="button" variant="ghost" className="min-h-11" onClick={onRestartOnboarding}>
+              重新查看三步起步卡
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export interface InfraCalculatorProps {
   layout: BaseBlueprint;
-  showBetaPanels: boolean;
   result: PublicPlanData | null;
   scheduleResult: PublicPlanData | null;
   activeShift: number;
   rows: RoomRow[];
-  changedRoomIds: ReadonlySet<string>;
-  planHistory: Array<{ savedAt: string; result: PublicPlanData }>;
   currentMoraleByOperator: Map<string, number> | undefined;
   activePlan: MaaPlan | undefined;
   closestComparison: ShiftComparison | null;
   resultClearNotice: string | null;
-  issueForPanel: { row: RoomRow; note: string } | null;
-  issueReport: IssueReport | null;
   feedbackResult: FeedbackData | null;
-  feedbackError: string | null;
   sampleLoading: boolean;
   loading: boolean;
   canRun: boolean;
+  hasBox: boolean;
+  hasPersonalBox: boolean;
+  hasSampleBox: boolean;
   plannerReady: boolean;
+  websiteAuthenticated: boolean;
+  showOnboarding: boolean;
+  animatePlanEntrance: boolean;
+  animateEmptyScheduleEntrance: boolean;
+  onPlanEntranceConsumed: (revision: string) => void;
+  requiresAccount?: boolean;
   accountControl?: ReactNode;
   onLoadSample: () => Promise<boolean>;
+  onStartPersonalFlow: () => void;
+  onDismissOnboarding: () => void;
+  onRestartOnboarding: () => void;
   onOpenSetup: () => void;
   onRun: () => void;
   onCancelRun: () => void;
-  onRestorePlan: (entry: { savedAt: string; result: PublicPlanData }) => void;
   onSetActiveShift: (shift: number) => void;
   onMarkIssue: (row: RoomRow) => void;
+  onPerformanceIssue: () => void;
   onFactoryRecipeChange: (roomId: string, recipe: FactoryRecipe) => void;
   onTradeOrderChange: (roomId: string, order: TradeOrder) => void;
   onDownloadMaa: () => void;
-  onDownloadBundle: () => void;
-  onCopyCommand: () => void;
   onClearResultNotice: () => void;
   onDismissResultClearWarning: () => void;
 }
 
 export function InfraCalculator(props: InfraCalculatorProps) {
   const {
-    layout, showBetaPanels,
-    result, scheduleResult, activeShift, rows, changedRoomIds, planHistory, currentMoraleByOperator,
+    layout,
+    result, scheduleResult, activeShift, rows, currentMoraleByOperator,
     activePlan, closestComparison,
     resultClearNotice,
-    issueForPanel, issueReport, feedbackResult, feedbackError,
-    sampleLoading, loading, canRun, plannerReady, accountControl,
-    onLoadSample, onOpenSetup, onRun, onCancelRun, onRestorePlan,
-    onSetActiveShift, onMarkIssue,
+    feedbackResult,
+    sampleLoading, loading, canRun, hasBox, hasPersonalBox, hasSampleBox, plannerReady, websiteAuthenticated, showOnboarding, animatePlanEntrance, animateEmptyScheduleEntrance, onPlanEntranceConsumed, requiresAccount = false, accountControl,
+    onLoadSample, onStartPersonalFlow, onDismissOnboarding, onRestartOnboarding, onOpenSetup, onRun, onCancelRun,
+    onSetActiveShift, onMarkIssue, onPerformanceIssue,
     onFactoryRecipeChange, onTradeOrderChange,
-    onDownloadMaa, onDownloadBundle, onCopyCommand,
+    onDownloadMaa,
     onClearResultNotice, onDismissResultClearWarning,
   } = props;
-  const [scheduleViewMode, setScheduleViewMode] = useState<"list" | "compact">("list");
   const [shortcutGuideOpen, setShortcutGuideOpen] = useState(false);
   const [operatorQuery, setOperatorQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [shiftDirection, setShiftDirection] = useState<ShiftDirection>(0);
   const [fiammettaPortrait, setFiammettaPortrait] = useState<string | null>(null);
-  const showBetaSidebar = showBetaPanels && scheduleViewMode === "list";
   const fiammettaTarget = activePlan?.Fiammetta?.enable
     ? (Array.isArray(activePlan.Fiammetta.target) ? activePlan.Fiammetta.target[0] : activePlan.Fiammetta.target)
     : undefined;
@@ -136,7 +339,7 @@ export function InfraCalculator(props: InfraCalculatorProps) {
       setFiammettaPortrait(null);
       return;
     }
-    void import("@/operatorPortraits").then(({ operatorPortraitFor }) => {
+    void loadClientFeature("operatorPortraits").then(({ operatorPortraitFor }) => {
       if (!cancelled) setFiammettaPortrait(operatorPortraitFor(fiammettaTarget) ?? null);
     });
     return () => { cancelled = true; };
@@ -170,6 +373,43 @@ export function InfraCalculator(props: InfraCalculatorProps) {
     </div>
   );
 
+  const renderSearch = () => (
+    <div className="flex min-w-0 items-center gap-2 max-sm:col-span-3">
+      <label className="relative block min-w-0 flex-1">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          ref={searchInputRef}
+          value={operatorQuery}
+          onChange={(event) => setOperatorQuery(event.target.value)}
+          placeholder="搜索排班中的干员或房间"
+          aria-label="搜索排班中的干员或房间"
+          className="h-9 pr-10 pl-9 max-sm:h-11"
+        />
+        {operatorQuery ? (
+          <button
+            type="button"
+            onClick={() => { setOperatorQuery(""); searchInputRef.current?.focus(); }}
+            className="absolute top-1/2 right-0 grid size-9 -translate-y-1/2 place-items-center text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FFD800] max-sm:size-11"
+            aria-label="清空排班搜索"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        ) : null}
+      </label>
+      <Button
+        type="button"
+        size="icon-lg"
+        variant="outline"
+        className="hidden size-9 sm:inline-flex"
+        aria-label="查看快捷键"
+        title="查看快捷键"
+        onClick={() => setShortcutGuideOpen(true)}
+      >
+        <Keyboard />
+      </Button>
+    </div>
+  );
+
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
@@ -187,59 +427,42 @@ export function InfraCalculator(props: InfraCalculatorProps) {
   return (
     <>
       <section
-        className={showBetaSidebar ? "infra-technical-canvas grid grid-cols-[minmax(0,1fr)_clamp(320px,22vw,360px)] items-start max-[1100px]:block" : "infra-technical-canvas block"}
+        className="infra-technical-canvas block"
         data-infra-canvas
       >
-        <section className={showBetaSidebar ? "min-w-0 pr-5 max-[1100px]:pr-0" : "min-w-0"}>
+        <section className="min-w-0">
           <Panel
-            className="min-h-[calc(100vh-112px)]"
-            action={(
+            className={cn(
+              "min-h-[calc(100vh-112px)]",
+              !scheduleResult && "py-0",
+            )}
+            action={scheduleResult ? (
               <div
-                className="grid w-full grid-cols-[minmax(14rem,1fr)_auto_auto] items-center gap-2 max-sm:grid-cols-2"
+                className="grid w-full grid-cols-[minmax(14rem,1fr)_auto_auto] items-center gap-2 max-sm:grid-cols-[auto_auto_minmax(0,1fr)]"
                 data-calculator-controls
               >
-                <div className="flex min-w-0 items-center gap-2 max-sm:col-span-2">
-                  <label className="relative block min-w-0 flex-1">
-                    <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                    <Input
-                      ref={searchInputRef}
-                      value={operatorQuery}
-                      onChange={(event) => setOperatorQuery(event.target.value)}
-                      placeholder="搜索排班中的干员或房间"
-                      aria-label="搜索排班中的干员或房间"
-                      className="h-9 pr-10 pl-9 max-sm:h-11"
-                    />
-                    {operatorQuery ? (
-                      <button
-                        type="button"
-                        onClick={() => { setOperatorQuery(""); searchInputRef.current?.focus(); }}
-                        className="absolute top-1/2 right-0 grid size-9 -translate-y-1/2 place-items-center text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FFD800] max-sm:size-11"
-                        aria-label="清空排班搜索"
-                      >
-                        <X className="size-4" aria-hidden="true" />
-                      </button>
-                    ) : null}
-                  </label>
-                  <Button
-                    type="button"
-                    size="icon-lg"
-                    variant="outline"
-                    className="size-9 max-sm:size-11"
-                    aria-label="查看快捷键"
-                    title="查看快捷键"
-                    onClick={() => setShortcutGuideOpen(true)}
-                  >
-                    <Keyboard />
-                  </Button>
-                </div>
-                <div className="inline-flex min-w-0" data-calculator-setup-group>
+                {renderSearch()}
+                <details className="relative min-w-0 sm:hidden" data-calculator-more-tools>
+                  <summary className="flex h-11 cursor-pointer list-none items-center justify-center gap-2 border border-border bg-background px-3 text-sm font-medium marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD800]">
+                    <Ellipsis className="size-4" aria-hidden="true" />更多工具
+                  </summary>
+                  <div className="absolute left-0 top-[calc(100%+0.35rem)] z-30 grid w-[min(18rem,calc(100vw-1.5rem))] gap-2 border border-border bg-background p-2 shadow-lg">
+                    <Button type="button" variant="ghost" className="h-11 justify-start" onClick={onOpenSetup}>
+                      <Settings2 />配置Box与布局
+                    </Button>
+                    <Button type="button" variant="ghost" className="h-11 justify-start" onClick={() => setShortcutGuideOpen(true)}>
+                      <Keyboard />查看快捷键
+                    </Button>
+                  </div>
+                </details>
+                <div className="contents sm:inline-flex sm:min-w-0" data-calculator-setup-group>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     className={accountControl
-                      ? "h-9 min-w-0 rounded-r-none max-sm:h-11 max-sm:flex-1 max-sm:justify-start"
-                      : "h-9 min-w-0 max-sm:h-11 max-sm:flex-1 max-sm:justify-start"}
+                      ? "h-9 min-w-0 rounded-r-none max-sm:hidden"
+                      : "h-9 min-w-0 max-sm:hidden"}
                     aria-label="配置Box与布局"
                     onClick={onOpenSetup}
                   >
@@ -253,23 +476,48 @@ export function InfraCalculator(props: InfraCalculatorProps) {
                     <Loader2 className="animate-spin" />
                     取消计算
                   </Button>
-                ) : <RunButton canRun={canRun} plannerReady={plannerReady} onRun={onRun} />}
+                ) : <RunButton canRun={canRun} hasBox={hasBox} plannerReady={plannerReady} requiresAccount={requiresAccount} onRun={onRun} />}
               </div>
-            )}
+            ) : null}
           >
             {scheduleResult ? (
-              <PlanResultSummary
-                profile={scheduleResult.profile}
-                rotation={scheduleResult.rotation}
-                layout={layout}
-                activeShift={activeShift}
-                comparison={closestComparison}
-                planRevision={scheduleResult.diagnosticId}
-              />
+              <>
+                <Suspense fallback={<DeferredResultLoading />}>
+                  <PlanResultSummary
+                    profile={scheduleResult.profile}
+                    rotation={scheduleResult.rotation}
+                    maa={scheduleResult.maa}
+                    layout={layout}
+                    activeShift={activeShift}
+                    comparison={closestComparison}
+                    durationMs={scheduleResult.durationMs}
+                    planRevision={scheduleResult.diagnosticId}
+                    animateEntrance={animatePlanEntrance}
+                    onEntranceConsumed={onPlanEntranceConsumed}
+                    onPerformanceIssue={onPerformanceIssue}
+                  />
+                </Suspense>
+              </>
             ) : null}
-            {rows.length > 0 ? <ScheduleBoard
+            {!scheduleResult ? (
+              <CalculatorStartPanel
+                websiteAuthenticated={websiteAuthenticated}
+                hasPersonalBox={hasPersonalBox}
+                hasSampleBox={hasSampleBox}
+                showOnboarding={showOnboarding}
+                sampleLoading={sampleLoading}
+                loading={loading}
+                plannerReady={plannerReady}
+                accountControl={accountControl}
+                onStartPersonalFlow={onStartPersonalFlow}
+                onLoadSample={onLoadSample}
+                onRun={onRun}
+                onOpenSetup={onOpenSetup}
+                onDismissOnboarding={onDismissOnboarding}
+                onRestartOnboarding={onRestartOnboarding}
+              />
+            ) : rows.length > 0 ? <ScheduleBoard
               rows={rows}
-              changedRoomIds={changedRoomIds}
               layout={layout}
               planRevision={result?.diagnosticId}
               currentMoraleByOperator={currentMoraleByOperator}
@@ -277,18 +525,10 @@ export function InfraCalculator(props: InfraCalculatorProps) {
               shiftDirection={shiftDirection}
               activePlan={activePlan}
               searchQuery={operatorQuery}
-              viewControlsSlot={(
-                <ShiftTabs
-                  maaJson={result?.maa}
-                  rotation={result?.rotation}
-                  active={activeShift}
-                  closest={closestComparison?.planIndex}
-                  onChange={handleSetActiveShift}
-                />
-              )}
+              animateInitialView={!scheduleResult && animateEmptyScheduleEntrance}
               mobileActionsSlot={renderExportActions("mobile")}
               shiftInfoSlot={(
-                <div className="flex flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-between">
+                <div className="flex flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-between" data-shift-actions>
                   {fiammettaTarget ? (
                     <span className="flex h-7 items-center gap-1 rounded-[min(var(--radius-md),12px)] border border-[#016E65]/30 bg-[#016E65]/10 px-2.5 text-[0.8rem] text-[#016E65] shadow-xs max-sm:h-11" title={`菲亚梅塔恢复 ${fiammettaTarget}`}>
                       <span className="size-5 shrink-0 overflow-hidden rounded-full border border-[#016E65]/25 bg-[#272A2B]">
@@ -297,33 +537,19 @@ export function InfraCalculator(props: InfraCalculatorProps) {
                       <span className="whitespace-nowrap"><span className="text-[#016E65]/70">换心情</span> {fiammettaTarget}</span>
                     </span>
                   ) : null}
-                  {planHistory.length > 1 ? (
-                    <div className="flex min-w-0 items-center gap-2" aria-label="最近求解记录">
-                      <span className="shrink-0 text-xs font-medium text-muted-foreground">最近记录</span>
-                      <Tabs
-                        value={result?.diagnosticId ?? ""}
-                        onValueChange={(diagnosticId) => {
-                          const entry = planHistory.find((item) => item.result.diagnosticId === diagnosticId);
-                          if (entry) onRestorePlan(entry);
-                        }}
-                      >
-                        <TabsList>
-                          {planHistory.map((entry, index) => (
-                            <TabsTrigger key={entry.result.diagnosticId} value={entry.result.diagnosticId}>
-                              {index + 1}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                      </Tabs>
-                    </div>
-                  ) : null}
+                  <ShiftTabs
+                    maaJson={result?.maa}
+                    rotation={result?.rotation}
+                    active={activeShift}
+                    closest={closestComparison?.planIndex}
+                    onChange={handleSetActiveShift}
+                  />
                   {renderExportActions("desktop")}
                 </div>
               )}
               onIssue={onMarkIssue}
               onFactoryRecipeChange={onFactoryRecipeChange}
               onTradeOrderChange={onTradeOrderChange}
-              onViewModeChange={setScheduleViewMode}
             /> : (
               <div className="flex min-h-[420px] items-center justify-center border-y border-dashed border-border/70 py-6 text-center text-sm text-muted-foreground">
                 没有可展示的布局房间。
@@ -336,21 +562,6 @@ export function InfraCalculator(props: InfraCalculatorProps) {
             </div>
           ) : null}
         </section>
-
-        {showBetaSidebar ? (
-          <aside className="min-w-0 divide-y divide-border/70 border-l border-border/70 pl-5 max-[1100px]:mt-5 max-[1100px]:grid max-[1100px]:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] max-[1100px]:divide-x max-[1100px]:divide-y-0 max-[1100px]:border-l-0 max-[1100px]:border-t max-[1100px]:pl-0 max-[1100px]:[&>section]:px-5 max-[700px]:block max-[700px]:divide-x-0 max-[700px]:divide-y max-[700px]:[&>section]:px-0">
-            <Panel title="问题上下文" icon={<FileJson className="size-4" />}>
-              <IssuePanel issue={issueForPanel} report={issueReport} feedback={feedbackResult} feedbackError={feedbackError} />
-            </Panel>
-            <Panel title="调试输出" icon={<Terminal className="size-4" />}>
-              <DebugActions result={result} onDownloadMaa={onDownloadMaa} onDownloadBundle={onDownloadBundle} onCopyCommand={onCopyCommand} />
-              <details className="mt-3 text-sm text-muted-foreground">
-                <summary className="cursor-pointer">stdout / stderr</summary>
-                <Textarea readOnly value={result?.debug?.stdout || result?.debug?.stderr || "暂无输出。"} className="mt-2 max-h-64 min-h-32 resize-y font-mono text-xs" />
-              </details>
-            </Panel>
-          </aside>
-        ) : null}
       </section>
 
       {resultClearNotice ? (
@@ -367,28 +578,9 @@ export function InfraCalculator(props: InfraCalculatorProps) {
           </div>
         </aside>
       ) : null}
-      <Dialog open={shortcutGuideOpen} onOpenChange={setShortcutGuideOpen}>
-        <DialogContent className="gap-8 sm:max-w-2xl sm:p-8">
-          <DialogHeader className="gap-2 px-1 sm:px-2">
-            <DialogTitle className="text-xl font-semibold">快捷键</DialogTitle>
-            <DialogDescription className="max-w-lg text-sm leading-6">在排班主界面快速定位搜索、关闭临时状态或切换导航。</DialogDescription>
-          </DialogHeader>
-          <div className="divide-y divide-border/70 border-y border-border/70 px-1 sm:px-2">
-            <div className="flex min-h-20 items-center justify-between gap-8 py-5 max-sm:flex-wrap max-sm:gap-3">
-              <span className="text-[15px] font-medium leading-6">聚焦排班搜索</span>
-              <KbdGroup className="shrink-0" aria-label="Control 加 K"><Kbd>Ctrl</Kbd><span aria-hidden="true">+</span><Kbd>K</Kbd></KbdGroup>
-            </div>
-            <div className="flex min-h-20 items-center justify-between gap-8 py-5 max-sm:flex-wrap max-sm:gap-3">
-              <span className="text-[15px] font-medium leading-6">清空搜索；计算中取消请求</span>
-              <Kbd className="shrink-0">Esc</Kbd>
-            </div>
-            <div className="flex min-h-20 items-center justify-between gap-8 py-5 max-sm:flex-wrap max-sm:gap-3">
-              <span className="text-[15px] font-medium leading-6">展开或收起侧边栏</span>
-              <KbdGroup className="shrink-0" aria-label="Control 加 B"><Kbd>Ctrl</Kbd><span aria-hidden="true">+</span><Kbd>B</Kbd></KbdGroup>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <Suspense fallback={null}>
+        <ShortcutGuideDialog open={shortcutGuideOpen} onOpenChange={setShortcutGuideOpen} />
+      </Suspense>
     </>
   );
 }

@@ -15,7 +15,6 @@ import {
   PackageCheck,
   Search,
   Shirt,
-  Sparkles,
   Trash2,
   UserPlus,
   UsersRound,
@@ -48,16 +47,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { HoldToConfirm } from "@/components/ui/hold-to-confirm";
+import { RemoteAvatar } from "@/components/ui/remote-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HoldToConfirm } from "@/components/ui/hold-to-confirm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LevelDiamonds, OperatorSlot, roomVisualFor } from "@/components";
 import {
   InfraTechnicalCard as OverviewTechnicalCard,
   InfraTechnicalHeading as OverviewTechnicalHeading,
 } from "@/components/InfraTechnicalCard";
+import {
+  StatusCenterHeader,
+  StatusCenterLoading,
+  StatusCenterPage,
+} from "@/components/pages/StatusCenterShell";
 import { cn } from "@/lib/utils";
-import { operatorPortraitFor } from "@/operatorPortraits";
+import { operatorPortraitFor, operatorProfessionFor } from "@/operatorPortraits";
 import { roomGridTone } from "@/schedule-view-presentation";
 import { SklandLoginPanel } from "@/skland-components";
 import {
@@ -67,6 +72,7 @@ import {
 import type {
   DisplayError,
   SklandAccountSummary,
+  SklandBindingSummary,
   SklandInfrastructureRoom,
   SklandOperatorStatus,
   SklandOwnedSkin,
@@ -74,6 +80,7 @@ import type {
   SklandScheduleSnapshot,
   SklandStatusSnapshot,
 } from "@/types";
+import { deriveSklandBindingState } from "@/skland-binding-state";
 
 const PRODUCT_LABELS: Record<string, string> = {
   gold: "贵金属 / 赤金",
@@ -104,6 +111,8 @@ const ROOM_LABELS: Record<SklandInfrastructureRoom["group"], string> = {
   dormitory: "宿舍",
   meeting: "会客室",
   hire: "人力办公室",
+  processing: "加工站",
+  training: "训练室",
 };
 
 const INITIAL_LIST_LIMIT = 60;
@@ -165,11 +174,13 @@ function OperatorFilterCombobox({
   );
 }
 
-interface SklandStatusProps {
+export interface SklandStatusProps {
   scheduleSnapshot: SklandScheduleSnapshot | null;
   snapshot: SklandStatusSnapshot | null;
   accounts: SklandAccountSummary[];
   activeAccountId: string | null;
+  bindingCount: number;
+  bindingSummary: SklandBindingSummary;
   sessionLoading: boolean;
   layoutMatches: boolean;
   layoutDirty: boolean;
@@ -282,7 +293,7 @@ function maskedUid(uid: string): string {
 
 function roomLabel(room: SklandInfrastructureRoom): string {
   const base = ROOM_LABELS[room.group];
-  return ["control", "meeting", "hire"].includes(room.group) ? base : `${base} ${room.index + 1}`;
+  return ["control", "meeting", "hire", "processing", "training"].includes(room.group) ? base : `${base} ${room.index + 1}`;
 }
 
 function roomMaxLevel(room: SklandInfrastructureRoom): number {
@@ -375,10 +386,10 @@ function OverviewTab({
   return (
     <div className="grid gap-3">
       <section
-        className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]"
+        className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3"
         aria-label="现在值得处理"
       >
-        <OverviewTechnicalCard group="manufacture" className="min-h-40">
+        <OverviewTechnicalCard group="manufacture" className="min-h-40 xl:col-span-2">
           <div className="flex h-full flex-col">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -425,21 +436,23 @@ function OverviewTab({
                 当前布局 · {infrastructure.layoutLabel ?? "未识别"}
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="flex flex-wrap justify-start gap-2">
               <Button
                 type="button"
-                className="h-11 justify-between bg-white text-[#272a2b] hover:bg-white/90"
+                size="dialog"
+                className="bg-white text-[#272a2b] hover:bg-white/90"
                 onClick={onOpenCalculator}
               >
-                前往生成排班 <Sparkles />
+                前往生成排班
               </Button>
               <Button
                 type="button"
-                className="h-11 justify-between border-white/22 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                size="dialog"
+                className="border-white/22 bg-white/5 text-white hover:bg-white/10 hover:text-white"
                 variant="outline"
                 onClick={onContinueSetup}
               >
-                继续配置布局 <Building2 />
+                继续配置布局
               </Button>
             </div>
           </div>
@@ -610,8 +623,8 @@ function OverviewTab({
 
 function RoomCard({ room }: { room: SklandInfrastructureRoom }) {
   const productionRoom = room.group === "trading" || room.group === "manufacture" ? room : null;
-  const isPowerRoom = room.group === "power";
-  const hasRoomDetails = productionRoom !== null || room.group === "meeting" || room.group === "hire";
+  const isAuxiliaryRoom = ["meeting", "training", "hire", "processing"].includes(room.group);
+  const hasRoomDetails = productionRoom !== null || room.group === "hire";
   const visual = roomVisualFor(room.group);
   const gridTone = roomGridTone(room.group);
   const style = {
@@ -625,24 +638,24 @@ function RoomCard({ room }: { room: SklandInfrastructureRoom }) {
   return (
     <article
       className={`infra-room-surface relative gap-2 overflow-hidden px-3 py-2 text-white ${
-        isPowerRoom
-          ? "grid grid-cols-[minmax(0,1fr)_auto] items-start max-sm:grid-cols-1"
+        isAuxiliaryRoom
+          ? "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start"
           : "flex min-h-36 flex-col"
       }`}
       data-room-group={room.group}
       style={style}
     >
-      <div className="contents">
-        <div
-          className="infra-room-emblem absolute inset-0 bg-left bg-no-repeat"
-          style={{
-            backgroundImage: `url(${visual.background})`,
-            backgroundPosition: "-18px center",
-            backgroundSize: "auto 100%",
-          }}
-          aria-hidden="true"
-        />
-        <div className="relative z-10 flex min-h-7 flex-wrap items-center justify-between gap-3">
+      <div
+        className="infra-room-emblem absolute inset-0 bg-left bg-no-repeat"
+        style={{
+          backgroundImage: `url(${visual.background})`,
+          backgroundPosition: "-18px center",
+          backgroundSize: "auto 100%",
+        }}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 min-w-0">
+        <div className="flex min-h-7 flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="infra-room-accent h-5 w-1 shrink-0 bg-[var(--room-accent)]" aria-hidden="true" />
             <h4 className="font-number truncate text-sm font-medium tracking-[-0.02em] text-white [text-shadow:0_2px_3px_rgba(0,0,0,0.75)]">
@@ -659,37 +672,75 @@ function RoomCard({ room }: { room: SklandInfrastructureRoom }) {
             {room.group === "manufacture" ? <span className="font-number">生产力 {Math.round(room.speed * 100)}%</span> : null}
             {room.group === "dormitory" ? <span className="font-number">氛围 {room.comfort}</span> : null}
             {room.group === "hire" ? <span className="font-number">可刷新 {room.refreshCount} 次</span> : null}
+            {room.group === "training" ? (
+              <span className="font-number" aria-label={`实时进驻 ${room.occupancy.current} 人，共 ${room.occupancy.capacity} 个席位`}>
+                {room.occupancy.current}/{room.occupancy.capacity}
+              </span>
+            ) : null}
           </div>
         </div>
+        {room.group === "power" ? (
+          <div
+            className="mt-1 flex min-h-7 items-center gap-2 text-xs text-white/58"
+            data-skland-power-efficiency
+          >
+            <span>效率</span>
+            <strong className="font-number font-semibold tabular-nums text-[var(--room-accent)]">基准 100%</strong>
+          </div>
+        ) : null}
       </div>
 
       <div
         className={`relative z-10 min-w-0 ${
-          isPowerRoom
-            ? "flex justify-end max-sm:justify-start"
-            : "grid flex-1 content-between gap-2"
+          isAuxiliaryRoom ? "flex justify-end" : "grid flex-1 content-between gap-2"
         }`}
       >
         <div
           className={`flex flex-wrap items-start gap-3 max-sm:grid max-sm:w-full max-sm:grid-cols-5 max-sm:gap-1.5 max-sm:[&_.infra-operator-slot]:w-full max-sm:[&_.infra-operator-slot]:[--operator-slot-size:clamp(48px,calc((100vw-72px)/5),64px)] ${
-            isPowerRoom ? "justify-end max-sm:justify-start" : ""
+            isAuxiliaryRoom ? "justify-end" : ""
           }`}
         >
-          {room.operators.length ? room.operators.map((operator) => (
+          {room.group === "training" ? ([
+            { position: "trainee" as const, positionLabel: "训练位" },
+            { position: "trainer" as const, positionLabel: "协助位" },
+          ].map(({ position, positionLabel }) => {
+            const operator = room.operators.find((candidate) => candidate.position === position);
+            return (
+              <OperatorSlot
+                key={`${room.key}-${position}`}
+                slot={operator ? {
+                  name: operator.name,
+                  label: operator.name,
+                  portrait: operatorPortraitFor(operator.name, operator.id),
+                  profession: operatorProfessionFor(operator.name),
+                } : undefined}
+                currentMorale={operator?.morale}
+                compactView
+                positionLabel={positionLabel}
+              />
+            );
+          })) : room.operators.length ? room.operators.map((operator) => (
             <OperatorSlot
               key={`${room.key}-${operator.id}`}
               slot={{
                 name: operator.name,
                 label: `${operator.name} · 已工作 ${formatDuration(operator.workTime)}`,
                 portrait: operatorPortraitFor(operator.name, operator.id),
+                profession: operatorProfessionFor(operator.name),
               }}
               currentMorale={operator.morale}
               compactView
             />
-          )) : <span className="py-2 text-sm text-white/48">当前没有进驻干员</span>}
+          )) : isAuxiliaryRoom ? Array.from(
+            { length: room.group === "meeting" ? 2 : 1 },
+            (_, index) => <OperatorSlot key={`${room.key}-empty-${index}`} slot={undefined} compactView />,
+          ) : <span className="py-2 text-sm text-white/48">当前没有进驻干员</span>}
         </div>
+      </div>
 
-        {hasRoomDetails ? <div className="border-t border-white/10 pt-2 text-xs leading-5 text-white/58">
+      {hasRoomDetails ? <div className={`relative z-10 border-t border-white/10 pt-2 text-xs leading-5 text-white/58 ${
+        isAuxiliaryRoom ? "col-span-full" : ""
+      }`}>
           {productionRoom ? (
             <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5 xl:flex-nowrap">
               <div className="flex items-baseline gap-1 whitespace-nowrap">
@@ -720,21 +771,6 @@ function RoomCard({ room }: { room: SklandInfrastructureRoom }) {
                 </div>
               ) : null}
             </dl>
-          ) : room.group === "meeting" ? (
-            <div className="grid gap-1">
-              <p className="font-number">线索板：{room.clue.board.join("、") || "暂无"}</p>
-              <p className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-number">已有 {room.clue.own} · 待接收 {room.clue.needReceive} · 已接收 {room.clue.received}</span>
-                <span className="flex items-baseline gap-x-2 xl:ml-auto">
-                  <span aria-hidden="true">·</span>
-                  <span className="font-number whitespace-nowrap">
-                    {room.clue.sharing
-                      ? `线索交流至 ${formatDateTime(room.clue.shareCompleteTime)}`
-                      : "当前未进行线索交流"}
-                  </span>
-                </span>
-              </p>
-            </div>
           ) : room.group === "hire" ? (
             <p className="font-number">下次完成 {formatDateTime(room.completeWorkTime)}</p>
           ) : null}
@@ -755,7 +791,6 @@ function RoomCard({ room }: { room: SklandInfrastructureRoom }) {
             </details>
           ) : null}
         </div> : null}
-      </div>
     </article>
   );
 }
@@ -885,8 +920,14 @@ function InfrastructureTab({ snapshot }: { snapshot: SklandStatusSnapshot }) {
   const controlRooms = infrastructure.rooms.filter((room) => room.group === "control");
   const workRooms = infrastructure.rooms.filter((room) => room.group === "trading" || room.group === "manufacture");
   const powerRooms = infrastructure.rooms.filter((room) => room.group === "power");
-  const functionRooms = infrastructure.rooms.filter((room) => room.group === "meeting" || room.group === "hire");
+  const primaryFunctionRooms = infrastructure.rooms.filter(
+    (room) => room.group === "meeting" || room.group === "training",
+  );
+  const secondaryFunctionRooms = infrastructure.rooms.filter(
+    (room) => room.group === "hire" || room.group === "processing",
+  );
   const dormitoryRooms = infrastructure.rooms.filter((room) => room.group === "dormitory");
+  const alignDenseInfrastructureRows = powerRooms.length >= 2 && workRooms.length >= 6 && dormitoryRooms.length >= 4;
 
   return (
     <div className="grid gap-7">
@@ -963,7 +1004,7 @@ function InfrastructureTab({ snapshot }: { snapshot: SklandStatusSnapshot }) {
           data-skland-compact-layout
         >
           <div
-            className="flex min-w-0 flex-col gap-3 xl:justify-between"
+            className={`flex min-w-0 flex-col gap-3 ${alignDenseInfrastructureRows ? "" : "xl:justify-between"}`}
             data-skland-compact-column="production"
           >
             {controlRooms.map((room) => <RoomCard key={room.key} room={room} />)}
@@ -978,11 +1019,16 @@ function InfrastructureTab({ snapshot }: { snapshot: SklandStatusSnapshot }) {
           </div>
 
           <div
-            className="flex min-w-0 flex-col gap-3 xl:justify-between"
+            className={`flex min-w-0 flex-col gap-3 ${alignDenseInfrastructureRows ? "skland-dense-auxiliary-column" : "xl:justify-between"}`}
             data-skland-compact-column="auxiliary"
           >
-            {functionRooms.length ? <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
-              {functionRooms.map((room) => <RoomCard key={room.key} room={room} />)}
+            {primaryFunctionRooms.length || secondaryFunctionRooms.length ? <div className="skland-auxiliary-grid min-w-0">
+              <div className="skland-auxiliary-column skland-auxiliary-primary">
+                {primaryFunctionRooms.map((room) => <RoomCard key={room.key} room={room} />)}
+              </div>
+              <div className="skland-auxiliary-column skland-auxiliary-secondary">
+                {secondaryFunctionRooms.map((room) => <RoomCard key={room.key} room={room} />)}
+              </div>
             </div> : null}
 
             {dormitoryRooms.map((room) => <RoomCard key={room.key} room={room} />)}
@@ -1345,14 +1391,9 @@ export function ProgressTab({ snapshot }: { snapshot: SklandStatusSnapshot }) {
 
 function LoadingState() {
   return (
-    <div className="grid gap-5 pt-5" role="status" aria-label="正在恢复森空岛会话" data-skland-page>
-      <Skeleton className="h-32 w-full rounded-xl" />
-      <div className="grid gap-3 md:grid-cols-3">
-        <Skeleton className="h-36 rounded-xl" />
-        <Skeleton className="h-36 rounded-xl" />
-        <Skeleton className="h-36 rounded-xl" />
-      </div>
-    </div>
+    <StatusCenterPage data-skland-page>
+      <StatusCenterLoading label="正在恢复森空岛会话" />
+    </StatusCenterPage>
   );
 }
 
@@ -1361,6 +1402,8 @@ export function SklandStatus({
   snapshot,
   accounts,
   activeAccountId,
+  bindingCount,
+  bindingSummary,
   sessionLoading,
   layoutMatches,
   layoutDirty,
@@ -1380,26 +1423,49 @@ export function SklandStatus({
 }: SklandStatusProps) {
   const [addAccountOpen, setAddAccountOpen] = useState(false);
   const [accountQuery, setAccountQuery] = useState<string | null>(null);
+  const bindingState = deriveSklandBindingState(bindingSummary, accounts.length);
   if (sessionLoading) return <LoadingState />;
 
   if (!scheduleSnapshot) {
+    const loginTitle = bindingState === "renewal-due"
+      ? "七天授权期已结束，请扫码续期"
+      : bindingState === "reauthorize"
+        ? "森空岛已绑定，请授权当前浏览器"
+        : "把当前罗德岛带进排班助手";
+    const loginDescription = bindingState === "renewal-due"
+      ? `最近一次授权${bindingSummary.latestExpiredAt
+        ? `已于 ${credentialExpiryLabel(bindingSummary.latestExpiredAt)} 到期`
+        : "已经到期"}。重新扫码即可继续同步，现有排班设置不会被清除。`
+      : bindingState === "reauthorize"
+        ? `网站账号仍保留 ${bindingCount} 个森空岛绑定，但当前浏览器没有可用凭证。重新扫码即可继续同步。`
+        : "使用森空岛 App 扫描二维码，同步当前角色的干员与基建数据。";
     return (
-      <div className="grid gap-6 pt-5 pb-2 sm:pb-5" data-skland-page>
-        <header className="max-w-2xl">
-          <p className="text-xs font-medium tracking-wide text-primary">森空岛状态中心</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">把当前罗德岛带进排班助手</h2>
-        </header>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error.message}（{error.code}）</AlertDescription>
-          </Alert>
-        ) : null}
-        <SklandLoginPanel
-          configured={configured}
-          disabledReason={disabledReason}
-          onAuthenticated={onAuthenticated}
-        />
-      </div>
+      <StatusCenterPage
+        className="min-h-[calc(100dvh-7rem)] place-items-center py-8 sm:py-12"
+        data-skland-page
+      >
+        <div className="grid w-full max-w-xl justify-items-center gap-7 text-center">
+          <header className="grid max-w-lg gap-3" data-skland-login-copy>
+            <p className="text-xs font-medium tracking-wide text-primary">森空岛状态中心</p>
+            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{loginTitle}</h2>
+            <p className="text-pretty text-sm leading-6 text-muted-foreground">{loginDescription}</p>
+            <p className="text-xs leading-5 text-muted-foreground/80">
+              登录凭证只保存在当前浏览器，7 天后失效。
+            </p>
+          </header>
+          {error ? (
+            <Alert className="w-full max-w-lg text-start" variant="destructive">
+              <AlertDescription>{error.message}（{error.code}）</AlertDescription>
+            </Alert>
+          ) : null}
+          <SklandLoginPanel
+            className="max-w-lg"
+            configured={configured}
+            disabledReason={disabledReason}
+            onAuthenticated={onAuthenticated}
+          />
+        </div>
+      </StatusCenterPage>
     );
   }
 
@@ -1409,7 +1475,7 @@ export function SklandStatus({
   if (!snapshot && activeAccount) {
     if (!error) return <LoadingState />;
     return (
-      <div className="grid gap-6 pt-5 pb-2 sm:pb-5" data-skland-page data-skland-status-load-error>
+      <StatusCenterPage data-skland-page data-skland-status-load-error>
         <header className="max-w-2xl">
           <p className="text-xs font-medium tracking-wide text-primary">森空岛状态中心</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight">完整状态暂时无法加载</h2>
@@ -1437,7 +1503,7 @@ export function SklandStatus({
           busy={busy}
           onDeleteAllData={onDeleteAllData}
         />
-      </div>
+      </StatusCenterPage>
     );
   }
 
@@ -1461,51 +1527,52 @@ export function SklandStatus({
   const selectedItem = selectionItems.find((item) => item.value === selectedValue) ?? null;
 
   return (
-    <div className="grid gap-6 pt-5" data-skland-page>
-      <header
-        className="grid gap-5 border-b border-border/70 pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+    <StatusCenterPage className="pb-0 sm:pb-0" data-skland-page>
+      <StatusCenterHeader
         data-ui-number-font
-      >
-        <div className="flex min-w-0 items-center gap-4">
-          {snapshot.player.avatarUrl ? (
-            <img
+        identity={(
+          <div className="flex min-w-0 items-center gap-4">
+            <RemoteAvatar
               src={snapshot.player.avatarUrl}
               alt={`${snapshot.player.nickname}的森空岛头像`}
-              referrerPolicy="no-referrer"
-              className="size-14 shrink-0 rounded-xl object-cover ring-1 ring-foreground/10"
-            />
-          ) : (
-            <div
-              className="grid size-14 shrink-0 place-items-center rounded-xl bg-primary text-lg font-semibold text-primary-foreground"
-              role="img"
-              aria-label={`${snapshot.player.nickname}的森空岛头像`}
-            >
-              {snapshot.player.nickname.slice(0, 1)}
-            </div>
-          )}
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-2xl font-semibold tracking-tight">{snapshot.player.nickname}</h2>
-              {snapshot.player.level !== null ? <Badge variant="secondary">Lv.{snapshot.player.level}</Badge> : null}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>{snapshot.player.channelName}</span>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                onClick={() => onCopyUid(snapshot.player.uid)}
-                aria-label="复制完整 UID"
+              pixelSize={56}
+              className="size-14 rounded-xl ring-1 ring-foreground/10"
+              imageClassName="rounded-xl"
+              loadingFallback={<Skeleton className="size-full rounded-xl" />}
+              emptyFallback={(
+                <div
+                className="grid size-14 shrink-0 place-items-center rounded-xl bg-primary text-lg font-semibold text-primary-foreground"
+                role="img"
+                aria-label={`${snapshot.player.nickname}的森空岛头像`}
               >
-                UID {maskedUid(snapshot.player.uid)} <Clipboard className="size-3" />
-              </button>
-              <span>同步于 {formatDateTime(snapshot.infrastructure.storeTs)}</span>
+                {snapshot.player.nickname.slice(0, 1)}
+                </div>
+              )}
+            />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-2xl font-semibold tracking-tight">{snapshot.player.nickname}</h2>
+                {snapshot.player.level !== null ? <Badge variant="secondary">Lv.{snapshot.player.level}</Badge> : null}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span>{snapshot.player.channelName}</span>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  onClick={() => onCopyUid(snapshot.player.uid)}
+                  aria-label="复制完整 UID"
+                >
+                  UID {maskedUid(snapshot.player.uid)} <Clipboard className="size-3" />
+                </button>
+                <span>同步于 {formatDateTime(snapshot.infrastructure.storeTs)}</span>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+        )}
+        actions={(
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <div
-            className="col-span-2 h-9 w-full max-sm:h-11 sm:w-56"
+              className="col-span-2 h-11 w-full sm:w-56"
             data-skland-account-select
           >
             <Combobox
@@ -1553,9 +1620,9 @@ export function SklandStatus({
               </ComboboxContent>
             </Combobox>
           </div>
-          <Button
-            type="button"
-            className="h-9 max-sm:h-11"
+            <Button
+              type="button"
+              className="h-11"
             variant="outline"
             disabled={busy || accounts.length >= 5}
             title={accounts.length >= 5 ? "最多可登录 5 个森空岛账号" : undefined}
@@ -1563,19 +1630,20 @@ export function SklandStatus({
             data-skland-add-account
           >
             <UserPlus />添加账号
-          </Button>
-          <Button
-            type="button"
-            className="h-9 max-sm:h-11"
+            </Button>
+            <Button
+              type="button"
+              className="h-11"
             variant="destructive"
             disabled={busy}
             onClick={() => void onLogout()}
             data-skland-logout
           >
             <LogOut />退出
-          </Button>
-        </div>
-      </header>
+            </Button>
+          </div>
+        )}
+      />
 
       <Dialog open={addAccountOpen} onOpenChange={setAddAccountOpen}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-[min(880px,calc(100vw-2rem))]">
@@ -1604,6 +1672,14 @@ export function SklandStatus({
         <Alert variant="destructive">
           <AlertDescription>
             {error.message}（{error.code}）。已保留上一次成功同步的数据。
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {bindingSummary.renewalDueCount > 0 ? (
+        <Alert>
+          <AlertDescription data-ui-number-font>
+            有 {bindingSummary.renewalDueCount} 个森空岛绑定已满七天，需要重新扫码续期。当前仍有效的账号可以继续使用。
           </AlertDescription>
         </Alert>
       ) : null}
@@ -1644,6 +1720,6 @@ export function SklandStatus({
         busy={busy}
         onDeleteAllData={onDeleteAllData}
       />
-    </div>
+    </StatusCenterPage>
   );
 }

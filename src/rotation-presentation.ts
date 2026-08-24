@@ -1,5 +1,11 @@
 import type { RotationProfile, RotationShift } from "./types.ts";
 
+export function formatPlanDuration(durationMs: number): string {
+  const safeDurationMs = Number.isFinite(durationMs) ? Math.max(0, durationMs) : 0;
+  if (safeDurationMs < 1000) return `${Math.round(safeDurationMs)} ms`;
+  return `${(safeDurationMs / 1000).toFixed(1)} 秒`;
+}
+
 export type RotationMetricKind = "trade" | "manu" | "power";
 
 function compactNumber(value: number, digits = 1): string {

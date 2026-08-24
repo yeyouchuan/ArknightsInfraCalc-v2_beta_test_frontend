@@ -156,27 +156,33 @@ export function sealSklandAccount(account: SklandStoredAccount, secret?: string)
   return sealValue(account, secret);
 }
 
-export function unsealSklandAccount(value: string, secret?: string, now = Date.now()): SklandStoredAccount | null {
+export function websiteUserOwnerTag(userId: string, secret?: string): string {
+  return createHmac("sha256", keyFor(secret)).update(`website:${userId}`).digest("hex");
+}
+
+export function sealOwnedSklandAccount(account: SklandStoredAccount, ownerTag: string, secret?: string): string {
+  return sealValue({ ownerTag, account }, secret);
+}
+
+export function unsealOwnedSklandAccount(value: string, ownerTag: string, secret?: string, now = Date.now()): SklandStoredAccount | null {
   const decoded = unsealValue(value, secret);
+  if (!decoded || typeof decoded !== "object") return null;
+  const envelope = decoded as { ownerTag?: unknown; account?: unknown };
+  if (envelope.ownerTag !== ownerTag) return null;
+  return parsedStoredAccount(envelope.account, now);
+}
+
+function parsedStoredAccount(decoded: unknown, now: number): SklandStoredAccount | null {
   if (!decoded || typeof decoded !== "object") return null;
   const account = decoded as Partial<SklandStoredAccount>;
   const session = parsedSessionPayload(account.session, now);
   const roles = Array.isArray(account.roles) ? account.roles.map(parsedRole) : [];
-  if (
-    account.version !== 3 ||
-    !validAccountId(account.accountId) ||
-    !session ||
-    roles.some((role) => role === null) ||
-    roles.length === 0
-  ) {
-    return null;
-  }
-  return {
-    version: 3,
-    accountId: account.accountId,
-    session,
-    roles: roles as SklandRole[],
-  };
+  if (account.version !== 3 || !validAccountId(account.accountId) || !session || roles.some((role) => role === null) || roles.length === 0) return null;
+  return { version: 3, accountId: account.accountId, session, roles: roles as SklandRole[] };
+}
+
+export function unsealSklandAccount(value: string, secret?: string, now = Date.now()): SklandStoredAccount | null {
+  return parsedStoredAccount(unsealValue(value, secret), now);
 }
 
 export function sealSklandAccountIndex(index: SklandAccountIndexPayload, secret?: string): string {
@@ -232,6 +238,10 @@ export function toPublicSklandAccount(account: SklandStoredAccount): SklandAccou
 
 export function sklandDataOwnerTag(userId: string, secret?: string): string {
   return createHmac("sha256", keyFor(secret)).update(`skland:${userId}`).digest("hex");
+}
+
+export function sklandBindingKey(userId: string, secret?: string): string {
+  return createHmac("sha256", keyFor(secret)).update(`binding:${userId}`).digest("hex");
 }
 
 export function upsertSklandAccount(

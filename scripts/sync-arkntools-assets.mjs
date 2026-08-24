@@ -26,7 +26,7 @@ const outputRoot = process.cwd();
 
 if (options.check) {
   const manifest = await checkGeneratedAssets(outputRoot);
-  console.log(`arkntools 资源校验通过：${manifest.counts.operators} 名干员、${manifest.counts.buildingSkills} 个基建技能、来源 ${manifest.source.commit.slice(0, 12)}。`);
+  console.log(`arkntools 资源校验通过：${manifest.counts.operators} 名干员、${manifest.counts.buildingSkills} 个基建技能、${manifest.counts.productIcons} 张产物图标、来源 ${manifest.source.commit.slice(0, 12)}。`);
 } else {
   if (!options.sourceRoot || !options.sourceSha || !options.portraitsRoot || !options.portraitsSha) {
     throw new Error("同步时必须同时提供 --source、--source-sha、--portraits-source 和 --portraits-source-sha。");

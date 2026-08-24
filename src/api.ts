@@ -1,22 +1,30 @@
 import type {
   ApiFailure,
   ApiResponse,
+  AccountDataConsentData,
+  AccountDataConsentRequest,
   AppErrorCode,
   BaseBlueprint,
   DisplayError,
   FeedbackData,
   FeedbackRequest,
+  CloudWorkspaceData,
+  CloudWorkspacePutRequest,
   OperBoxEntry,
   PublicHealthData,
   PublicPlanData,
   RotationProfile,
   SampleOperboxData,
+  SavedPlanData,
+  SavedPlanListData,
   SklandQrStartData,
   SklandQrStatusData,
   SklandSessionData,
   SklandStatusData,
 } from "./types";
 import type { SklandPolicyConsentRequest } from "./legal-policy";
+
+const SKLAND_API_PREFIX = process.env.APP_CLIENT_SKLAND_API_PREFIX ?? "";
 
 export class ApiClientError extends Error implements DisplayError {
   readonly code: AppErrorCode;
@@ -63,6 +71,16 @@ async function requestData<T>(path: string, init?: RequestInit): Promise<T> {
   });
 }
 
+function sklandApiPath(path: string): string {
+  if (SKLAND_API_PREFIX) return `${SKLAND_API_PREFIX}${path}`;
+  throw new ApiClientError({
+    code: "AIC-AUTH-2007",
+    message: "当前站点不提供此功能。",
+    requestId: crypto.randomUUID(),
+    retryable: false,
+  });
+}
+
 export function toDisplayError(error: unknown, fallback: string): DisplayError {
   if (error instanceof ApiClientError) {
     return {
@@ -80,18 +98,26 @@ export function toDisplayError(error: unknown, fallback: string): DisplayError {
   };
 }
 
-export function runPlan(payload: {
+type PlanRequestOptions = {
+  signal?: AbortSignal;
+};
+
+export function computePlan(payload: {
   layout: BaseBlueprint;
   operbox: OperBoxEntry[];
   sourceName: string | null;
   boxSource: "skland" | "maa" | "sample";
   rotation: RotationProfile;
-}, signal?: AbortSignal): Promise<PublicPlanData> {
+  fiammetta_enable?: boolean;
+}, options: PlanRequestOptions = {}): Promise<PublicPlanData> {
+  const requestPayload = payload.boxSource === "sample"
+    ? { layout: payload.layout, sourceName: payload.sourceName, boxSource: payload.boxSource, rotation: payload.rotation, fiammetta_enable: payload.fiammetta_enable }
+    : payload;
   return requestData("/api/plan", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal,
+    body: JSON.stringify(requestPayload),
+    signal: options.signal,
   });
 }
 
@@ -99,24 +125,24 @@ export function getHealth(): Promise<PublicHealthData> {
   return requestData("/api/health");
 }
 
-export function getSklandSession(): Promise<SklandSessionData> {
-  return requestData("/api/skland/session");
+export function getSklandAccounts(mode: "full" | "summary" = "full"): Promise<SklandSessionData> {
+  return requestData(sklandApiPath(mode === "summary" ? "/accounts?mode=summary" : "/accounts"));
 }
 
 export function startSklandQr(consent: SklandPolicyConsentRequest): Promise<SklandQrStartData> {
-  return requestData("/api/skland/auth/qr", {
+  return requestData(sklandApiPath("/auth/qr"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ consent }),
   });
 }
 
-export function getSklandStatus(): Promise<SklandStatusData> {
-  return requestData("/api/skland/status");
+export function refreshSklandStatus(): Promise<SklandStatusData> {
+  return requestData(sklandApiPath("/status/refresh"), { method: "POST" });
 }
 
 export function pollSklandQr(scanId: string): Promise<SklandQrStatusData> {
-  return requestData("/api/skland/auth/qr/status", {
+  return requestData(sklandApiPath("/auth/qr/status"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ scanId }),
@@ -124,29 +150,23 @@ export function pollSklandQr(scanId: string): Promise<SklandQrStatusData> {
 }
 
 export function syncSkland(): Promise<SklandSessionData> {
-  return requestData("/api/skland/sync", { method: "POST" });
+  return requestData(sklandApiPath("/sync"), { method: "POST" });
 }
 
 export function selectSklandRole(accountId: string, uid: string): Promise<SklandSessionData> {
-  return requestData("/api/skland/role", {
+  return requestData(sklandApiPath("/role"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ accountId, uid }),
   });
 }
 
-export function logoutSkland(accountId?: string): Promise<SklandSessionData> {
-  return requestData("/api/skland/session", {
-    method: "DELETE",
-    ...(accountId ? {
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accountId }),
-    } : {}),
-  });
+export function deleteSklandAccount(accountId: string): Promise<SklandSessionData> {
+  return requestData(sklandApiPath(`/accounts/${encodeURIComponent(accountId)}`), { method: "DELETE" });
 }
 
-export function deleteAllSklandData(): Promise<{ deleted: true; runs: number; feedback: number }> {
-  return requestData("/api/skland/data", { method: "DELETE" });
+export function deleteAllSklandAccountData(): Promise<{ deleted: true; runs: number; feedback: number }> {
+  return requestData(sklandApiPath("/account-data"), { method: "DELETE" });
 }
 
 export function getSampleOperbox(): Promise<SampleOperboxData> {
@@ -159,4 +179,50 @@ export function saveFeedback(payload: FeedbackRequest): Promise<FeedbackData> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export function getAccountDataConsent(signal?: AbortSignal): Promise<AccountDataConsentData> {
+  return requestData("/api/account/data-consent", { signal });
+}
+
+export function acceptAccountDataConsent(payload: AccountDataConsentRequest, signal?: AbortSignal): Promise<AccountDataConsentData> {
+  return requestData("/api/account/data-consent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function revokeAccountDataConsent(): Promise<{ revoked: true; deleted: true }> {
+  return requestData("/api/account/data-consent", { method: "DELETE" });
+}
+
+export function getCloudWorkspace(signal?: AbortSignal): Promise<CloudWorkspaceData> {
+  return requestData("/api/workspace", { signal });
+}
+
+export function putCloudWorkspace(payload: CloudWorkspacePutRequest, signal?: AbortSignal): Promise<CloudWorkspaceData> {
+  return requestData("/api/workspace", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function getAccountSavedPlans(): Promise<SavedPlanListData> {
+  return requestData("/api/account/saved-plans");
+}
+
+export function updateAccountSavedPlan(id: string, pinned: boolean): Promise<SavedPlanData> {
+  return requestData(`/api/account/saved-plans/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pinned }),
+  });
+}
+
+export function deleteAccountSavedPlan(id: string): Promise<{ deleted: true }> {
+  return requestData(`/api/account/saved-plans/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

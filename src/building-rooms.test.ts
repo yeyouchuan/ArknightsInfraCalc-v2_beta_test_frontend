@@ -4,14 +4,26 @@ import test from "node:test";
 import {
   BUILDING_ROOM_LABELS,
   BUILDING_ROOM_PREFIXES,
+  ROOM_SKILL_TAGS,
   buildingRoomPrefixForSkillId,
   filterOperators,
+  operatorMatchesRoom,
   operatorMatchesNameContains,
-  operatorMatchesRooms,
+  operatorMatchesTag,
   type BuildingRoomPrefix,
   type OperatorWithSkills,
+  type SkillRecordLookup,
 } from "./building-rooms.ts";
-import { OPERATOR_CATALOG } from "./operatorPortraits.ts";
+import { BUILDING_SKILL_CATALOG, OPERATOR_CATALOG } from "./operatorPortraits.ts";
+
+const TAGS: Record<string, string[]> = {
+  control_x: ["生产力"],
+  dorm_y: [],
+  manu_x: ["生产力"],
+  manu_y: [],
+};
+
+const realSkillLookup: SkillRecordLookup = (skillId) => BUILDING_SKILL_CATALOG[skillId];
 
 test("derives the building-room prefix from the skill id's first underscore segment", () => {
   assert.equal(buildingRoomPrefixForSkillId("control_tra_spd_000"), "control");
@@ -42,16 +54,26 @@ test("maps the nine room prefixes to their Chinese labels", () => {
   assert.deepEqual([...BUILDING_ROOM_PREFIXES].sort(), [...Object.keys(expected)].sort());
 });
 
-test("filters operators by room prefix with intersection (AND) semantics", () => {
-  assert.equal(operatorMatchesRooms([], []), true);
-  assert.equal(operatorMatchesRooms(["control_x"], []), true);
-  assert.equal(operatorMatchesRooms(["control_x"], ["control"]), true);
-  assert.equal(operatorMatchesRooms(["manu_x"], ["control"]), false);
-  assert.equal(operatorMatchesRooms(["manu_x"], ["control", "manu"]), false);
-  assert.equal(operatorMatchesRooms(["manu_x", "control_y"], ["control", "manu"]), true);
-  assert.equal(operatorMatchesRooms(["manu_x", "control_y"], ["control"]), true);
-  assert.equal(operatorMatchesRooms(["manu_x", "control_y"], ["control", "manu", "dorm"]), false);
-  assert.equal(operatorMatchesRooms([], ["control"]), false);
+test("filters operators by a single room prefix", () => {
+  assert.equal(operatorMatchesRoom([], null), true);
+  assert.equal(operatorMatchesRoom(["control_x"], null), true);
+  assert.equal(operatorMatchesRoom(["control_x"], "control"), true);
+  assert.equal(operatorMatchesRoom(["manu_x"], "control"), false);
+  assert.equal(operatorMatchesRoom(["manu_x", "control_y"], "control"), true);
+  assert.equal(operatorMatchesRoom(["manu_x", "control_y"], "dorm"), false);
+  assert.equal(operatorMatchesRoom([], "control"), false);
+});
+
+test("matches a tag only on skills in the selected room", () => {
+  const lookup: SkillRecordLookup = (id) => ({ tags: TAGS[id] ?? [] });
+  assert.equal(operatorMatchesTag([], null, "生产力", lookup), false);
+  assert.equal(operatorMatchesTag(["control_x"], null, null, lookup), true);
+  assert.equal(operatorMatchesTag(["control_x"], null, "生产力", lookup), true);
+  assert.equal(operatorMatchesTag(["control_x"], "manu", "生产力", lookup), false);
+  assert.equal(operatorMatchesTag(["manu_x", "control_x"], "control", "生产力", lookup), true);
+  assert.equal(operatorMatchesTag(["manu_x", "control_x"], "manu", "生产力", lookup), true);
+  assert.equal(operatorMatchesTag(["manu_y", "control_x"], "manu", "生产力", lookup), false);
+  assert.equal(operatorMatchesTag(["manu_y"], "manu", "生产力", lookup), false);
 });
 
 test("matches operator names by case-insensitive trimmed substring", () => {
@@ -70,19 +92,98 @@ test("combines room and name-substring filters with AND and sorts by name", () =
     { name: "能天使", buildingSkills: [{ id: "manu_x" }] },
     { name: "阿能", buildingSkills: [{ id: "manu_y" }] },
   ];
-  assert.deepEqual(filterOperators(operators, ["manu"], "阿").map((operator) => operator.name), ["阿能"]);
-  assert.deepEqual(filterOperators(operators, ["control"], "").map((operator) => operator.name), ["阿米娅"]);
-  assert.deepEqual(filterOperators(operators, ["control", "dorm"], "").map((operator) => operator.name), ["阿米娅"]);
-  assert.deepEqual(filterOperators(operators, ["control", "manu"], ""), []);
-  assert.deepEqual(filterOperators(operators, ["trade"], "阿"), []);
-  assert.deepEqual(filterOperators(operators, [], "能").map((operator) => operator.name), ["阿能", "能天使"]);
-  const all = filterOperators(operators, [], "").map((operator) => operator.name);
+  const lookup: SkillRecordLookup = (id) => ({ tags: TAGS[id] ?? [] });
+  assert.deepEqual(filterOperators(operators, "manu", null, "阿", lookup).map((operator) => operator.name), ["阿能"]);
+  assert.deepEqual(filterOperators(operators, "control", null, "", lookup).map((operator) => operator.name), ["阿米娅"]);
+  assert.deepEqual(filterOperators(operators, "control", "生产力", "", lookup).map((operator) => operator.name), ["阿米娅"]);
+  assert.deepEqual(filterOperators(operators, "control", "订单效率", "", lookup), []);
+  assert.deepEqual(filterOperators(operators, "manu", "生产力", "", lookup).map((operator) => operator.name), ["能天使"]);
+  assert.deepEqual(filterOperators(operators, "manu", "生产力", "阿", lookup), []);
+  assert.deepEqual(filterOperators(operators, "trade", null, "阿", lookup), []);
+  assert.deepEqual(filterOperators(operators, null, null, "能", lookup).map((operator) => operator.name), ["阿能", "能天使"]);
+  assert.deepEqual(filterOperators(operators, null, "生产力", "", lookup).map((operator) => operator.name), ["阿米娅", "能天使"]);
+  const all = filterOperators(operators, null, null, "", lookup).map((operator) => operator.name);
   assert.equal(all.length, 3);
   assert.ok(all.includes("阿米娅") && all.includes("阿能") && all.includes("能天使"));
 });
 
+test("matches queries against skill names and plain-text descriptions", () => {
+  const operators: OperatorWithSkills[] = [
+    { name: "阿米娅", buildingSkills: [{ id: "control_x" }] },
+    { name: "能天使", buildingSkills: [{ id: "manu_x" }] },
+  ];
+  const lookup: SkillRecordLookup = (id) => ({
+    control_x: { name: "合作协议", description: "进驻控制中枢时，所有贸易站订单效率+7%" },
+    manu_x: { name: "金属工艺·β", description: "进驻制造站时，贵金属类产物生产力+35%" },
+  }[id]);
+  assert.deepEqual(filterOperators(operators, null, null, "合作协议", lookup).map((operator) => operator.name), ["阿米娅"]);
+  assert.deepEqual(filterOperators(operators, null, null, "贵金属", lookup).map((operator) => operator.name), ["能天使"]);
+  assert.deepEqual(filterOperators(operators, null, null, "贸易站", lookup).map((operator) => operator.name), ["阿米娅"]);
+  assert.deepEqual(filterOperators(operators, null, null, "不存在的词", lookup), []);
+  // 技能文本搜索与房间条件仍取交集。
+  assert.deepEqual(filterOperators(operators, "manu", null, "贸易站", lookup), []);
+});
+
+test("room skill tag options cover every room prefix without duplicates", () => {
+  assert.deepEqual(Object.keys(ROOM_SKILL_TAGS).sort(), [...BUILDING_ROOM_PREFIXES].sort());
+  for (const tags of Object.values(ROOM_SKILL_TAGS)) {
+    assert.ok(Array.isArray(tags));
+    assert.equal(new Set(tags).size, tags.length);
+  }
+});
+
+test("default browse order follows the data warehouse order in reverse", () => {
+  const operators: OperatorWithSkills[] = [
+    { name: "能天使", order: 0, buildingSkills: [{ id: "manu_x" }] },
+    { name: "阿米娅", order: 2, buildingSkills: [{ id: "control_x" }] },
+    { name: "阿能", order: 1, buildingSkills: [{ id: "manu_y" }] },
+  ];
+  assert.deepEqual(filterOperators(operators, null, null, "", () => ({})).map((operator) => operator.name), ["阿米娅", "阿能", "能天使"]);
+  // 带搜索词时仍按名字排序，便于查找。
+  assert.deepEqual(filterOperators(operators, null, null, "阿", () => ({})).map((operator) => operator.name), ["阿米娅", "阿能"]);
+});
+
 test("filters the real catalog by substring query", () => {
-  const names = filterOperators(OPERATOR_CATALOG, [], "黑角").map((operator) => operator.name);
+  const names = filterOperators(OPERATOR_CATALOG, null, null, "黑角", realSkillLookup).map((operator) => operator.name);
   assert.ok(names.includes("黑角"));
   assert.ok(names.every((name) => name.includes("黑角")));
+});
+
+test("filters the real catalog by control room and productivity tag", () => {
+  const names = filterOperators(OPERATOR_CATALOG, "control", "生产力", "", realSkillLookup).map((operator) => operator.name);
+  assert.ok(names.length > 0);
+  for (const name of names) {
+    const operator = OPERATOR_CATALOG.find((candidate) => candidate.name === name);
+    assert.ok(operator, `缺少干员 ${name}`);
+    assert.ok(
+      operator.buildingSkills.some(
+        (skill) => skill.id.startsWith("control_") && (realSkillLookup(skill.id)?.tags ?? []).includes("生产力"),
+      ),
+      `干员 ${name} 没有控制中枢的生产力标签技能`,
+    );
+  }
+});
+
+test("filters the real catalog by skill name and description text", () => {
+  const byName = filterOperators(OPERATOR_CATALOG, null, null, "合作协议", realSkillLookup).map((operator) => operator.name);
+  assert.ok(byName.includes("阿米娅"));
+  for (const name of byName) {
+    const operator = OPERATOR_CATALOG.find((candidate) => candidate.name === name);
+    assert.ok(operator, `缺少干员 ${name}`);
+    assert.ok(
+      operator.buildingSkills.some((skill) => (realSkillLookup(skill.id)?.name ?? "").includes("合作协议")),
+      `干员 ${name} 没有名称含「合作协议」的技能`,
+    );
+  }
+
+  const byDescription = filterOperators(OPERATOR_CATALOG, null, null, "尚未拥有的线索", realSkillLookup).map((operator) => operator.name);
+  assert.ok(byDescription.length > 0);
+  for (const name of byDescription) {
+    const operator = OPERATOR_CATALOG.find((candidate) => candidate.name === name);
+    assert.ok(operator, `缺少干员 ${name}`);
+    assert.ok(
+      operator.buildingSkills.some((skill) => (realSkillLookup(skill.id)?.description ?? "").includes("尚未拥有的线索")),
+      `干员 ${name} 没有描述含「尚未拥有的线索」的技能`,
+    );
+  }
 });

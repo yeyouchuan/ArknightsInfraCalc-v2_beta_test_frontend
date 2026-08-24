@@ -287,3 +287,7 @@ jobs:
             '$DEPLOY_PUBLIC_HEALTH_URL' \
             '$DEPLOY_DEBUG_TOOLS_ENABLED' \
             '$DEPLOY_RATE_LIMIT_ENABLED'"
+
+      - name: Verify public response compression
+        if: env.DEPLOY_PUBLIC_HEALTH_URL != ''
+        run: node scripts/verify-public-compression.mjs "$DEPLOY_PUBLIC_HEALTH_URL"

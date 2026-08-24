@@ -128,7 +128,18 @@ export interface MaaJson {
   };
 }
 
+export interface TrainingRoomShift {
+  trainee: string | null;
+  trainer: string | null;
+}
+
+export interface TrainingRoomSchedule {
+  schema_version: 1;
+  shifts: TrainingRoomShift[];
+}
+
 export interface RoomEfficiency {
+  final_efficiency?: number;
   trade_score?: number;
   trade_pct?: number;
   trade_skill_pct?: number;
@@ -173,6 +184,167 @@ export interface RotationJson {
     manu: number | null;
     power: number | null;
   };
+}
+
+/** plan.compute 响应里的练卡建议报告（PlayerTrainingAdviceReport v2）。 */
+export type TrainingAdviceNewbieSectionStatus = "shown" | "complete" | "skipped_by_efficiency";
+export type TrainingAdviceAction = "acquire" | "train";
+export type TrainingAdviceProduct =
+  | "trade"
+  | "gold"
+  | "experience"
+  | "general_manufacturing"
+  | "originium_shards";
+export type TrainingAdviceTargetKind =
+  | "explicit"
+  | "no_requirement"
+  | "derive_from_skill_binding"
+  | "needs_review";
+export type TrainingAdviceAcquisitionKind =
+  | "shop"
+  | "public_recruitment"
+  | "event"
+  | "redeem_code"
+  | "integrated_strategy";
+export type TrainingAdviceCombinationState =
+  | "complete"
+  | "needs_training"
+  | "missing_core"
+  | "missing_important"
+  | "needs_review";
+export type TrainingAdviceMemberRole = "core" | "important" | "secondary" | "hanger";
+export type TrainingAdviceMemberProgress = "missing" | "owned_needs_training" | "ready" | "needs_review";
+export type TrainingAdvicePriority =
+  | "newbie_four_star_elite_one"
+  | "flagship_newbie"
+  | "other_newbie"
+  | "owned_tailor"
+  | "automation_must_train"
+  | "small_high_efficiency_core"
+  | "small_high_efficiency_important"
+  | "system_single_core_gap"
+  | "other_important"
+  | "lower_priority_core"
+  | "high_efficiency_standalone";
+export type TrainingAdviceReason =
+  | "newbie_required"
+  | "combination_core"
+  | "combination_important"
+  | "standalone";
+export type TrainingAdviceJsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | TrainingAdviceJsonValue[]
+  | { [key: string]: TrainingAdviceJsonValue };
+
+export interface TrainingAdviceReport {
+  schema_version: 2;
+  context: TrainingAdviceContext;
+  newbie_section_status: TrainingAdviceNewbieSectionStatus;
+  incomplete_newbie: TrainingNewbieItem[];
+  combinations: TrainingCombination[];
+  recommendations: TrainingRecommendation[];
+}
+
+export interface TrainingAdviceContext {
+  dormitory_level_sum?: number;
+  engineering_robot_count?: number;
+  has_originium_shard_factory?: boolean;
+  manufacturing_average_efficiency_percent?: number;
+  meeting_room_max_level?: number;
+  trade_average_efficiency_percent?: number;
+}
+
+export interface TrainingAdviceState {
+  elite: number;
+  level?: number;
+}
+
+export interface TrainingAdviceTarget {
+  kind: TrainingAdviceTargetKind;
+  elite?: number;
+  level?: number;
+}
+
+export interface TrainingAdviceAcquisition {
+  kind: TrainingAdviceAcquisitionKind;
+  detail: string;
+}
+
+export interface TrainingAdviceCondition {
+  kind: "layout" | "facility" | "same_station" | "dormitory" | "engineering_robots" | "custom";
+  key: string;
+  value?: TrainingAdviceJsonValue;
+  description: string;
+}
+
+export interface TrainingAdviceConditionEvaluation {
+  condition: TrainingAdviceCondition;
+  status: "satisfied" | "unsatisfied" | "unknown";
+}
+
+export interface TrainingAdviceEfficiency {
+  value: number;
+  unit: "order_percent" | "production_percent";
+  note?: string;
+}
+
+export interface TrainingAdviceMember {
+  operator: string;
+  role: TrainingAdviceMemberRole;
+  owned: boolean;
+  progress: TrainingAdviceMemberProgress;
+  current?: TrainingAdviceState;
+  target: TrainingAdviceTarget;
+  target_met: boolean;
+  counts_toward_completion: boolean;
+}
+
+export interface TrainingCombination {
+  id: string;
+  name: string;
+  product?: TrainingAdviceProduct;
+  consumer_products?: TrainingAdviceProduct[];
+  scale: "small" | "system";
+  tier?: "high_efficiency" | "low_efficiency";
+  state: TrainingAdviceCombinationState;
+  completed_slots: number;
+  total_slots: number;
+  completion_percent: number;
+  facilities: string[];
+  members: TrainingAdviceMember[];
+  missing_core?: string[];
+  missing_important?: string[];
+  untrained_core?: string[];
+  untrained_important?: string[];
+  selected_alternative?: number;
+}
+
+export interface TrainingRecommendation {
+  action: TrainingAdviceAction;
+  operator: string;
+  combination_id?: string;
+  combination_name?: string;
+  product?: TrainingAdviceProduct;
+  priority: TrainingAdvicePriority;
+  priority_rank: number;
+  reason: TrainingAdviceReason;
+  target: TrainingAdviceTarget;
+  current?: TrainingAdviceState;
+  efficiency?: TrainingAdviceEfficiency;
+  conditions?: TrainingAdviceConditionEvaluation[];
+  acquisition?: TrainingAdviceAcquisition;
+}
+
+export interface TrainingNewbieItem {
+  action: TrainingAdviceAction;
+  operator: string;
+  product: TrainingAdviceProduct;
+  target: TrainingAdviceTarget;
+  current?: TrainingAdviceState;
+  acquisition?: TrainingAdviceAcquisition;
 }
 
 export interface CliCandidate {
@@ -271,6 +443,7 @@ export type SklandInfrastructureGroup =
   | "dormitory"
   | "meeting"
   | "hire"
+  | "processing"
   | "training";
 
 export interface SklandInfrastructureOperator {
@@ -279,6 +452,16 @@ export interface SklandInfrastructureOperator {
   morale: number;
   workTime: number;
   lastMoraleUpdateTs: number;
+}
+
+export type SklandTrainingPosition = "trainee" | "trainer";
+
+export interface SklandTrainingRoomOperator {
+  id: string;
+  name: string;
+  morale: number;
+  lastMoraleUpdateTs: number;
+  position: SklandTrainingPosition;
 }
 
 export interface SklandInfrastructureProduction {
@@ -352,6 +535,16 @@ export interface SklandHireRoom extends SklandInfrastructureRoomBase<"hire"> {
   completeWorkTime: number;
 }
 
+export type SklandProcessingRoom = SklandInfrastructureRoomBase<"processing">;
+
+export interface SklandTrainingRoom extends Omit<SklandInfrastructureRoomBase<"training">, "operators"> {
+  operators: SklandTrainingRoomOperator[];
+  occupancy: {
+    current: number;
+    capacity: 2;
+  };
+}
+
 export type SklandInfrastructureRoom =
   | SklandControlRoom
   | SklandTradingRoom
@@ -359,7 +552,9 @@ export type SklandInfrastructureRoom =
   | SklandPowerRoom
   | SklandDormitoryRoom
   | SklandMeetingRoom
-  | SklandHireRoom;
+  | SklandHireRoom
+  | SklandProcessingRoom
+  | SklandTrainingRoom;
 
 export interface SklandInfrastructure {
   currentTs: number;
@@ -395,7 +590,7 @@ export interface SklandScheduleOperator {
 
 export interface SklandScheduleRoom {
   key: string;
-  group: Exclude<SklandInfrastructureGroup, "training">;
+  group: Exclude<SklandInfrastructureGroup, "training" | "processing">;
   index: number;
   level: number;
   operators: SklandScheduleOperator[];
@@ -528,6 +723,14 @@ export interface SklandAuthMethods {
   qr: true;
 }
 
+export interface SklandBindingSummary {
+  totalCount: number;
+  activeCount: number;
+  renewalDueCount: number;
+  nextExpiresAt: number | null;
+  latestExpiredAt: number | null;
+}
+
 export interface SklandSessionResponse {
   authenticated: boolean;
   configured: boolean;
@@ -535,6 +738,8 @@ export interface SklandSessionResponse {
   disabledReason?: string | null;
   accounts: SklandAccountSummary[];
   activeAccountId: string | null;
+  bindingCount: number;
+  bindingSummary?: SklandBindingSummary;
   scheduleSnapshot?: SklandScheduleSnapshot;
   statusSnapshot?: SklandStatusSnapshot;
   error?: string;
@@ -554,6 +759,8 @@ export interface SklandQrStatusResponse {
   status: "waiting" | "scanned" | "expired" | "authenticated";
   scheduleSnapshot?: SklandScheduleSnapshot;
   statusSnapshot?: SklandStatusSnapshot;
+  bindingCount?: number;
+  bindingSummary?: SklandBindingSummary;
   error?: string;
   code?: string;
 }
@@ -692,28 +899,6 @@ export interface DebugBundle {
   };
 }
 
-export interface IssueReport {
-  type: "room_issue";
-  sourceName: string | null;
-  room: {
-    title: string;
-    group: string;
-    product?: string;
-    operators: string[];
-    inferredRule: string;
-    efficiency?: RoomEfficiency;
-    efficiencyLabel?: string;
-  };
-  command?: string;
-  savedFiles?: {
-    feedbackDir?: string;
-    issue?: string;
-    operbox?: string;
-    debugBundle?: string;
-  };
-  note: string;
-}
-
 export interface FeedbackApiResponse {
   success: boolean;
   feedbackId?: string;
@@ -747,6 +932,7 @@ export interface PlanComputeParams {
 
 export type RotationProfile =
   | "abc_12_6_6"
+  | "abc_12_12_12"
   | "main_backup_12_12"
   | "fiammetta_8_8_4_4"
   | "abyssal_7_5_7_5";
@@ -763,6 +949,8 @@ export interface PlanApiResponse {
   stderr?: string;
   profileJson?: UserProfile;
   maaJson?: MaaJson;
+  trainingRoomJson?: TrainingRoomSchedule;
+  trainingAdviceJson?: TrainingAdviceReport;
   rotationJson?: RotationJson;
   solver?: SolverObservation;
   debugBundle?: DebugBundle;
@@ -784,7 +972,10 @@ export type AppErrorCode =
   | "AIC-AUTH-2003"
   | "AIC-AUTH-2004"
   | "AIC-AUTH-2005"
+  | "AIC-AUTH-2006"
   | "AIC-AUTH-2007"
+  | "AIC-AUTH-2008"
+  | "AIC-AUTH-2009"
   | "AIC-PLAN-3001"
   | "AIC-PLAN-3002"
   | "AIC-PLAN-3003"
@@ -793,7 +984,11 @@ export type AppErrorCode =
   | "AIC-FEEDBACK-4002"
   | "AIC-SYS-5000"
   | "AIC-RATE-6001"
-  | "AIC-LOCAL-7001";
+  | "AIC-LOCAL-7001"
+  | "AIC-DATA-8001"
+  | "AIC-DATA-8002"
+  | "AIC-DATA-8003"
+  | "AIC-DATA-8004";
 
 export interface ApiFieldError {
   path: string;
@@ -846,6 +1041,8 @@ export interface PublicPlanData {
   profile: UserProfile;
   maa: MaaJson;
   rotation: RotationJson;
+  trainingRoom?: TrainingRoomSchedule;
+  trainingAdvice?: TrainingAdviceReport;
   durationMs: number;
   diagnosticId: string;
   debug?: PublicPlanDebug;
@@ -863,16 +1060,143 @@ export interface FeedbackRoom {
   operators: string[];
 }
 
-export interface FeedbackRequest {
+export type FeedbackKind = "room_issue" | "performance_issue";
+
+type FeedbackRequestBase = {
   diagnosticId: string;
-  room: FeedbackRoom;
   note: string;
   consent: true;
-}
+};
+
+export type FeedbackRequest = FeedbackRequestBase & (
+  | { kind?: "room_issue"; room: FeedbackRoom }
+  | { kind: "performance_issue"; room?: never }
+);
 
 export interface FeedbackData {
   feedbackId: string;
   savedAt: string;
+}
+
+export interface AccountDataConsentData {
+  current: boolean;
+  termsVersion: string;
+  privacyVersion: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  cloudSyncEnabled: boolean;
+}
+
+export interface AccountDataConsentRequest {
+  termsAccepted: true;
+  privacyAccepted: true;
+  termsVersion: string;
+  privacyVersion: string;
+}
+
+export interface CloudWorkspaceState {
+  presetLabel: string;
+  layout: BaseBlueprint;
+  sourceName: string | null;
+  boxSource: BoxSource;
+  layoutDirty: boolean;
+  layoutSource: "local" | "skland";
+  localLayoutBackup: BaseBlueprint | null;
+  rotationProfile: RotationProfile;
+  fiammettaEnabled: boolean;
+  activeShift: number;
+}
+
+export interface CloudWorkspaceRevisionData {
+  id: string;
+  revision: number;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface CloudWorkspaceData {
+  exists: boolean;
+  revision: number;
+  state: CloudWorkspaceState | null;
+  operbox: OperBoxEntry[] | null;
+  result: PublicPlanData | null;
+  updatedAt: string | null;
+  syncedAt: string | null;
+  revisions: CloudWorkspaceRevisionData[];
+}
+
+export type CloudWorkspacePutRequest =
+  | {
+      baseRevision?: number | null;
+      state: CloudWorkspaceState;
+      operbox: OperBoxEntry[] | null;
+      result: PublicPlanData | null;
+    }
+  | { restoreRevisionId: string };
+
+export interface SavedPlanCalculationContext {
+  presetLabel: string;
+  layout: BaseBlueprint;
+  rotationProfile: RotationProfile;
+  fiammettaEnabled: boolean;
+}
+
+export interface SavedPlanData {
+  id: string;
+  diagnosticId: string;
+  title: string;
+  calculationContext: SavedPlanCalculationContext | null;
+  boxMatchesWorkspace: boolean;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+  result: PublicPlanData;
+}
+
+export interface SavedPlanListData {
+  plans: SavedPlanData[];
+}
+
+export type AdminUserAction = "ban" | "unban" | "revokeSessions" | "grantAdmin" | "revokeAdmin";
+
+export interface AdminUserData {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  banned: boolean | null;
+  banReason: string | null;
+  createdAt: string;
+  isAdmin: boolean;
+  isBootstrapAdmin: boolean;
+  sklandBindingCount: number;
+  sklandActiveBindingCount: number;
+  sklandRenewalDueCount: number;
+}
+
+export interface AdminUsersData {
+  users: AdminUserData[];
+  permissions: {
+    canManageAdminRoles: boolean;
+  };
+}
+
+export interface AdminSessionData {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
+export interface AdminSessionsData {
+  sessions: AdminSessionData[];
+}
+
+export interface AdminUserUpdateData {
+  updated: true;
 }
 
 export interface SklandSessionData {
@@ -882,6 +1206,8 @@ export interface SklandSessionData {
   disabledReason?: string | null;
   accounts: SklandAccountSummary[];
   activeAccountId: string | null;
+  bindingCount: number;
+  bindingSummary?: SklandBindingSummary;
   scheduleSnapshot?: SklandScheduleSnapshot;
   statusSnapshot?: SklandStatusSnapshot;
 }
@@ -902,6 +1228,8 @@ export interface SklandQrStatusData {
   status: "waiting" | "scanned" | "expired" | "authenticated";
   accounts?: SklandAccountSummary[];
   activeAccountId?: string | null;
+  bindingCount?: number;
+  bindingSummary?: SklandBindingSummary;
   scheduleSnapshot?: SklandScheduleSnapshot;
   statusSnapshot?: SklandStatusSnapshot;
 }

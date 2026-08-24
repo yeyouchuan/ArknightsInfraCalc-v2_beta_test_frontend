@@ -5,10 +5,15 @@ const SKLAND_TO_MAA: Partial<Record<SklandInfrastructureGroup, string>> = {
   trading: "trading",
   manufacture: "manufacture",
   power: "power",
-  dormitory: "dormitory",
   meeting: "meeting",
   hire: "hire",
 };
+
+const PLACEMENT_ADJUSTMENT_ISSUES = new Set<ShiftComparison["adjustments"][number]["issues"][number]>([
+  "missing",
+  "unexpected",
+  "misplaced",
+]);
 
 function operatorName(value: string | MaaOperatorSlot | null): string | null {
   if (typeof value === "string") return value.trim() || null;
@@ -42,6 +47,7 @@ export function compareShifts(maaJson: MaaJson | undefined, infrastructure: Skla
   return maaJson.plans.map((plan, planIndex) => {
     const plannedLocationByOperator = new Map<string, string>();
     for (const [group, rooms] of Object.entries(plan.rooms) as [keyof MaaRooms, MaaRoom[] | undefined][]) {
+      if (group === "dormitory") continue;
       rooms?.forEach((room, index) => {
         for (const name of roomNames(room)) plannedLocationByOperator.set(name, locationKey(group, index));
       });
@@ -87,4 +93,10 @@ export function compareShifts(maaJson: MaaJson | undefined, infrastructure: Skla
 
 export function closestShift(comparisons: ShiftComparison[]): ShiftComparison | null {
   return comparisons.reduce<ShiftComparison | null>((best, item) => (!best || item.score > best.score ? item : best), null);
+}
+
+export function countShiftPlacementAdjustments(comparison: ShiftComparison | null | undefined): number {
+  return comparison?.adjustments.filter((adjustment) => (
+    adjustment.issues.some((issue) => PLACEMENT_ADJUSTMENT_ISSUES.has(issue))
+  )).length ?? 0;
 }

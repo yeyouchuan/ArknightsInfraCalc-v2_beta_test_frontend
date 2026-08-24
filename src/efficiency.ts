@@ -4,12 +4,14 @@ export interface EfficiencyDetail {
   label: string;
   value: string;
   kind?: "cross-station" | "default";
+  operator?: "=" | "+" | "−" | "×";
 }
 
 export interface RoomEfficiencyPresentation {
   primaryLabel: string;
   primaryValue: string;
   includesCrossStation: boolean;
+  formula?: boolean;
   details: EfficiencyDetail[];
 }
 
@@ -21,10 +23,6 @@ function percent(value: number): string {
   return `${formatNumber(value)}%`;
 }
 
-function signedPercent(value: number): string {
-  return `${value >= 0 ? "+" : ""}${formatNumber(value)}%`;
-}
-
 function different(left: number | undefined, right: number | undefined): boolean {
   return left !== undefined && right !== undefined && Math.abs(left - right) >= 0.05;
 }
@@ -34,6 +32,7 @@ function finiteNumber(value: unknown): number | undefined {
 }
 
 export function normalizeServeRoomEfficiency(line: Record<string, unknown>): RotationRoomLine {
+  const explicitFinal = finiteNumber(line.final_efficiency);
   const trade = finiteNumber(line.trade_efficiency);
   const tradeSkill = finiteNumber(line.trade_skill_efficiency);
   const tradeDisplay = finiteNumber(line.trade_display_efficiency);
@@ -43,9 +42,11 @@ export function normalizeServeRoomEfficiency(line: Record<string, unknown>): Rot
   const power = finiteNumber(line.power_efficiency);
   const powerSkill = finiteNumber(line.power_skill_efficiency);
   const powerDisplay = finiteNumber(line.power_display_efficiency);
+  const final = explicitFinal ?? trade ?? manufacture ?? power;
 
   return {
     room_id: typeof line.room_id === "string" ? line.room_id : "",
+    ...(final !== undefined ? { final_efficiency: final } : {}),
     ...(trade !== undefined ? { trade_score: trade } : {}),
     ...(tradeSkill !== undefined ? { trade_skill_pct: tradeSkill * 100 } : {}),
     ...(tradeDisplay !== undefined ? { trade_display_pct: tradeDisplay * 100 } : {}),
@@ -58,21 +59,12 @@ export function normalizeServeRoomEfficiency(line: Record<string, unknown>): Rot
   };
 }
 
-function displayDetails(
-  display: number | undefined,
-  skill: number | undefined
-): { includesCrossStation: boolean; details: EfficiencyDetail[] } {
-  if (display === undefined || skill === undefined) return { includesCrossStation: false, details: [] };
-
-  const bonus = display - skill;
+function formulaTerm(label: string, value: number, kind?: EfficiencyDetail["kind"]): EfficiencyDetail {
   return {
-    includesCrossStation: different(display, skill),
-    details: [
-      { label: "纯技能", value: percent(skill) },
-      ...(different(display, skill)
-        ? [{ label: "跨设施", value: signedPercent(bonus), kind: "cross-station" as const }]
-        : []),
-    ],
+    label,
+    value: percent(Math.abs(value)),
+    operator: value < 0 ? "−" : "+",
+    ...(kind ? { kind } : {}),
   };
 }
 
@@ -85,24 +77,41 @@ export function presentRoomEfficiency(
   if (group === "trading") {
     const skill = efficiency.trade_skill_pct;
     const display = efficiency.trade_display_pct;
-    const fallback = efficiency.trade_pct;
-    const primary = display ?? skill ?? fallback;
-    if (primary === undefined) return null;
-    const displayBreakdown = displayDetails(display, skill);
-    const details = [...displayBreakdown.details];
-    if (efficiency.trade_score !== undefined) {
-      details.push({ label: "订单倍率", value: `${formatNumber(efficiency.trade_score, 2)}×` });
+    const additive = display ?? efficiency.trade_pct ?? skill;
+    const final = efficiency.final_efficiency ?? efficiency.trade_score;
+    if (additive === undefined) {
+      return final === undefined
+        ? null
+        : {
+            primaryLabel: "",
+            primaryValue: percent(final * 100),
+            includesCrossStation: false,
+            details: [],
+          };
     }
-    if (efficiency.trade_pct !== undefined && different(efficiency.trade_pct, primary)) {
-      details.push({ label: "订单加成", value: percent(efficiency.trade_pct) });
-    }
-    if (efficiency.trade_gold_pct !== undefined) {
-      details.push({ label: "赤金加成", value: percent(efficiency.trade_gold_pct) });
+    const ordinary = 100 + additive;
+    const crossStation = display !== undefined && skill !== undefined && different(display, skill)
+      ? display - skill
+      : undefined;
+    const residentAndGlobal = crossStation === undefined ? additive : (skill ?? additive);
+    const details: EfficiencyDetail[] = [
+      { label: "", value: "100%", operator: "=" },
+      formulaTerm("综合加成", residentAndGlobal),
+      ...(crossStation === undefined ? [] : [formulaTerm("跨设施", crossStation, "cross-station")]),
+    ];
+    const mechanic = final !== undefined && ordinary > 0
+      ? final / (ordinary / 100)
+      : efficiency.trade_gold_pct !== undefined
+        ? 1 + efficiency.trade_gold_pct / 100
+        : undefined;
+    if (mechanic !== undefined && Math.abs(mechanic - 1) >= 0.000_5) {
+      details.push({ label: "订单机制", value: formatNumber(mechanic, 2), operator: "×" });
     }
     return {
-      primaryLabel: display !== undefined ? "展示效率" : skill !== undefined ? "纯技能效率" : "订单效率",
-      primaryValue: percent(primary),
-      includesCrossStation: displayBreakdown.includesCrossStation,
+      primaryLabel: "",
+      primaryValue: percent((final ?? ordinary / 100) * 100),
+      includesCrossStation: crossStation !== undefined,
+      formula: true,
       details,
     };
   }
@@ -110,21 +119,40 @@ export function presentRoomEfficiency(
   if (group === "manufacture") {
     const skill = efficiency.manu_prod_skill;
     const display = efficiency.manu_display_pct;
-    const total = efficiency.manu_prod_total ?? efficiency.manu_score;
-    const primary = display ?? skill ?? total;
-    if (primary === undefined) return null;
-    const displayBreakdown = displayDetails(display, skill);
-    const details = [...displayBreakdown.details];
-    if (total !== undefined && different(total, primary)) {
-      details.push({ label: "总制造", value: percent(total) });
-    }
+    const final = efficiency.final_efficiency !== undefined
+      ? efficiency.final_efficiency * 100
+      : efficiency.manu_score !== undefined
+        ? efficiency.manu_score
+        : efficiency.manu_prod_total !== undefined
+          ? 100 + efficiency.manu_prod_total
+          : display !== undefined
+            ? 100 + display
+            : skill !== undefined
+              ? 100 + skill
+              : undefined;
+    if (final === undefined) return null;
+    const totalBonus = final - 100;
+    const crossStation = display !== undefined && skill !== undefined && different(display, skill)
+      ? display - skill
+      : undefined;
+    const provenSkill = skill ?? (crossStation === undefined || display === undefined ? undefined : display - crossStation);
+    const knownBonus = (provenSkill ?? 0) + (crossStation ?? 0);
+    const remainder = totalBonus - knownBonus;
+    const details: EfficiencyDetail[] = [
+      { label: "", value: "100%", operator: "=" },
+      ...(provenSkill === undefined ? [] : [formulaTerm("纯技能", provenSkill)]),
+      ...(crossStation === undefined ? [] : [formulaTerm("跨设施", crossStation, "cross-station")]),
+      ...(different(remainder, 0) ? [formulaTerm("综合加成", remainder)] : []),
+    ];
+    if (details.length === 1 && different(totalBonus, 0)) details.push(formulaTerm("综合加成", totalBonus));
     if (efficiency.manu_storage_limit !== undefined) {
       details.push({ label: "仓储上限", value: formatNumber(efficiency.manu_storage_limit) });
     }
     return {
-      primaryLabel: display !== undefined ? "展示效率" : skill !== undefined ? "纯技能效率" : "制造效率",
-      primaryValue: percent(primary),
-      includesCrossStation: displayBreakdown.includesCrossStation,
+      primaryLabel: "",
+      primaryValue: percent(final),
+      includesCrossStation: crossStation !== undefined,
+      formula: true,
       details,
     };
   }
@@ -135,15 +163,20 @@ export function presentRoomEfficiency(
     const display = efficiency.power_display_pct;
     const primary = display ?? skill;
     if (primary === undefined) return null;
-    const displayBreakdown = displayDetails(display, skill);
-    const details = [...displayBreakdown.details];
+    const crossStation = display !== undefined && skill !== undefined && different(display, skill)
+      ? display - skill
+      : undefined;
+    const details: EfficiencyDetail[] = [
+      ...(skill === undefined ? [] : [{ label: "纯技能", value: percent(skill) }]),
+      ...(crossStation === undefined ? [] : [formulaTerm("跨设施", crossStation, "cross-station")]),
+    ];
     if (efficiency.power_score !== undefined && different(efficiency.power_score, primary)) {
       details.push({ label: "总充能", value: percent(efficiency.power_score) });
     }
     return {
       primaryLabel: display !== undefined ? "展示效率" : "充能效率",
       primaryValue: percent(primary),
-      includesCrossStation: displayBreakdown.includesCrossStation,
+      includesCrossStation: crossStation !== undefined,
       details,
     };
   }

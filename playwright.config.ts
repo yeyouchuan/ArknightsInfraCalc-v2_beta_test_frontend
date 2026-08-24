@@ -35,6 +35,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
+      ACCOUNT_CLOUD_SYNC_ENABLED: "1",
       BETA_RATE_LIMIT_ENABLED: "0",
       BETA_DEBUG_TOOLS_ENABLED: "0",
     },

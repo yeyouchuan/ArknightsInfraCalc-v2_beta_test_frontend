@@ -47,7 +47,10 @@ jobs:
             /assets/data/building.json
             /assets/locales/cn/character.json
             /assets/locales/cn/building.json
+            /assets/locales/cn/term.json
             /assets/img/building_skill
+            /assets/img/item/2003.png
+            /assets/img/item/4001.png
             /LICENSE
             /package.json
 
@@ -62,6 +65,9 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /avatar/char_*.png
+            /item/DIAMOND_SHD.png
+            /item/MTL_DIAMOND_SHD.png
+            /item/MTL_GOLD3.png
 
       - name: Use Node.js 22
         uses: actions/setup-node@v6
@@ -104,7 +110,7 @@ jobs:
         id: changes
         shell: bash
         run: |
-          if [[ -n "$(git status --porcelain -- public/images/operator-portraits public/images/building-skills src/generated/arkntools)" ]]; then
+          if [[ -n "$(git status --porcelain -- public/images/operator-portraits public/images/building-skills public/images/products src/generated/arkntools)" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -129,7 +135,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin "$UPDATE_BRANCH:refs/remotes/origin/$UPDATE_BRANCH" || true
           git switch -C "$UPDATE_BRANCH"
-          git add -- public/images/operator-portraits public/images/building-skills src/generated/arkntools
+          git add -- public/images/operator-portraits public/images/building-skills public/images/products src/generated/arkntools
           git commit -m "chore: 同步 arkntools 干员资源"
           git push --force-with-lease origin "HEAD:$UPDATE_BRANCH"
 

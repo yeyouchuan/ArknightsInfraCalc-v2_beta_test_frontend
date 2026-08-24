@@ -18,10 +18,16 @@ docs/*
 !docs/INFRA_CLI_ADVICE_REPORT.md
 !docs/SKLAND_DATA_CAPABILITIES.md
 !docs/UPDATE_SOLVER.md
+!docs/AUTHENTICATION_DATABASE.md
+!docs/BUSINESS_DATA_STORAGE.md
+!docs/TRADE_PRODUCTION_CONTRACT_GAP.md
+!docs/计算逻辑.md
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
 *.local
+deploy/postgres/*.env
+!deploy/postgres/example.env
 fixtures/*.xlsx
 fixtures/*.xls
 *:Zone.Identifier

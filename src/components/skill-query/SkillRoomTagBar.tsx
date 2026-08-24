@@ -1,18 +1,15 @@
 "use client";
 
-import { X } from "lucide-react";
-
 import {
   BUILDING_ROOM_LABELS,
   BUILDING_ROOM_PREFIXES,
   type BuildingRoomPrefix,
 } from "@/building-rooms";
-import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface SkillRoomTagBarProps {
-  selected: readonly BuildingRoomPrefix[];
-  onChange: (next: readonly BuildingRoomPrefix[]) => void;
+  selected: BuildingRoomPrefix | null;
+  onChange: (next: BuildingRoomPrefix | null) => void;
 }
 
 // 选中态：黄色填充 + 深色文字 + 黄色描边，与未选中的描边态拉开对比。
@@ -23,11 +20,11 @@ const SELECTED_TAG_CLASS =
 
 export function SkillRoomTagBar({ selected, onChange }: SkillRoomTagBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2" aria-label="房间筛选">
+    <div aria-label="房间筛选">
+      <div className="mb-1.5 text-xs font-medium text-muted-foreground">工作房间</div>
       <ToggleGroup
-        multiple
-        value={selected}
-        onValueChange={(next) => onChange(next as readonly BuildingRoomPrefix[])}
+        value={selected ? [selected] : []}
+        onValueChange={(next) => onChange((next[0] as BuildingRoomPrefix | undefined) ?? null)}
         variant="outline"
         size="sm"
         spacing={2}
@@ -45,17 +42,6 @@ export function SkillRoomTagBar({ selected, onChange }: SkillRoomTagBarProps) {
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={selected.length === 0}
-        onClick={() => onChange([])}
-        aria-label="清除房间选择"
-      >
-        <X aria-hidden="true" />
-        清除选择
-      </Button>
     </div>
   );
 }

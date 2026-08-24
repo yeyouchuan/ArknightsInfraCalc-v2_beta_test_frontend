@@ -6,11 +6,11 @@
 
 本仓库是“明日方舟基建排班助手”的 Next.js 前端与轻量服务端，不是核心求解器仓库。产品主流程包括：
 
-- 线上环境导入 MAA JSON / 兼容的一图流 xlsx；dev 环境还可通过森空岛二维码登录同步干员与基建状态。
+- 所有环境导入 MAA JSON / 兼容的一图流 xlsx；显式启用森空岛的环境还可通过二维码登录同步干员与基建状态。
 - 配置 243、153、333、252、342 布局、设施等级、制造配方和贸易订单。
 - 调用长驻的 `infra-cli serve` 生成三班排班、效率概览和练卡建议。
 - 展示森空岛当前基建状态，比较当前进驻与排班计划，并导出 MAA JSON。
-- 保存 CLI 运行记录和经用户同意的最小反馈；只有显式调试模式才展示额外问题上下文与 CLI 输出。
+- 保存 CLI 运行记录和经用户同意的最小反馈；产品页面不展示额外问题上下文与 CLI 输出。
 
 明确边界：
 
@@ -53,8 +53,8 @@
 | --- | --- |
 | `src/app/layout.tsx`、`src/app/page.tsx` | App Router 根布局与应用入口 |
 | `src/App.tsx` | 顶层状态、页面编排、持久化与求解主流程 |
-| `src/components/pages/*` | 基建计算器、练卡建议、森空岛状态三个一级页面 |
-| `src/components/layout/AppSidebar.tsx`、`src/components/layout/AppTopBar.tsx` | 三个一级导航、移动端侧栏行为与全局账号入口 |
+| `src/components/pages/*` | 基建计算器、练卡建议、技能查询、账号状态中心四个一级页面 |
+| `src/components/layout/AppSidebar.tsx`、`src/components/layout/AppTopBar.tsx` | 四个一级导航与移动端侧栏行为 |
 | `src/setup-dialog.tsx` | Box 导入、森空岛入口和布局配置流程 |
 | `src/components.tsx` | 业务 UI 组件 |
 | `src/components/ui/*` | shadcn/Base UI primitives |
@@ -68,13 +68,15 @@
 | `src/server/api-contract.ts` | 统一响应、错误码、同源校验、大小限制与限流 |
 | `src/server/public-plan.ts` | 内部求解结果到公共排班 DTO 的白名单映射 |
 | `src/server/infra.ts` | CLI 查找、长驻 serve 客户端、运行记录、反馈和 CLI release 存储 |
+| `src/server/business-records.ts`、`src/server/workspace.ts`、`src/server/plan-cache.ts` | 业务摘要、账号云端工作区和共享排班缓存；不得复制求解逻辑 |
 | `src/server/skland/*` | 森空岛会话加密、Cookie、扫码、同步、角色切换与数据归一化 |
 | `src/internal-field-safety.ts` | 递归剔除内部字段 |
 | `scripts/extract-room-emblems.mjs` | 从现有 WebP 确定性提取透明高清设施徽记 |
+| `scripts/ci-change-scope.mjs` | 失败关闭的 CI 变更范围分类与部署判定 |
 | `fixtures/operbox_full_e2.json` | 首页 Full E2 的 243 全精二样例 |
 | `bin/infra-cli*`、`bin/data/` | 当前平台 CLI 与可选运行数据 |
 | `e2e/production-readiness.spec.ts` | 产品边界、响应式、持久化、调试开关与森空岛 UI 回归 |
-| `.github/workflows/frontend-quality.yml` | main / PR 的完整质量门禁 |
+| `.github/workflows/frontend-quality.yml` | main/develop PR 与 push 的范围感知质量门禁 |
 | `docs/FRONTEND_PRODUCTION_READINESS_REPORT.md` | 公开边界、错误码和产品化基线 |
 | `docs/UPDATE_SOLVER.md` | 只更新线上求解器时的操作与回滚说明 |
 
@@ -88,32 +90,49 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - `GET /api/sample-operbox`
 - `POST /api/plan`
 - `POST /api/feedback`
-- `GET`、`DELETE /api/skland/session`
+- `GET`、`DELETE /api/skland/accounts`
+- `DELETE /api/skland/accounts/[id]`
 - `POST /api/skland/auth/qr`
 - `POST /api/skland/auth/qr/status`
 - `POST /api/skland/sync`
 - `POST /api/skland/role`
-- `GET /api/skland/status`
-- `DELETE /api/skland/data`
+- `POST /api/skland/status/refresh`
+- `DELETE /api/skland/account-data`
+- `GET`、`POST /api/auth/*`（Better Auth 原生协议，不使用公共响应信封）
+- `GET /api/admin/users`
+- `PATCH /api/admin/users/[id]`
+- `GET`、`DELETE /api/admin/users/[id]/sessions`
+- `GET /api/admin/plan-runs`
+- `GET /api/admin/feedback`
+- `PATCH /api/admin/feedback/[id]`
+- `GET`、`POST`、`DELETE /api/account/data-consent`
+- `GET`、`PUT /api/workspace`
+- `GET /api/account/saved-plans`
+- `PATCH`、`DELETE /api/account/saved-plans/[id]`
+
+旧 `/api/plans`、`/api/plans/[id]` 与 `DELETE /api/workspace` 仅作为带 `Deprecation` 响应头的兼容入口；新客户端不得继续调用。
 
 所有公共响应使用 `ApiSuccess<T> | ApiFailure` 信封并返回 `X-Request-Id`。健康检查的公开就绪字段是 `data.plannerReady`，不是内部 `HealthApiResponse` 的 `ok` / `cliReady`。
+`/api/auth/*` 是唯一明确例外，保持 Better Auth 原生协议；应用自有管理接口仍使用统一信封。
+`BETTER_AUTH_ADMIN_USER_IDS` 中的初始管理员不可由网页降级；只有初始管理员可通过 `/api/admin/users/[id]` 授予或撤销数据库管理员角色。受委派管理员不得继续扩权，也不得封禁初始管理员或撤销其 Session；所有管理接口必须按当前数据库角色实时鉴权。旧 `/api/admin/records`、`POST /api/admin/users`、带 `userId` 查询的 `/api/admin/users`，以及旧 `/api/skland/session`、`/api/skland/status`、`/api/skland/data` 仅为兼容入口，必须返回 `Deprecation: true` 与 successor `Link`，新代码不得使用。
 
 ### 必须保持的安全与契约边界
 
 - 不得直接从 route handler 返回 `src/server/infra.ts` 的内部对象。排班结果必须经过 `toPublicPlanData`，错误必须经过统一的 `failureResponse`。
-- 生产 `plan` 数据只允许公开 `profile`、`maa`、`rotation`、`durationMs`、`diagnosticId`；健康检查不得公开 CLI 路径、PID、候选文件、仓库路径、存储路径或原始 serve 错误。
-- `command`、stdout、stderr 和 debug bundle 只有在服务端 `BETA_DEBUG_TOOLS_ENABLED=1` 时才能进入 `data.debug`；页面还必须同时带 `?beta` 才显示调试面板。任一条件缺失都不能暴露调试数据。
+- 生产 `plan` 数据只允许公开 `profile`、`maa`、`rotation`、可选的白名单 `trainingRoom`、`trainingAdvice`、`durationMs`、`diagnosticId`；健康检查不得公开 CLI 路径、PID、候选文件、仓库路径、存储路径或原始 serve 错误。
+- `command`、stdout、stderr 和 debug bundle 只有在服务端 `BETA_DEBUG_TOOLS_ENABLED=1` 且直接请求 `/api/plan?beta=1` 时才能进入 `data.debug`；产品页面不得发送该参数或展示调试字段。
 - 新增或修改公共 DTO 时，同时更新 `src/types.ts`、白名单 mapper、客户端调用和 `src/server/public-plan.test.ts` / `src/server/api-contract.test.ts`。
 - 新增或修改错误码时，同时更新 `AppErrorCode`、`ERROR_DEFINITIONS`、HTTP 映射和契约测试。日志只记录 requestId、code、route、status、durationMs 等最小诊断信息，不打印请求正文或凭据。
 - 所有公开写请求必须保留同源校验、请求体大小限制和适当限流。只有在明确的本地测试中关闭限流；不要用重复请求压测线上实例。
 - 反馈必须要求用户同意，并保持最小化：公开响应只有 `feedbackId` 和 `savedAt`，不要把文件路径、Box、debug bundle 或内部诊断内容回传给浏览器。
 - 森空岛只提供二维码授权流程，不添加账号密码、短信验证码代填或绕过官方授权的登录方式。
-- `APP_DEPLOYMENT_ENV=production`必须从页面、客户端请求、健康检查字段和公开 API 访问面强制移除森空岛能力；该限制不能被`SKLAND_FEATURE_ENABLED=1`覆盖。dev 使用`APP_DEPLOYMENT_ENV=development`保留森空岛能力。
-- Production browser artifacts must not contain Skland UI copy, `/api/skland` URLs, or the `skland://` app scheme; run `npm run test:production-client` after changing client boundaries.
-- production 必须强制关闭调试工具并启用限流，不能被`BETA_DEBUG_TOOLS_ENABLED=1`或`BETA_RATE_LIMIT_ENABLED=0`覆盖；dev 可由部署环境集中管理这两个开关，调试入口仍需`?beta`二次门控。
+- `APP_DEPLOYMENT_ENV=production`时森空岛必须失败关闭，只有显式设置`SKLAND_FEATURE_ENABLED=1`才能从页面、客户端请求、健康检查字段和公开 API 访问面启用；未设置、空值或其他值均不得开启。development/local 默认保留森空岛能力，并可显式设置`0`关闭。
+- Production browser artifacts must match the resolved Skland switch: disabled builds must not contain Skland UI copy, `/api/skland` URLs, or the `skland://` app scheme, while explicitly enabled builds must retain all three boundaries. Run `npm run test:production-client` with the same deployment variables used for `npm run build` after changing client boundaries.
+- production 必须强制关闭服务端调试字段并启用限流，不能被`BETA_DEBUG_TOOLS_ENABLED=1`或`BETA_RATE_LIMIT_ENABLED=0`覆盖；dev 可由部署环境集中管理这两个开关，但产品页面始终不提供调试入口。
 - `SKLAND_SESSION_SECRET` 必须至少 32 字节且长期稳定。森空岛会话使用 AES-256-GCM 封装在 HttpOnly Cookie 中；凭据不得进入 localStorage、CLI 运行记录、反馈包、console 或公开响应。
 - 非 localhost 的森空岛请求默认要求 HTTPS。`SKLAND_ALLOW_INSECURE_HTTP=1` 仅允许临时、可信的本地或内网测试，绝不能作为生产默认值。
 - 森空岛凭证从扫码成功起固定 7 天到期，刷新 token、读取会话和切换角色都不得续期；用户同意当前条款与隐私政策并登录后，状态中心默认返回完整状态白名单，排班链路仍只使用最小排班字段。
+- PostgreSQL 的 `app` schema 可保存最小运行/反馈摘要、当前政策同意、白名单工作区、公开排班历史和 HMAC 缓存。只有当前政策已同意且云同步开启时，MAA Box 才能以应用层信封密文入库；森空岛 UID、昵称、Box、凭据和完整状态始终禁止入库。退出对应森空岛账号、删除全部森空岛数据和注销网站账号必须清除相应绑定；撤销云同步或删除账号还必须删除工作区、密文、历史与缓存引用。
 - 浏览器 v5 持久化可以保存布局、Box、来源标记和经过清理的最近排班，但必须继续剔除 debug、路径、stdout、stderr、请求/响应内部字段和森空岛凭据。
 
 ## 环境变量
@@ -154,14 +173,29 @@ Worker 能力只由`protocol_version`和`plan_schema_version`判断；`plan_cont
 | `SKLAND_PUBLIC_ORIGIN` | 森空岛会话流的可信 Origin |
 | `BETA_TRUST_PROXY_HEADERS` | 为 `1` 时信任反向代理的来源/IP 头 |
 | `SKLAND_ALLOW_INSECURE_HTTP` | 仅可信临时测试允许非 HTTPS 森空岛请求 |
-| `APP_DEPLOYMENT_ENV` | `production`或`development`；production 强制关闭森空岛 |
-| `SKLAND_FEATURE_ENABLED` | dev/local 可设为`0`关闭；不能在 production 开启 |
+| `APP_DEPLOYMENT_ENV` | `production`或`development`；production 的森空岛默认失败关闭 |
+| `SKLAND_FEATURE_ENABLED` | production 仅精确值`1`开启；development/local 可设为`0`关闭 |
 | `LEGAL_OPERATOR_NAME` | 覆盖服务条款和隐私政策中的运营者署名 |
 | `LEGAL_CONTACT_EMAIL` | 可选的法律联系邮箱 |
 | `LEGAL_CONTACT_URL` | 覆盖法律页面中的联系链接 |
 | `BETA_DEBUG_TOOLS_ENABLED` | 为 `1` 时允许服务端生成公开调试字段 |
 | `BETA_RATE_LIMIT_ENABLED` | `0` 关闭、`1` 开启；生产默认开启 |
 | `PLAYWRIGHT_BASE_URL` | E2E 地址，默认 `http://127.0.0.1:5184` |
+| `DATABASE_URL` | 网站认证 runtime PostgreSQL 连接串，仅授予认证表 DML |
+| `DATABASE_MIGRATION_URL` | 发布 migration 连接串，可对认证 schema 执行 DDL |
+| `BETTER_AUTH_SECRET` | 网站 Session 签名密钥，至少 32 字节且长期稳定 |
+| `BETTER_AUTH_URL` | Better Auth 对外完整 Origin |
+| `BETTER_AUTH_ADMIN_USER_IDS` | 逗号分隔的初始管理员 Better Auth user ID；作为网页角色委派的信任根 |
+| `RESEND_API_KEY` | 验证与重置邮件的 Resend API key |
+| `AUTH_EMAIL_FROM` | 已验证独立发信子域的 From 地址 |
+| `BETA_BUSINESS_DB_ENABLED` | 为 `1` 时启用 `app` schema 摘要双写及数据库维护 |
+| `BETA_BUSINESS_DB_READ_ENABLED` | 为 `1` 时将运维摘要读取切到数据库；要求业务数据库已启用 |
+| `BETA_BUSINESS_FILE_READ_FALLBACK` | 数据库读取未启用或状态更新未命中时是否允许临时文件回退 |
+| `ACCOUNT_CLOUD_SYNC_ENABLED` | 为 `1` 时开放当前政策同意、工作区和排班历史 API |
+| `WORKSPACE_ACTIVE_KEY_VERSION` | MAA Box 信封加密当前主密钥版本 |
+| `WORKSPACE_MASTER_KEYS` | 版本到 32 字节主密钥的 JSON；只存在服务端配置 |
+| `PLAN_CACHE_ENABLED` | 为 `1` 时启用 24 小时共享排班缓存 |
+| `PLAN_CACHE_HMAC_KEY` | 独立缓存键 HMAC 密钥，至少 32 字节 |
 
 反向代理生产环境应明确设置两个公开 Origin，并启用可信代理头；生产保持调试关闭、限流开启。
 
@@ -194,16 +228,16 @@ npm start
 
 - `npm run check` 依次运行 lint、单元测试和 API 契约测试。
 - `npm run audit:security` 阻止 high / critical npm 漏洞进入受保护分支；依赖安全修复交付时仍应运行完整`npm audit`并清零已知漏洞。
-- `npm run test:deploy`验证发布包准备、release 淘汰、失败清理、回滚和磁盘空间保护。
+- `npm run test:deploy`验证数据库备份模式、发布包准备、release 淘汰、失败清理、回滚和磁盘空间保护。
 - `npm run test:solver-contract` 仅在 Linux 执行，验证仓库内 ELF 制品指纹并用 Full E2 真实调用 `plan.compute`。
 - `npm run build` 进行 Next 生产构建并覆盖 TypeScript 集成检查。
-- `npm run test:production-client` checks the production browser build for forbidden Skland login content.
+- `npm run test:production-client` checks that the production browser build includes or excludes Skland boundaries according to the resolved deployment switch.
 - `npm run test:e2e` 默认在 5184 端口自动启动 Next，并用 Playwright 拦截外部 API；通常不需要真实 CLI 或森空岛凭据。
 - `npm run test:e2e:webkit` 使用同一套 E2E 场景执行独立 WebKit 兼容性门禁。
 - `npm start` 默认监听 `0.0.0.0:5174`。
-- CI 依次执行 `npm ci`、lint、单元测试、契约测试、build 和 Chromium E2E。
+- CI 先由`Change scope`读取 NUL 分隔的准确变更路径，再按保守白名单决定 Core、Chromium 和 deploy。纯`docs/**`、根目录 Markdown 与`.gitignore`/`.editorconfig`只跑轻量范围检查；`.gitattributes`会影响归档与文件语义，必须走完整门禁。测试和非发布型 GitHub 配置至少跑 Core；浏览器测试还跑 Chromium；两个发布工作流改动会跳过业务 E2E 但必须真实部署；任何运行时或未知路径、空差异、手动触发都失败关闭为完整 Core + Chromium，并在受保护分支 push 时部署。不得用 workflow 级`paths-ignore`让必需检查消失；`quality`必须始终汇总实际成功或按分类预期跳过的 Job。Chromium 与 WebKit Job 使用和 lockfile 中 Playwright 版本一致、以 digest 固定的官方 noble 镜像，不得在临时 runner 上重新执行`playwright install --with-deps`；升级 Playwright 时必须同步镜像标签、digest 和构建工具契约测试。完整 WebKit E2E 每日定时运行，也可手动触发，不阻塞逐次发布。
 
-开发调试模式仅在本地这样开启：
+服务端诊断字段仅在本地这样开启：
 
 ```powershell
 $env:BETA_DEBUG_TOOLS_ENABLED='1'
@@ -211,7 +245,7 @@ $env:BETA_RATE_LIMIT_ENABLED='0'
 npm run dev
 ```
 
-然后访问 `http://127.0.0.1:5174/?beta`。调试结束后恢复默认环境并重启服务。
+产品页面始终请求普通 `/api/plan`；如需检查服务端诊断映射，直接调用 `/api/plan?beta=1`。调试结束后恢复默认环境并重启服务。
 
 ## 验证矩阵
 
@@ -224,11 +258,11 @@ npm run dev
 
 涉及 UI 时至少检查 390px、768px、1440px，并覆盖：
 
-- 基建计算器、练卡建议、森空岛状态三个一级导航。
+- 基建计算器、练卡建议、技能查询、账号状态中心四个一级导航。
 - Full E2、配置流程、生成排班、三班切换和 MAA 下载。
 - 键盘焦点、Dialog 关闭后焦点恢复、`role="status"` / `role="alert"` 和移动端约 44px 触控目标。
 - “一图流布局”仍可见且保持当前禁用状态；加工站“暂不显示”和恢复交互不丢失。
-- dev 保持森空岛一级导航、登录和状态中心；production 不显示任何森空岛入口、不发起相关请求，法律页和健康检查也不暴露相关文案或字段。
+- production 显式启用后与 dev 一样保留森空岛一级导航、登录、状态中心、法律文案和健康字段；关闭时不得显示入口、发起请求或暴露相关文案与字段。
 - v5 会话及旧版本迁移刷新后无 hydration 错误，持久化数据不含内部字段。
 
 真实 CLI 冒烟还要确认：
@@ -269,8 +303,10 @@ production systemd: arknights-infra
 production internal Next: 127.0.0.1:4175
 production Funnel nginx: 127.0.0.1:4176
 production direct-IP nginx: 0.0.0.0:4174 (Host-restricted compatibility listener; not the Funnel target)
-production public HTTPS: https://instance-pi2ohhfj.tail2dca9.ts.net:8443 (Tailscale Funnel to 127.0.0.1:4176)
-production HTTP redirect: port 80 redirects to public HTTPS
+production public HTTPS: https://riic.autos
+production legacy HTTPS: https://ark.riic.autos redirects to https://riic.autos
+production Tailscale Funnel compatibility: https://instance-pi2ohhfj.tail2dca9.ts.net:8443 to 127.0.0.1:4176
+production HTTP redirect: port 80 redirects to https://riic.autos
 production persistent storage: /var/lib/arknights-infra
 
 development branch: develop
@@ -281,7 +317,7 @@ development loopback nginx: 127.0.0.1:4274 (SSH tunnel only until a dev domain i
 development persistent storage: /var/lib/arknights-infra-dev
 ```
 
-`main`和`develop` push 必须先通过`Frontend quality`，随后由`Deploy verified branch`从已验证 SHA 自动发布到各自 GitHub Environment。发布包只包含 Git 跟踪内容；服务器优先通过`/usr/local/sbin/arknights-infra-prepare-release`和`/var/cache/arknights-infra-deploy/repository.git`增量准备准确 SHA。helper 返回临时故障码`75`时，Runner 优先读取对应服务器缓存 ref，并发送从该 ref 到已验证 SHA 的增量 Git bundle；缓存 ref 不可用时才使用上一次 push SHA。helper 校验路径、HEAD、前置对象、tree、完整对象图后导入，仅在 bundle 不可用时回退完整 SCP。SHA、tree、路径、bundle 或 helper 契约错误必须直接失败。新 release 从应用根目录的`shared/.env.local`继承环境配置；`shared/bin-data`只有包含当前 Worker 所需的完整数据文件集时才注入 release，不完整的旧数据保留但不得覆盖制品内置数据。随后以`arkinfra`用户执行`npm ci`/`npm run build`，再原子切换`current`并重启对应 systemd。部署锁内只允许清理命名和提交标记均合法的 release 直属目录；每个环境保留当前 release 加两个回滚版本，失败半成品必须移除，清理后可用空间少于 3 GiB 时必须在创建新 release 前失败。`shared`和`/var/lib`永不进入 release 淘汰范围。不得把服务器密码写入文件或命令；只使用受保护的 SSH key 与 known_hosts。手动发布仍必须基于对应已合并、已验证的远端分支。
+`main`和`develop` push 必须先通过`Frontend quality`；只有范围分类输出`deploy_required=true`时，`Deploy verified branch`才从已验证 SHA 自动发布到对应 GitHub Environment。文档、仓库元数据、测试和非发布型 CI 配置不得创建无意义的服务器 release；运行时、未知路径和发布工作流改动仍必须部署。发布包只包含 Git 跟踪内容；服务器优先通过`/usr/local/sbin/arknights-infra-prepare-release`和`/var/cache/arknights-infra-deploy/repository.git`增量准备准确 SHA。helper 返回临时故障码`75`时，Runner 优先读取对应服务器缓存 ref，并发送从该 ref 到已验证 SHA 的增量 Git bundle；缓存 ref 不可用时才使用上一次 push SHA。helper 校验路径、HEAD、前置对象、tree、完整对象图后导入，仅在 bundle 不可用时回退完整 SCP。SHA、tree、路径、bundle 或 helper 契约错误必须直接失败。新 release 从应用根目录的`shared/.env.local`继承环境配置；`shared/bin-data`只有包含当前 Worker 所需的完整数据文件集时才注入 release，不完整的旧数据保留但不得覆盖制品内置数据。随后以`arkinfra`用户执行`npm ci`/`npm run build`，再原子切换`current`并重启对应 systemd。部署锁内只允许清理命名和提交标记均合法的 release 直属目录；每个环境保留当前 release 加两个回滚版本，失败半成品必须移除，清理后可用空间少于 3 GiB 时必须在创建新 release 前失败。`shared`和`/var/lib`永不进入 release 淘汰范围。不得把服务器密码写入文件或命令；只使用受保护的 SSH key 与 known_hosts。手动发布仍必须基于对应已合并、已验证的远端分支。
 
 两个固定 helper 必须是`root:root 0755`普通文件并支持`--contract-version`；当前 prepare/deploy 契约均为`1`。工作流以契约版本做兼容握手，并把服务器文件 SHA-256只作为审计信息。内部实现保持参数、退出码和权限语义兼容时不得随意升级版本；任何不兼容修改必须成套更新脚本、工作流、测试和文档，先通过完整 PR 门禁，再在合并前原子安装并复核新 helper。不得通过跳过 owner/mode/version 检查让部署通过。
 

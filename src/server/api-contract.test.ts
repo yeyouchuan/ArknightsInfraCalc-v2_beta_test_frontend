@@ -5,12 +5,14 @@ import {
   __resetRequestGuardsForTests,
   acquirePlanSlot,
   assertEmptyBody,
+  assertFiammettaEnableCompatible,
   assertPlanCollectionLimits,
   assertSameOrigin,
   enforceRateLimit,
   ERROR_DEFINITIONS,
   failureResponse,
   healthHttpStatus,
+  normalizeFiammettaEnable,
   PublicApiError,
   readJsonBody,
   successResponse,
@@ -27,6 +29,7 @@ test("error catalog keeps the required HTTP status mapping", () => {
   assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2003"].status, 503);
   assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2004"].status, 409);
   assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2005"].status, 400);
+  assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2006"].status, 409);
   assert.equal(ERROR_DEFINITIONS["AIC-AUTH-2007"].status, 404);
   assert.equal(ERROR_DEFINITIONS["AIC-PLAN-3001"].status, 503);
   assert.equal(ERROR_DEFINITIONS["AIC-PLAN-3002"].status, 429);
@@ -36,6 +39,10 @@ test("error catalog keeps the required HTTP status mapping", () => {
   assert.equal(ERROR_DEFINITIONS["AIC-FEEDBACK-4002"].status, 500);
   assert.equal(ERROR_DEFINITIONS["AIC-SYS-5000"].status, 500);
   assert.equal(ERROR_DEFINITIONS["AIC-RATE-6001"].status, 429);
+  assert.equal(ERROR_DEFINITIONS["AIC-DATA-8001"].status, 403);
+  assert.equal(ERROR_DEFINITIONS["AIC-DATA-8002"].status, 503);
+  assert.equal(ERROR_DEFINITIONS["AIC-DATA-8003"].status, 422);
+  assert.equal(ERROR_DEFINITIONS["AIC-DATA-8004"].status, 404);
 });
 
 test("success and failure responses include the request id", async () => {
@@ -159,7 +166,7 @@ test("same-origin protection uses Host instead of the wildcard listen address", 
   }
 });
 
-test("feedback validation requires consent and a 1-1000 character note", () => {
+test("feedback validation separates room and performance feedback while keeping notes minimal", () => {
   const valid = {
     diagnosticId: "diag",
     room: { id: "trade_1", title: "贸易站 1", group: "trading", operators: ["能天使"] },
@@ -167,12 +174,30 @@ test("feedback validation requires consent and a 1-1000 character note", () => {
     consent: true as const,
   };
   assert.doesNotThrow(() => validateFeedbackRequest(valid));
+  assert.doesNotThrow(() => validateFeedbackRequest({
+    kind: "performance_issue",
+    diagnosticId: "diag",
+    note: "运行耗时明显偏长",
+    consent: true,
+  }));
   assert.throws(
     () => validateFeedbackRequest({ ...valid, consent: false }),
     (error: unknown) => error instanceof PublicApiError && error.code === "AIC-FEEDBACK-4001"
   );
   assert.throws(
     () => validateFeedbackRequest({ ...valid, note: "x".repeat(1001) }),
+    (error: unknown) => error instanceof PublicApiError && error.code === "AIC-FEEDBACK-4001"
+  );
+  assert.throws(
+    () => validateFeedbackRequest({ ...valid, kind: "performance_issue" }),
+    (error: unknown) => error instanceof PublicApiError && error.code === "AIC-FEEDBACK-4001"
+  );
+  assert.throws(
+    () => validateFeedbackRequest({ kind: "room_issue", diagnosticId: "diag", note: "缺少房间", consent: true }),
+    (error: unknown) => error instanceof PublicApiError && error.code === "AIC-FEEDBACK-4001"
+  );
+  assert.throws(
+    () => validateFeedbackRequest({ kind: "future", diagnosticId: "diag", note: "未知类型", consent: true }),
     (error: unknown) => error instanceof PublicApiError && error.code === "AIC-FEEDBACK-4001"
   );
 });
@@ -190,6 +215,25 @@ test("plan collection limits enforce operators, rooms, and source length", () =>
   assert.throws(
     () => assertPlanCollectionLimits(1, 1, "x".repeat(81)),
     (error: unknown) => error instanceof PublicApiError && error.code === "AIC-BOX-1101"
+  );
+});
+
+test("fiammetta enable normalizes to true by default and rejects non-boolean values", () => {
+  assert.equal(normalizeFiammettaEnable(undefined), true);
+  assert.equal(normalizeFiammettaEnable(true), true);
+  assert.equal(normalizeFiammettaEnable(false), false);
+  assert.throws(
+    () => normalizeFiammettaEnable("yes"),
+    (error: unknown) => error instanceof PublicApiError && error.code === "AIC-REQ-1001"
+  );
+});
+
+test("fiammetta enable conflicts with the dedicated Fiammetta rotation", () => {
+  assert.doesNotThrow(() => assertFiammettaEnableCompatible(true, "fiammetta_8_8_4_4"));
+  assert.doesNotThrow(() => assertFiammettaEnableCompatible(false, "abc_12_6_6"));
+  assert.throws(
+    () => assertFiammettaEnableCompatible(false, "fiammetta_8_8_4_4"),
+    (error: unknown) => error instanceof PublicApiError && error.code === "AIC-REQ-1001"
   );
 });
 

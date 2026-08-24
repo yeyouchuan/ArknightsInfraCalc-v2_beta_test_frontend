@@ -10,12 +10,15 @@ import {
 import { pollScan } from "@/server/skland/adapter";
 import {
   assertSklandAvailable,
+  assertSklandFeatureEnabled,
   readSklandAccountStore,
   setSklandAccountStoreCookies,
   sklandAccountSummaries,
   sklandErrorResponse,
 } from "@/server/skland/http";
 import { SklandAccountLimitError, upsertSklandAccount } from "@/server/skland/session";
+import { requireWebsiteSession } from "@/server/auth/authorization";
+import { bindSklandAccount } from "@/server/skland/bindings";
 
 export const runtime = "nodejs";
 
@@ -23,6 +26,8 @@ export async function POST(request: Request) {
   const requestId = createRequestId();
   const startedAt = performance.now();
   try {
+    assertSklandFeatureEnabled();
+    const website = await requireWebsiteSession(request);
     assertSklandAvailable(request);
     assertSameOrigin(request);
     enforceRateLimit("skland-poll", requestClientIp(request), 120, 10 * 60_000);
@@ -40,6 +45,7 @@ export async function POST(request: Request) {
         if (error instanceof SklandAccountLimitError) throw new PublicApiError("AIC-AUTH-2004");
         throw error;
       }
+      const bindingSummary = await bindSklandAccount(website.user.id, result.session.userId);
       const next = {
         ...previous,
         accounts: upserted.accounts,
@@ -52,6 +58,8 @@ export async function POST(request: Request) {
         statusSnapshot: result.response.statusSnapshot,
         accounts: sklandAccountSummaries(next),
         activeAccountId: next.activeAccountId,
+        bindingCount: bindingSummary.totalCount,
+        bindingSummary,
       }, requestId);
       setSklandAccountStoreCookies(response, request, next, previous);
       return response;

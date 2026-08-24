@@ -10,6 +10,7 @@ const LIST_FUNCTIONAL_FACILITY_GROUPS = new Set<RoomGroup>([
   "power",
   "meeting",
   "processing",
+  "training",
 ]);
 
 const LIST_ALIGNED_OPERATOR_ORIGIN_GROUPS = new Set<RoomGroup>([
@@ -21,9 +22,10 @@ const LIST_ALIGNED_OPERATOR_ORIGIN_GROUPS = new Set<RoomGroup>([
 
 const LIST_FUNCTIONAL_FACILITY_ORDER: Partial<Record<RoomGroup, number>> = {
   power: 0,
-  meeting: 1,
-  hire: 2,
-  processing: 3,
+  training: 1,
+  meeting: 2,
+  hire: 3,
+  processing: 4,
 };
 
 export const LIST_OPERATOR_ORIGIN_PX = 248;
@@ -68,7 +70,7 @@ export function listFunctionalOperatorPosition(
 
   return {
     columnGap: LIST_OPERATOR_COLUMN_GAP,
-    left: group === "meeting"
+    left: group === "meeting" || group === "training"
       ? `max(0px, min(${LIST_OPERATOR_ORIGIN_PX}px, calc(100cqw - ${LIST_MEETING_OPERATOR_WIDTH_PX}px)))`
       : `max(0px, min(${LIST_OPERATOR_ORIGIN_PX}px, calc(100cqw - ${LIST_OPERATOR_FRAME_SIZE_PX}px)))`,
   };
@@ -88,10 +90,14 @@ export function listFunctionalFacilityGridClass(): string {
 
 export function listFunctionalRoomSpanClass(
   group: RoomGroup,
+  powerCount: number,
 ): string | undefined {
-  if (group === "meeting") return "xl:col-span-12";
-  if (group === "power" || group === "hire" || group === "processing") {
-    return "xl:col-span-8";
+  if (group === "power") return powerCount === 3 ? "xl:col-span-8" : "xl:col-span-12";
+  if (group === "hire" || group === "processing") {
+    return powerCount === 3 ? "xl:col-span-8" : "xl:col-span-12";
+  }
+  if (group === "training" || group === "meeting") {
+    return "xl:col-span-12";
   }
   return undefined;
 }
@@ -113,20 +119,10 @@ export function buildListScheduleGroups(rows: RoomRow[]): ListScheduleGroup[] {
   }, []);
 
   const functionalGroup = groups.find((group) => group.label === "功能设施");
-  const functionalPowerCount = functionalGroup?.rows.filter(
-    (row) => row.group === "power",
-  ).length ?? 0;
-  const functionalFacilityOrder = functionalPowerCount === 2
-    ? {
-        ...LIST_FUNCTIONAL_FACILITY_ORDER,
-        hire: 1,
-        meeting: 2,
-      }
-    : LIST_FUNCTIONAL_FACILITY_ORDER;
   functionalGroup?.rows.sort(
     (left, right) =>
-      (functionalFacilityOrder[left.group] ?? Number.MAX_SAFE_INTEGER)
-      - (functionalFacilityOrder[right.group] ?? Number.MAX_SAFE_INTEGER),
+      (LIST_FUNCTIONAL_FACILITY_ORDER[left.group] ?? Number.MAX_SAFE_INTEGER)
+      - (LIST_FUNCTIONAL_FACILITY_ORDER[right.group] ?? Number.MAX_SAFE_INTEGER),
   );
 
   return groups;

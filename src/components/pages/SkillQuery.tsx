@@ -5,23 +5,36 @@ import { motion, useReducedMotion } from "motion/react";
 
 import { Search, X } from "lucide-react";
 
-import { filterOperators, type BuildingRoomPrefix } from "@/building-rooms";
+import { filterOperators, ROOM_SKILL_TAGS, type BuildingRoomPrefix } from "@/building-rooms";
+import { SkillTagBar } from "@/components/skill-query/SkillTagBar";
 import { SkillResultRow } from "@/components/skill-query/SkillResultRow";
 import { SkillRoomTagBar } from "@/components/skill-query/SkillRoomTagBar";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadMore } from "@/components/ui/load-more";
-import { OPERATOR_CATALOG } from "@/operatorPortraits";
+import { BUILDING_SKILL_CATALOG, OPERATOR_CATALOG } from "@/operatorPortraits";
 
 export const SKILL_QUERY_PAGE_SIZE = 10;
 
 export function SkillQuery() {
-  const [selectedRooms, setSelectedRooms] = useState<readonly BuildingRoomPrefix[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<BuildingRoomPrefix | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(SKILL_QUERY_PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
-  const filtered = useMemo(() => filterOperators(OPERATOR_CATALOG, selectedRooms, query), [query, selectedRooms]);
+  const availableTags = selectedRoom ? ROOM_SKILL_TAGS[selectedRoom] : [];
+  const filtered = useMemo(
+    () => filterOperators(
+      OPERATOR_CATALOG,
+      selectedRoom,
+      selectedTag,
+      query,
+      (skillId) => BUILDING_SKILL_CATALOG[skillId],
+    ),
+    [query, selectedRoom, selectedTag],
+  );
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
   const loadMore = useCallback(async () => {
@@ -31,8 +44,21 @@ export function SkillQuery() {
     return nextCount < filtered.length;
   }, [filtered.length, visibleCount]);
 
-  function handleRoomsChange(next: readonly BuildingRoomPrefix[]) {
-    setSelectedRooms(next);
+  function handleRoomChange(next: BuildingRoomPrefix | null) {
+    setSelectedRoom(next);
+    // 标签是房间的二级维度：切换房间时清空旧标签。
+    setSelectedTag(null);
+    setVisibleCount(SKILL_QUERY_PAGE_SIZE);
+  }
+
+  function handleTagChange(next: string | null) {
+    setSelectedTag(next);
+    setVisibleCount(SKILL_QUERY_PAGE_SIZE);
+  }
+
+  function handleClearFilters() {
+    setSelectedRoom(null);
+    setSelectedTag(null);
     setVisibleCount(SKILL_QUERY_PAGE_SIZE);
   }
 
@@ -56,7 +82,25 @@ export function SkillQuery() {
       </div>
 
       <div className="mt-3">
-        <SkillRoomTagBar selected={selectedRooms} onChange={handleRoomsChange} />
+        <SkillRoomTagBar selected={selectedRoom} onChange={handleRoomChange} />
+      </div>
+
+      {selectedRoom ? (
+        <SkillTagBar tags={availableTags} selected={selectedTag} onChange={handleTagChange} />
+      ) : null}
+
+      <div className="mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!selectedRoom && !selectedTag}
+          onClick={handleClearFilters}
+          aria-label="清除选择"
+        >
+          <X aria-hidden="true" />
+          清除选择
+        </Button>
       </div>
 
       <label className="relative mt-3 block">
@@ -69,8 +113,8 @@ export function SkillQuery() {
           value={query}
           onChange={(event) => handleQueryChange(event.target.value)}
           className="h-11 pr-10 pl-9 max-sm:pr-12"
-          placeholder="搜索干员名称"
-          aria-label="搜索干员名称"
+          placeholder="搜索干员名称/技能名称/技能效果"
+          aria-label="搜索干员名称/技能名称/技能效果"
         />
         {query ? (
           <button
@@ -97,7 +141,7 @@ export function SkillQuery() {
                 </motion.div>
               ))}
             </div>
-            <LoadMore key={`${query}:${selectedRooms.join(",")}`} hasMore={hasMore} onLoad={loadMore} className="mt-4 border-t border-border/60 pt-2" />
+            <LoadMore key={`${query}:${selectedRoom ?? ""}:${selectedTag ?? ""}`} hasMore={hasMore} onLoad={loadMore} className="mt-4 border-t border-border/60 pt-2" />
           </>
         )}
       </div>

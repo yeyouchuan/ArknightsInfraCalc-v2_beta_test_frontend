@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { PlanApiResponse, UserProfile } from "../types.ts";
+import { PublicApiError } from "./api-contract.ts";
 import { safeDisplayName, toPublicPlanData } from "./public-plan.ts";
 
 function internalResult(): PlanApiResponse {
@@ -53,6 +54,7 @@ function internalResult(): PlanApiResponse {
             candidates: ["但书", "巫恋"],
             use_operator_groups: true,
           }],
+          training: [{ operators: ["不应进入 MAA"] }],
         },
       }],
       scheduleType: { planTimes: 2, trading: 2, manufacture: 4, power: 3, dormitory: 4 },
@@ -62,7 +64,40 @@ function internalResult(): PlanApiResponse {
         plan_contract_sha256: "a".repeat(64),
         solver_executable_sha256: "b".repeat(64),
       },
-    } as PlanApiResponse["maaJson"] & { nestedInternal: Record<string, unknown> },
+    } as unknown as PlanApiResponse["maaJson"] & { nestedInternal: Record<string, unknown> },
+    trainingRoomJson: {
+      schema_version: 1,
+      shifts: [{ trainee: "能天使", trainer: "德克萨斯" }],
+    },
+    trainingAdviceJson: {
+      schema_version: 2,
+      context: { engineering_robot_count: 12, stdout: "secret" },
+      newbie_section_status: "complete",
+      incomplete_newbie: [],
+      combinations: [],
+      recommendations: [{
+        operator: "泡泡",
+        action: "acquire",
+        target: { kind: "needs_review", command: "secret" },
+        priority: "high_efficiency_standalone",
+        priority_rank: 100,
+        reason: "standalone",
+        product: "originium_shards",
+        conditions: [{
+          condition: {
+            kind: "custom",
+            key: "safe",
+            value: { visible: true, stdout: "secret", nested: { solver: "secret" } },
+            description: "待核对条件",
+          },
+          status: "unknown",
+          stderr: "secret",
+        }],
+        solver: { private: true },
+      }],
+      command: "secret",
+      future_internal: "secret",
+    } as unknown as PlanApiResponse["trainingAdviceJson"],
     rotationJson: {
       profile: "abc_12_6_6",
       shifts: [{
@@ -159,6 +194,7 @@ test("production public plan data recursively excludes internal fields", () => {
     assert.equal(publicData.diagnosticId, "diagnostic-1");
     assert.equal(publicData.rotation.profile, "abc_12_6_6");
     assert.deepEqual(publicData.rotation.daily, { trade: 4.2, manu: 8.4, power: 2.2 });
+    assert.equal(publicData.rotation.shifts[0].scores.room_lines[0].final_efficiency, 2.1);
     assert.equal(publicData.rotation.shifts[0].scores.room_lines[0].trade_score, 2.1);
     assert.equal(publicData.maa.planTimes, 2);
     assert.deepEqual(publicData.maa.plans[0].Fiammetta, { enable: true, target: "但书", order: "pre" });
@@ -171,11 +207,41 @@ test("production public plan data recursively excludes internal fields", () => {
     assert.equal(publicData.maa.plans[0].rooms.trading?.[0].sort, true);
     assert.deepEqual(publicData.maa.plans[0].rooms.trading?.[0].candidates, ["但书", "巫恋"]);
     assert.equal(publicData.maa.plans[0].rooms.trading?.[0].use_operator_groups, true);
+    assert.equal("training" in publicData.maa.plans[0].rooms, false);
+    assert.deepEqual(publicData.trainingRoom, {
+      schema_version: 1,
+      shifts: [{ trainee: "能天使", trainer: "德克萨斯" }],
+    });
     assert.equal(
       "candidates" in (publicData.maa as typeof publicData.maa & { nestedInternal: Record<string, unknown> }).nestedInternal,
       false
     );
     assert.equal(publicData.maa.scheduleType?.planTimes, 2);
+    assert.deepEqual(publicData.trainingAdvice, {
+      schema_version: 2,
+      context: { engineering_robot_count: 12 },
+      newbie_section_status: "complete",
+      incomplete_newbie: [],
+      combinations: [],
+      recommendations: [{
+        operator: "泡泡",
+        action: "acquire",
+        target: { kind: "needs_review" },
+        priority: "high_efficiency_standalone",
+        priority_rank: 100,
+        reason: "standalone",
+        product: "originium_shards",
+        conditions: [{
+          condition: {
+            kind: "custom",
+            key: "safe",
+            value: { visible: true, nested: {} },
+            description: "待核对条件",
+          },
+          status: "unknown",
+        }],
+      }],
+    });
     assert.equal(publicData.profile.baseline_label, "产品推荐基准");
     assert.equal(publicData.profile.layout_label.includes("\\"), false);
     assert.equal(publicData.maa.title.includes("\\"), false);
@@ -186,23 +252,60 @@ test("production public plan data recursively excludes internal fields", () => {
   }
 });
 
-test("debug fields require the server environment switch", () => {
-  const previous = process.env.BETA_DEBUG_TOOLS_ENABLED;
+test("debug fields require both the server switch and request opt-in", () => {
+  const previousDeploymentEnvironment = process.env.APP_DEPLOYMENT_ENV;
+  const previousDebugTools = process.env.BETA_DEBUG_TOOLS_ENABLED;
+  process.env.APP_DEPLOYMENT_ENV = "development";
   process.env.BETA_DEBUG_TOOLS_ENABLED = "1";
   try {
-    const data = toPublicPlanData(internalResult(), { layoutLabel: "243", sourceName: "示例" }, "request");
+    const ordinaryData = toPublicPlanData(
+      internalResult(),
+      { layoutLabel: "243", sourceName: "示例" },
+      "request"
+    );
+    assert.equal(ordinaryData.debug, undefined);
+
+    const data = toPublicPlanData(
+      internalResult(),
+      { layoutLabel: "243", sourceName: "示例" },
+      "request",
+      { includeDebug: true }
+    );
     assert.equal(data.debug?.command, "infra-cli serve");
     assert.equal(data.debug?.stdout, "secret stdout");
     const keys = keysDeep(data.debug?.debugBundle);
     assert.equal(keys.has("solver"), false);
     assert.equal(keys.has("plan_contract_sha256"), false);
     assert.equal(keys.has("solver_executable_sha256"), false);
+
+    process.env.BETA_DEBUG_TOOLS_ENABLED = "0";
+    const disabledData = toPublicPlanData(
+      internalResult(),
+      { layoutLabel: "243", sourceName: "示例" },
+      "request",
+      { includeDebug: true }
+    );
+    assert.equal(disabledData.debug, undefined);
   } finally {
-    if (previous === undefined) delete process.env.BETA_DEBUG_TOOLS_ENABLED;
-    else process.env.BETA_DEBUG_TOOLS_ENABLED = previous;
+    if (previousDeploymentEnvironment === undefined) delete process.env.APP_DEPLOYMENT_ENV;
+    else process.env.APP_DEPLOYMENT_ENV = previousDeploymentEnvironment;
+    if (previousDebugTools === undefined) delete process.env.BETA_DEBUG_TOOLS_ENABLED;
+    else process.env.BETA_DEBUG_TOOLS_ENABLED = previousDebugTools;
   }
 });
 
 test("safe display names remove path separators and control characters", () => {
   assert.equal(safeDisplayName(" C:\\private/\u0007name ", "fallback"), "C: private name");
+});
+
+test("public plan mapping rejects malformed optional training-room data", () => {
+  const result = internalResult();
+  result.trainingRoomJson = {
+    schema_version: 1,
+    shifts: [],
+  };
+  assert.throws(
+    () => toPublicPlanData(result, { layoutLabel: "243", sourceName: "示例" }, "request"),
+    (error: unknown) => error instanceof PublicApiError && error.code === "AIC-PLAN-3004",
+  );
 });

@@ -31,7 +31,7 @@ The frontend uses `plan.compute` when both version fields match the supported co
   "result": {
     "pong": true,
     "protocol_version": 1,
-    "plan_schema_version": 1,
+    "plan_schema_version": 3,
     "plan_contract_sha256": "<diagnostic-schema-fingerprint>",
     "solver_executable_sha256": "<running-executable-fingerprint>"
   }
@@ -42,7 +42,7 @@ The frontend uses `plan.compute` when both version fields match the supported co
 
 Deployment health is intentionally stricter than runtime routing when `INFRA_CLI_EXPECTED_SHA256` is configured. In that mode the server pins CLI selection to the packaged platform binary in `bin/`, requires both current versions, and requires the Worker fingerprint to match that artifact. A version or executable mismatch makes `plannerReady` false so the release runner rolls back; `INFRA_CLI_PATH` and a persisted active CLI cannot silently replace the verified artifact. Local or unmanaged environments may omit the expected hash, retain normal CLI candidate selection, and keep a legacy Worker available. The contract hash is recorded but never compared against a frontend constant.
 
-CI runs `npm run test:solver-contract` on Linux. The smoke test verifies the packaged ELF architecture and executable fingerprint, then submits the repository Full E2 fixture and 243 layout through `plan.compute` and requires a three-shift v1 response.
+CI runs `npm run test:solver-contract` on Linux. The smoke test verifies the packaged ELF architecture and executable fingerprint, then submits the repository Full E2 fixture and 243 layout through `plan.compute` and requires a three-shift v3 response.
 
 ## `plan.compute` v1
 
@@ -53,7 +53,7 @@ The request contains the complete layout and operbox inline:
   "id": 2,
   "method": "plan.compute",
   "params": {
-    "schema_version": 1,
+    "schema_version": 3,
     "layout": {
       "template": "243",
       "drone_cap": 235,
@@ -85,19 +85,27 @@ Successful responses contain all outputs inline:
   "ok": true,
   "elapsed_ms": 123,
   "result": {
-    "schema_version": 1,
+    "schema_version": 3,
     "profile": {},
     "rotation": {
       "profile": "abc_12_6_6",
       "daily": {},
       "shifts": []
     },
-    "maa": {}
+    "maa": {},
+    "training_room": {
+      "schema_version": 1,
+      "shifts": [
+        { "trainee": "Operator A", "trainer": "Operator B" },
+        { "trainee": null, "trainer": "Operator C" },
+        { "trainee": null, "trainer": null }
+      ]
+    }
   }
 }
 ```
 
-The frontend validates `schema_version`, `profile`, `rotation.shifts`, and `maa` before marking the run successful. It then persists the inline profile and MAA values into the run directory so debug bundle paths always refer to real files.
+The frontend validates `schema_version`, `profile`, `rotation.shifts`, and `maa` before marking the run successful. `training_room` is optional for compatibility with older Workers. When present, it must use schema version 1, contain exactly one entry per `maa.plans` shift, and provide both `trainee` and `trainer` as trimmed names or `null`. A name may not exceed 80 characters, occupy both training positions, or also appear in an explicit MAA room in the same shift. It then persists the inline profile and MAA values into the run directory so debug bundle paths always refer to real files.
 
 Error responses use the normal serve envelope:
 
@@ -127,9 +135,9 @@ All paths are selected by the frontend. After a successful response, the fronten
 
 The CLI response is an internal transport object. It must never be returned directly from a Next.js route handler.
 
-`src/server/infra.ts` may retain CLI paths, commands, stdout, stderr, serve requests/responses, the ping observation and run-directory metadata for local diagnostics. Feedback looks up that exact private run by diagnostic ID and copies its solver observation into private `meta.json`; old or missing runs use `solver: null`. `src/server/public-plan.ts` is the required boundary before `/api/plan`: it constructs a new allowlisted DTO containing only profile, MAA, rotation, duration and an opaque diagnostic ID. Rotation is rebuilt through `src/rotation-result.ts`; only the selected profile, daily summary, normalized shifts, team state, weighted efficiency and normalized room efficiency are public. Raw `efficiencies`, assignments, solver identities and future unknown Worker fields are not forwarded in production.
+`src/server/infra.ts` may retain CLI paths, commands, stdout, stderr, serve requests/responses, the ping observation and run-directory metadata for local diagnostics. Feedback looks up that exact private run by diagnostic ID and copies its solver observation into private `meta.json`; old or missing runs use `solver: null`. `src/server/public-plan.ts` is the required boundary before `/api/plan`: it constructs a new allowlisted DTO containing profile, MAA, rotation, duration, an opaque diagnostic ID and, when supplied by the current Worker, optional `trainingRoom` and `trainingAdvice` values parsed through their own strict public contracts. Training-room operators remain outside `maa.plans[*].rooms`, so MAA downloads never contain a training room or its occupants. Rotation is rebuilt through `src/rotation-result.ts`; only the selected profile, daily summary, normalized shifts, team state, weighted efficiency and normalized room efficiency are public. Raw `efficiencies`, assignments, solver identities and future unknown Worker or training fields are not forwarded in production.
 
-When `BETA_DEBUG_TOOLS_ENABLED=1`, the server may append diagnostic values under `data.debug`. That switch is server-owned; a query parameter cannot enable it. Public contract tests recursively reject internal field names in production responses, and the v5 browser persistence layer strips `data.debug` even in a debug session.
+The server appends diagnostic values under `data.debug` only when `BETA_DEBUG_TOOLS_ENABLED=1` and that `/api/plan` request explicitly carries `?beta=1`. The query parameter cannot override a disabled server switch or the production deployment policy, while an ordinary development request remains limited to the core allowlist plus the two optional training fields even when the server switch is enabled. Public contract tests recursively reject internal field names in production responses, and the v5 browser persistence layer strips `data.debug` even in a debug session.
 
 Do not extend the public DTO by spreading an internal result:
 

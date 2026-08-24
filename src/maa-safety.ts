@@ -29,6 +29,8 @@ export function sanitizeMaaJson<T extends MaaJson>(maa: T): T {
     const sanitizedPlan = sanitized.plans[planIndex];
     if (!sanitizedPlan) return;
 
+    delete (sanitizedPlan.rooms as MaaRooms & { training?: unknown }).training;
+
     for (const roomKind of MAA_ROOM_KINDS) {
       const sourceRooms = sourcePlan.rooms[roomKind];
       const sanitizedRooms = sanitizedPlan.rooms[roomKind];

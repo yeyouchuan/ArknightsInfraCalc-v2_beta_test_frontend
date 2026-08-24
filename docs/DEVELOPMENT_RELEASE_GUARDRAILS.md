@@ -100,32 +100,52 @@ training_advice_knowledge.json
 
 helper 的精确 SHA-256 仍应在安装和回滚时记录，但不参与每个分支的日常握手。
 
-## 5. develop 到 main 的发布顺序
+## 5. 路径感知门禁必须失败关闭
+
+`Frontend quality`不在 workflow 触发器上使用`paths-ignore`。每个 PR 和受保护分支 push 都先运行`Change scope`，从可靠的 base/head commit 生成 NUL 分隔路径列表，并由`scripts/ci-change-scope.mjs`输出 Core、Chromium 和 deploy 判定。这样`quality`这个稳定的受保护检查名始终存在，不会因整个 workflow 未创建而永久等待。
+
+分类只对明确白名单放行：
+
+| 范围 | Core | Chromium | Deploy |
+| --- | --- | --- | --- |
+| `docs/**`、根目录 Markdown、`.gitignore`、`.editorconfig`、LICENSE | 跳过 | 跳过 | 跳过 |
+| 单元测试、非发布型`.github/**`和分类器自身 | 执行 | 跳过 | 跳过 |
+| `e2e/**`或 Playwright 配置 | 执行 | 执行 | 跳过 |
+| `frontend-quality.yml`或`deploy.yml` | 执行 | 跳过 | 受保护分支 push 执行 |
+| 其他任何路径 | 执行 | 执行 | 受保护分支 push 执行 |
+
+混合变更按其中最高风险处理。`.gitattributes`会改变归档、行尾或 executable bit 语义，因此不属于元数据快路径。未知路径、空差异、零 before SHA、缺失 commit 和手动触发全部回退完整门禁；不能为了加速而扩大模糊白名单。`quality`必须同时核对`Change scope`成功、选中 Job 为`success`、未选中 Job 为`skipped`。发布仍要求 push、`quality`成功和`deploy_required=true`三者同时成立。
+
+修改分类规则时必须成套更新分类器单测、`scripts/build-tooling.test.mjs`、工作流与本节文档。新增运行时目录或构建输入默认先按完整范围处理，只有能证明不会进入 Next build、服务端运行、CLI、数据库、公共资源或部署包语义时才能加入快路径。
+
+## 6. develop 到 main 的发布顺序
 
 当前策略是先在 `develop`验证，再把本任务提交用 `cherry-pick -x`移植到最新 `main`；不要为一个修复合并 develop 的其他提交。
 
 ```mermaid
 flowchart LR
   F["功能分支"] --> P1["PR 到 develop"]
-  P1 --> Q1["完整质量门禁"]
-  Q1 --> D["development 自动发布"]
+  P1 --> Q1["范围感知 quality 门禁"]
+  Q1 --> D["运行时变更自动发布 development"]
   D --> S["真实 Full E2 / MAA / 反馈冒烟"]
   S --> C["从最新 main cherry-pick -x"]
   C --> P2["PR 到 main"]
-  P2 --> Q2["完整质量门禁"]
-  Q2 --> R["production 自动发布"]
+  P2 --> Q2["范围感知 quality 门禁"]
+  Q2 --> R["运行时变更自动发布 production"]
   R --> A["生产验收"]
 ```
 
 每次移植前后检查 `git log --left-right`和 PR 文件列表，确认没有 develop-only 提交。长期应安排独立任务收敛 main/develop 分叉；日常修复不应顺手完成大规模分支合并。
 
-## 6. 健康检查不是发布完成
+文档、测试和非发布型 CI 变更通过`quality`后不会创建 release，也不需要服务器冒烟；一旦分类要求 deploy，仍必须完成图中的真实环境验证。
+
+## 7. 健康检查不是发布完成
 
 自动 health 只证明进程、协议版本、制品指纹和公开 readiness 达标。每次求解器、协议、部署脚本或运行数据变更后，还要验证：
 
 - `current`和 `.release-sha`指向预期完整 SHA，systemd active 且没有重启循环；
 - 内部端口和对应 Nginx 入口返回成功信封，`plannerReady:true`；
-- production 强制 `debugTools:false`、`rateLimit:true`且没有森空岛访问面；
+- production 强制 `debugTools:false`、`rateLimit:true`；森空岛访问面必须与显式`SKLAND_FEATURE_ENABLED`构建开关一致；
 - Full E2 真实产生三班，刷新可恢复，并能下载 MAA；
 - 最小反馈成功，运行记录与反馈 `meta.json.solver`使用同一私有 observation；
 - 公共 health/plan/feedback 递归不含 hash、CLI 路径、PID、stdout/stderr 或 debug 对象；
@@ -133,14 +153,14 @@ flowchart LR
 
 如果 health 通过但 Full E2 或反馈失败，回滚整个前端 release，不要只替换 CLI。代码、预期指纹、Worker 和 fixture 必须保持成套。
 
-## 7. 凭据与运维边界
+## 8. 凭据与运维边界
 
 - GitHub Actions 只使用专用 `arkdeploy`密钥、known_hosts 和最小 sudo 规则；不要把 root 私钥、密码或临时构建密钥写入仓库、命令历史或 Actions。
 - 临时 root 构建公钥完成任务后应从 `authorized_keys`移除或收紧来源/命令限制；删除前先确认自动部署使用的是独立 key。
 - root 不直接信任应用用户可写 release 中的符号链接。手动求解器更新继续使用 `runuser -u arkinfra -- cat`读取应用文件，由 root 在私有目录创建普通备份并在恢复前重新验证。
 - `shared`和`/var/lib`从不进入 release 淘汰范围；任何清理都必须单独授权、先只读确认精确目标。
 
-## 8. 后续治理清单
+## 9. 后续治理清单
 
 以下是独立改进项，不是普通功能 PR 的顺手改动：
 

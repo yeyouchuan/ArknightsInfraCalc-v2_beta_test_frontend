@@ -8,14 +8,22 @@ import {
   isSklandFeatureEnabled,
 } from "./deployment.ts";
 
-test("production deployment always disables Skland", () => {
-  const environment = {
+test("production enables Skland only when explicitly requested", () => {
+  const enabledEnvironment = {
     APP_DEPLOYMENT_ENV: "production",
     SKLAND_FEATURE_ENABLED: "1",
     NODE_ENV: "production",
   } as const;
-  assert.equal(appDeploymentEnvironment(environment), "production");
-  assert.equal(isSklandFeatureEnabled(environment), false);
+  assert.equal(appDeploymentEnvironment(enabledEnvironment), "production");
+  assert.equal(isSklandFeatureEnabled(enabledEnvironment), true);
+  assert.equal(isSklandFeatureEnabled({
+    ...enabledEnvironment,
+    SKLAND_FEATURE_ENABLED: "0",
+  }), false);
+  assert.equal(isSklandFeatureEnabled({
+    APP_DEPLOYMENT_ENV: "production",
+    NODE_ENV: "production",
+  }), false);
 });
 
 test("production forces debug tools off and rate limits on", () => {

@@ -272,6 +272,16 @@ const noLayoutSuggestion = {
   layoutSuggestion: null,
   layoutWarning: null,
 } as const;
+const workshopLayoutSuggestion = {
+  layoutLabel: "243" as const,
+  layoutSuggestion: {
+    template: "243",
+    drone_cap: 235,
+    scenario: {},
+    rooms: [{ id: "workshop", kind: "workshop" as const, level: 3 }],
+  },
+  layoutWarning: null,
+};
 
 test("normalizes the complete public Skland dashboard without leaking raw response fields", () => {
   const snapshot = snapshotFromPlayerInfo(playerInfo(), roles, "123456789", noLayoutSuggestion);
@@ -292,6 +302,12 @@ test("normalizes the complete public Skland dashboard without leaking raw respon
   assert.equal(manufacture?.product, "gold");
   assert.equal(manufacture?.production.unitCapacity, 10);
   assert.equal(snapshot.infrastructure.training?.skillIndex, 2);
+  const trainingRoom = snapshot.infrastructure.rooms.find((room) => room.group === "training");
+  assert.equal(trainingRoom?.group, "training");
+  if (trainingRoom?.group !== "training") assert.fail("training room was not normalized");
+  assert.equal(trainingRoom.level, 3);
+  assert.deepEqual(trainingRoom.occupancy, { current: 2, capacity: 2 });
+  assert.deepEqual(trainingRoom.operators.map((operator) => operator.position), ["trainee", "trainer"]);
   assert.equal(snapshot.progress.recruit?.[0]?.state, "completed");
   const meeting = snapshot.infrastructure.rooms.find((room) => room.group === "meeting");
   assert.deepEqual(meeting?.clue.board, ["莱茵生命", "罗德岛"]);
@@ -313,6 +329,28 @@ test("normalizes the complete public Skland dashboard without leaking raw respon
   }
 });
 
+test("maps Skland manufacture entries 3 and 4 to their in-game room numbers", () => {
+  const info = playerInfo();
+  const template = info.building.manufactures[0]!;
+  info.building.manufactures = ["slot_14", "slot_5", "slot_6", "slot_7"].map((slotId) => ({
+    ...template,
+    slotId,
+  }));
+
+  const snapshot = snapshotFromPlayerInfo(info, roles, "123456789", noLayoutSuggestion);
+  const manufactureRooms = snapshot.infrastructure.rooms.filter((room) => room.group === "manufacture");
+
+  assert.deepEqual(
+    manufactureRooms.map((room) => ({ key: room.key, index: room.index })),
+    [
+      { key: "slot_14", index: 0 },
+      { key: "slot_5", index: 1 },
+      { key: "slot_7", index: 2 },
+      { key: "slot_6", index: 3 },
+    ]
+  );
+});
+
 test("one player-info normalization returns full status and a stripped schedule snapshot", () => {
   const combined = snapshotsFromPlayerInfo(playerInfo(), roles, "123456789", noLayoutSuggestion);
   const legacySchedule = scheduleSnapshotFromPlayerInfo(playerInfo(), roles, noLayoutSuggestion);
@@ -324,6 +362,23 @@ test("one player-info normalization returns full status and a stripped schedule 
   for (const forbidden of ["avatarUrl", "sanity", "progress", "skins", "routine", "recruit", "training", "labor"]) {
     assert.equal(serialized.includes(`"${forbidden}"`), false);
   }
+});
+
+test("adds the inferred processing facility only to the full Skland status", () => {
+  const combined = snapshotsFromPlayerInfo(playerInfo(), roles, "123456789", workshopLayoutSuggestion);
+  const processing = combined.statusSnapshot.infrastructure.rooms.find((room) => room.group === "processing");
+
+  assert.deepEqual(processing, {
+    key: "workshop",
+    group: "processing",
+    index: 0,
+    level: 3,
+    operators: [],
+  });
+  assert.equal(
+    combined.scheduleSnapshot.infrastructure.rooms.some((room) => room.key === "workshop"),
+    false,
+  );
 });
 
 test("rejects non-HTTPS avatars and preserves unknown factory recipes as an explicit public value", () => {
@@ -368,6 +423,10 @@ test("treats targetSkill -1 as an idle training room even when occupant fields r
 
   const snapshot = snapshotFromPlayerInfo(info, roles, "123456789", noLayoutSuggestion);
   assert.equal(snapshot.infrastructure.training, null);
+  const normalizedRoom = snapshot.infrastructure.rooms.find((room) => room.group === "training");
+  if (normalizedRoom?.group !== "training") assert.fail("idle training room was not preserved");
+  assert.deepEqual(normalizedRoom.occupancy, { current: 2, capacity: 2 });
+  assert.deepEqual(normalizedRoom.operators.map((operator) => operator.position), ["trainee", "trainer"]);
 });
 
 test("treats a training room without a trainee as idle", () => {
@@ -378,6 +437,10 @@ test("treats a training room without a trainee as idle", () => {
 
   const snapshot = snapshotFromPlayerInfo(info, roles, "123456789", noLayoutSuggestion);
   assert.equal(snapshot.infrastructure.training, null);
+  const normalizedRoom = snapshot.infrastructure.rooms.find((room) => room.group === "training");
+  if (normalizedRoom?.group !== "training") assert.fail("training room was not preserved");
+  assert.deepEqual(normalizedRoom.occupancy, { current: 1, capacity: 2 });
+  assert.deepEqual(normalizedRoom.operators.map((operator) => operator.position), ["trainer"]);
 });
 
 test("treats a zero-progress training task with a concrete target skill as idle", () => {
@@ -389,6 +452,23 @@ test("treats a zero-progress training task with a concrete target skill as idle"
 
   const snapshot = snapshotFromPlayerInfo(info, roles, "123456789", noLayoutSuggestion);
   assert.equal(snapshot.infrastructure.training, null);
+  const normalizedRoom = snapshot.infrastructure.rooms.find((room) => room.group === "training");
+  if (normalizedRoom?.group !== "training") assert.fail("idle training room was not preserved");
+  assert.deepEqual(normalizedRoom.occupancy, { current: 2, capacity: 2 });
+});
+
+test("keeps an empty training room as an explicit 0/2 facility", () => {
+  const info = playerInfo();
+  const training = info.building.training;
+  if (!training) assert.fail("training fixture is missing");
+  training.trainee = null;
+  training.trainer = null;
+
+  const snapshot = snapshotFromPlayerInfo(info, roles, "123456789", noLayoutSuggestion);
+  const normalizedRoom = snapshot.infrastructure.rooms.find((room) => room.group === "training");
+  if (normalizedRoom?.group !== "training") assert.fail("empty training room was not preserved");
+  assert.deepEqual(normalizedRoom.occupancy, { current: 0, capacity: 2 });
+  assert.deepEqual(normalizedRoom.operators, []);
 });
 
 test("merges Skland class forms that share one planner-facing operator name", () => {
@@ -444,6 +524,7 @@ test("keeps optional metadata gaps safe without inventing named records", () => 
   assert.equal(snapshot.skins.length, 0);
   assert.equal(snapshot.infrastructure.training, null);
   assert.equal(snapshot.infrastructure.rooms.some((room) => room.group === "meeting"), false);
+  assert.equal(snapshot.infrastructure.rooms.some((room) => room.group === "training"), false);
   assert.equal(snapshot.progress.campaign?.records[0]?.name, "未知剿灭区域");
   assert.equal(snapshot.progress.activities?.[0]?.name, "未命名活动");
   assert.equal(snapshot.progress.bossRush?.[0]?.stageCode, null);

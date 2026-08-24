@@ -50,8 +50,8 @@ function DialogOverlay({
       className={cn(
         "fixed inset-0 isolate z-50",
         layer === "nested"
-          ? "bg-black/[0.08] supports-backdrop-filter:max-sm:backdrop-blur-[1px] supports-backdrop-filter:sm:backdrop-blur-[2px]"
-          : "bg-black/20 supports-backdrop-filter:max-sm:backdrop-blur-[3px] supports-backdrop-filter:sm:backdrop-blur-[6px]",
+          ? "bg-black/[0.08] supports-backdrop-filter:max-sm:backdrop-blur-[2px] supports-backdrop-filter:sm:backdrop-blur-[3px]"
+          : "bg-black/20 supports-backdrop-filter:max-sm:backdrop-blur-[4px] supports-backdrop-filter:sm:backdrop-blur-[8px]",
         className
       )}
       {...props}
@@ -91,7 +91,7 @@ function DialogContent({
           />
         )}
         className={cn(
-          "dialog-acrylic fixed top-1/2 left-1/2 z-50 isolate grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-0 overflow-hidden rounded-[24px] p-0 text-[13px] text-popover-foreground outline-none sm:max-w-[min(480px,calc(100vw-2rem))] sm:rounded-[32px]",
+          "dialog-acrylic fixed top-1/2 left-1/2 z-50 isolate grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-0 overflow-hidden rounded-[24px] p-0 text-sm text-popover-foreground outline-none sm:max-w-[min(480px,calc(100vw-2rem))] sm:rounded-[32px]",
           className
         )}
         {...props}

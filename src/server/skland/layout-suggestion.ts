@@ -3,7 +3,7 @@ import type { PlayerInfo } from "skland-kit";
 import { buildBlueprint, PRESETS } from "@/blueprint";
 import type { BaseBlueprint, SklandInfrastructure } from "@/types";
 
-import { factoryProduct } from "./normalize";
+import { factoryProduct, manufacturesInGameOrder } from "./normalize";
 
 export function sklandLayoutSuggestion(info: PlayerInfo): {
   layoutLabel: SklandInfrastructure["layoutLabel"];
@@ -26,9 +26,10 @@ export function sklandLayoutSuggestion(info: PlayerInfo): {
   }
 
   const layout = buildBlueprint(preset);
+  const manufactures = manufacturesInGameOrder(building.manufactures);
   const groups = {
     trade_post: building.tradings,
-    factory: building.manufactures,
+    factory: manufactures,
     power_plant: building.powers,
     dormitory: building.dormitories,
   };
@@ -37,6 +38,7 @@ export function sklandLayoutSuggestion(info: PlayerInfo): {
     if (existing.kind === "control_center") return { ...existing, level: building.control.level };
     if (existing.kind === "meeting_room" && building.meeting) return { ...existing, level: building.meeting.level };
     if (existing.kind === "office" && building.hire) return { ...existing, level: building.hire.level };
+    if (existing.kind === "training_room" && building.training) return { ...existing, level: building.training.level };
     if (!(existing.kind in groups)) return existing;
     const index = counters.get(existing.kind) ?? 0;
     counters.set(existing.kind, index + 1);
@@ -50,7 +52,7 @@ export function sklandLayoutSuggestion(info: PlayerInfo): {
       };
     }
     if (existing.kind === "factory") {
-      const source = building.manufactures[index];
+      const source = manufactures[index];
       if (!source) return existing;
       const recipe = factoryProduct(info, source.formulaId);
       return recipe === "unknown"

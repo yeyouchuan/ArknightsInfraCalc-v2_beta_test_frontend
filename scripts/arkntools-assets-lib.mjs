@@ -13,6 +13,7 @@ export const GENERATED_VERSION = 2;
 const MANAGED_PATHS = [
   "public/images/operator-portraits",
   "public/images/building-skills",
+  "public/images/products",
   "src/generated/arkntools",
 ];
 
@@ -20,14 +21,24 @@ const MANAGED_PATHS = [
 // 按上游原尺寸使用：透明内容在画布内居中后有损转成 WebP（透明背景保留，q85 + 智能色度抽样避免边缘色晕）。
 const PORTRAITS_DIRECTORY = "avatar";
 const WEBP_PORTRAIT_OPTIONS = { quality: 85, effort: 6, smartSubsample: true };
+const WEBP_PRODUCT_OPTIONS = { quality: 85, effort: 6, smartSubsample: true };
 
 const SOURCE_PATHS = {
   characterData: "assets/data/character.json",
   buildingData: "assets/data/building.json",
   characterLocale: "assets/locales/cn/character.json",
   buildingLocale: "assets/locales/cn/building.json",
+  termLocale: "assets/locales/cn/term.json",
   buildingSkills: "assets/img/building_skill",
 };
+
+const PRODUCT_ASSETS = [
+  { id: "lmd_orders", source: "arkntools", path: "assets/img/item/4001.png" },
+  { id: "gold", source: "game-resource", path: "item/MTL_GOLD3.png" },
+  { id: "experience", source: "arkntools", path: "assets/img/item/2003.png" },
+  { id: "originium_shard", source: "game-resource", path: "item/MTL_DIAMOND_SHD.png" },
+  { id: "orundum", source: "game-resource", path: "item/DIAMOND_SHD.png" },
+];
 
 const SAFE_ASSET_NAME = /^[A-Za-z0-9_&]+$/;
 
@@ -78,6 +89,39 @@ export function stripGameMarkup(value) {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// 在工具箱 buff.info.is 标签之外补充的前端标签规则（按房间 + 描述关键词）。
+const SUPPLEMENTAL_TAG_RULES = {
+  CONTROL: [{ tag: "办公室", keyword: "联络速度" }],
+  MEETING: [{ tag: "未拥有加成", keyword: "尚未拥有的线索" }],
+  DORMITORY: [
+    { tag: "自身恢复", keyword: "自身心情每小时恢复" },
+    { tag: "特殊恢复", keyword: "恢复效果额外" },
+  ],
+  HIRE: [
+    { tag: "联络速度", keyword: "联络速度" },
+    { tag: "特殊加成", keyword: "不包含初始招募位" },
+  ],
+  TRAINING: [{ tag: "减半", keyword: "所需时间-50%" }],
+  TRADING: [{ tag: "特殊订单", keyword: "违约订单" }],
+};
+
+const OPERATOR_SUPPLEMENTAL_TAGS = {
+  九色鹿: ["精英材料"],
+};
+
+/** 按房间 + 纯文本描述关键词计算补充标签。 */
+export function supplementalSkillTags(room, description) {
+  if (!room) return [];
+  return (SUPPLEMENTAL_TAG_RULES[room] ?? [])
+    .filter(({ keyword }) => description.includes(keyword))
+    .map(({ tag }) => tag);
+}
+
+/** 按干员名追加的补充标签（如九色鹿的加工站技能标为精英材料）。 */
+export function operatorSupplementalTags(name) {
+  return OPERATOR_SUPPLEMENTAL_TAGS[name] ?? [];
 }
 
 export function parseUnlock(value) {
@@ -132,6 +176,20 @@ async function validatePngFormat(filePath, label) {
 async function validateWebpFormat(filePath, label) {
   const metadata = await readImageMetadata(filePath, label);
   assert(metadata.format === "webp", `${label} 不是 WebP。`);
+}
+
+async function validateProductSource(filePath, label) {
+  const metadata = await readImageMetadata(filePath, label);
+  assert(metadata.format === "png", `${label} 不是 PNG。`);
+  assert(metadata.width === 183 && metadata.height === 183, `${label} 尺寸应为 183×183。`);
+  assert(metadata.hasAlpha, `${label} 必须包含透明通道。`);
+}
+
+async function validateProductWebp(filePath, label) {
+  const metadata = await readImageMetadata(filePath, label);
+  assert(metadata.format === "webp", `${label} 不是 WebP。`);
+  assert(metadata.width === 183 && metadata.height === 183, `${label} 尺寸应为 183×183。`);
+  assert(metadata.hasAlpha, `${label} 必须保留透明通道。`);
 }
 
 async function inspectSourceIcon(filePath, label) {
@@ -215,24 +273,36 @@ async function loadSource(sourceRoot, sourceSha, portraitsRoot, portraitsSha) {
   const normalizedSourceSha = normalizeCommit(sourceSha);
   const normalizedPortraitsSha = normalizeCommit(portraitsSha);
   const portraitVersion = portraitAssetVersion(normalizedPortraitsSha);
-  const [characterData, buildingData, characterLocale, buildingLocale] = await Promise.all([
+  const [characterData, buildingData, characterLocale, buildingLocale, termLocale] = await Promise.all([
     readJson(path.join(resolvedSource, SOURCE_PATHS.characterData), "干员数据"),
     readJson(path.join(resolvedSource, SOURCE_PATHS.buildingData), "基建数据"),
     readJson(path.join(resolvedSource, SOURCE_PATHS.characterLocale), "干员中文本地化"),
     readJson(path.join(resolvedSource, SOURCE_PATHS.buildingLocale), "基建中文本地化"),
+    readJson(path.join(resolvedSource, SOURCE_PATHS.termLocale), "基建词条本地化"),
   ]);
 
   assert(isObject(characterData), "干员数据根节点必须是对象。");
   assert(isObject(characterLocale), "干员本地化根节点必须是对象。");
-  assert(isObject(buildingData) && isObject(buildingData.char) && isObject(buildingData.buff?.data), "基建数据结构不完整。");
+  assert(
+    isObject(buildingData)
+      && isObject(buildingData.char)
+      && isObject(buildingData.buff?.data)
+      && isObject(buildingData.buff?.info),
+    "基建数据结构不完整。",
+  );
   assert(isObject(buildingLocale?.buff?.name) && isObject(buildingLocale?.buff?.description), "基建本地化结构不完整。");
+  assert(isObject(termLocale), "基建词条本地化结构不完整。");
   sameKeys(characterData, characterLocale, "干员数据", "干员本地化");
   sameKeys(characterData, buildingData.char, "干员数据", "基建技能映射");
 
+  const roomLabels = buildingLocale.name;
   const names = new Map();
   const referencedSkillIds = new Set();
   const referencedIcons = new Set();
   const operators = [];
+  const charOrder = new Map(Object.keys(buildingData.char).map((shortId, index) => [shortId, index]));
+  // 技能 id → 引用该技能的干员名，用于把干员级补充标签（如九色鹿）并集进技能目录。
+  const skillOperatorNames = new Map();
 
   for (const shortId of Object.keys(characterData).sort((left, right) => left.localeCompare(right, "en"))) {
     assert(SAFE_ASSET_NAME.test(shortId), `不安全的干员 ID：${shortId}`);
@@ -253,6 +323,9 @@ async function loadSource(sourceRoot, sourceSha, portraitsRoot, portraitsSha) {
       assert(typeof rawSkill.id === "string" && rawSkill.id.trim(), `干员 ${shortId} 的第 ${offset + 1} 个基建技能缺少 ID。`);
       assert(buildingData.buff.data[rawSkill.id], `干员 ${shortId} 引用了未知基建技能 ${rawSkill.id}。`);
       referencedSkillIds.add(rawSkill.id);
+      const refs = skillOperatorNames.get(rawSkill.id) ?? [];
+      refs.push(name);
+      skillOperatorNames.set(rawSkill.id, refs);
       return {
         index: offset + 1,
         id: rawSkill.id,
@@ -263,6 +336,7 @@ async function loadSource(sourceRoot, sourceSha, portraitsRoot, portraitsSha) {
     operators.push({
       id: `char_${shortId}`,
       name,
+      order: charOrder.get(shortId) ?? 0,
       rarity: metadata.star,
       profession: metadata.profession,
       position: metadata.position,
@@ -281,14 +355,44 @@ async function loadSource(sourceRoot, sourceSha, portraitsRoot, portraitsSha) {
     const rawDescription = buildingLocale.buff.description[metadata.desc];
     assert(typeof name === "string" && name.trim(), `基建技能 ${skillId} 缺少中文名称。`);
     assert(typeof rawDescription === "string" && rawDescription.trim(), `基建技能 ${skillId} 缺少中文描述。`);
+    const skillInfo = buildingData.buff.info[metadata.desc];
+    const room = skillInfo?.building ?? null;
+    assert(
+      room === null || typeof roomLabels[room] === "string",
+      `基建技能 ${skillId} 的房间类型 ${room} 缺少中文名。`,
+    );
+    const operatorTags = (skillOperatorNames.get(skillId) ?? []).flatMap((operatorName) => operatorSupplementalTags(operatorName));
     referencedIcons.add(metadata.icon);
     skills.push({
       id: skillId,
       name,
-      description: stripGameMarkup(rawDescription),
+      descriptionRich: rawDescription,
+      tags: [
+        ...new Set([
+          ...Object.keys(skillInfo?.is ?? {}),
+          ...supplementalSkillTags(room, stripGameMarkup(rawDescription)),
+          ...operatorTags,
+        ]),
+      ],
       icon: relativeAssetPath("building-skills", metadata.icon),
     });
   }
+
+  const terms = sortedObject(
+    Object.entries(termLocale)
+      .sort(([left], [right]) => left.localeCompare(right, "en"))
+      .map(([termId, entry]) => {
+        assert(isObject(entry), `基建词条 ${termId} 无效。`);
+        assert(typeof entry.name === "string" && entry.name.trim(), `基建词条 ${termId} 缺少名称。`);
+        assert(typeof entry.desc === "string" && entry.desc.trim(), `基建词条 ${termId} 缺少描述。`);
+        return [termId, {
+          id: termId,
+          name: entry.name,
+          desc: entry.desc,
+          descText: stripGameMarkup(entry.desc),
+        }];
+      }),
+  );
 
   for (const skillId of referencedSkillIds) {
     assert(buildingData.buff.data[skillId], `缺少被干员引用的基建技能 ${skillId}。`);
@@ -305,11 +409,17 @@ async function loadSource(sourceRoot, sourceSha, portraitsRoot, portraitsSha) {
     name: `${icon}.png`,
     source: path.join(resolvedSource, SOURCE_PATHS.buildingSkills, `${icon}.png`),
   }));
+  const productFiles = PRODUCT_ASSETS.map((asset) => ({
+    ...asset,
+    name: `${asset.id}.webp`,
+    sourcePath: path.join(asset.source === "arkntools" ? resolvedSource : resolvedPortraits, asset.path),
+  }));
 
   await mapLimit(portraitFiles, 16, ({ source, name }) => validatePngFormat(source, `干员头像 ${name}`));
   await mapLimit(iconFiles, 16, async (file) => {
     Object.assign(file, await inspectSourceIcon(file.source, `基建技能图标 ${file.name}`));
   });
+  await mapLimit(productFiles, 5, ({ sourcePath, name }) => validateProductSource(sourcePath, `产物图标 ${name}`));
 
   const skillCatalog = sortedObject(skills.map((skill) => [skill.id, skill]));
   const manifest = {
@@ -322,15 +432,23 @@ async function loadSource(sourceRoot, sourceSha, portraitsRoot, portraitsSha) {
       repository: ARKNIGHTS_GAME_RESOURCE_REPOSITORY,
       commit: normalizedPortraitsSha,
     },
+    products: productFiles.map((file) => ({
+      id: file.id,
+      output: relativeAssetPath("products", file.id, "webp"),
+      source: file.source,
+      path: file.path,
+    })),
     counts: {
       operators: operators.length,
       buildingSkills: skills.length,
+      terms: Object.keys(terms).length,
       portraits: portraitFiles.length,
       buildingSkillIcons: iconFiles.length,
+      productIcons: productFiles.length,
     },
   };
 
-  return { operators, skills: skillCatalog, manifest, portraitFiles, iconFiles };
+  return { operators, skills: skillCatalog, terms, manifest, portraitFiles, iconFiles, productFiles };
 }
 
 function json(value) {
@@ -340,8 +458,9 @@ function json(value) {
 async function writeStage(stageRoot, generated) {
   const portraitTarget = path.join(stageRoot, MANAGED_PATHS[0]);
   const iconTarget = path.join(stageRoot, MANAGED_PATHS[1]);
-  const dataTarget = path.join(stageRoot, MANAGED_PATHS[2]);
-  await Promise.all([mkdir(portraitTarget, { recursive: true }), mkdir(iconTarget, { recursive: true }), mkdir(dataTarget, { recursive: true })]);
+  const productTarget = path.join(stageRoot, MANAGED_PATHS[2]);
+  const dataTarget = path.join(stageRoot, MANAGED_PATHS[3]);
+  await Promise.all([mkdir(portraitTarget, { recursive: true }), mkdir(iconTarget, { recursive: true }), mkdir(productTarget, { recursive: true }), mkdir(dataTarget, { recursive: true })]);
 
   await Promise.all([
     mapLimit(generated.portraitFiles, 16, ({ source, name }) =>
@@ -352,8 +471,13 @@ async function writeStage(stageRoot, generated) {
           .png({ compressionLevel: 9 })
           .toFile(path.join(iconTarget, name))
       : copyFile(source, path.join(iconTarget, name))),
+    mapLimit(generated.productFiles, 5, async ({ sourcePath, name }) => {
+      const output = await sharp(await readFile(sourcePath)).webp(WEBP_PRODUCT_OPTIONS).toBuffer();
+      await writeFile(path.join(productTarget, name), output);
+    }),
     writeFile(path.join(dataTarget, "operator-catalog.json"), json(generated.operators), "utf8"),
     writeFile(path.join(dataTarget, "building-skill-catalog.json"), json(generated.skills), "utf8"),
+    writeFile(path.join(dataTarget, "term-catalog.json"), json(generated.terms), "utf8"),
     writeFile(path.join(dataTarget, "source.json"), json(generated.manifest), "utf8"),
   ]);
 }
@@ -371,20 +495,29 @@ async function listRegularAssetNames(directory, label, extension) {
 
 export async function checkGeneratedAssets(root) {
   const resolvedRoot = path.resolve(root);
-  const dataRoot = path.join(resolvedRoot, MANAGED_PATHS[2]);
-  const [operators, skills, manifest] = await Promise.all([
+  const dataRoot = path.join(resolvedRoot, MANAGED_PATHS[3]);
+  const [operators, skills, terms, manifest] = await Promise.all([
     readJson(path.join(dataRoot, "operator-catalog.json"), "已生成干员目录"),
     readJson(path.join(dataRoot, "building-skill-catalog.json"), "已生成基建技能目录"),
+    readJson(path.join(dataRoot, "term-catalog.json"), "已生成词条目录"),
     readJson(path.join(dataRoot, "source.json"), "已生成来源清单"),
   ]);
   assert(Array.isArray(operators), "已生成干员目录必须是数组。");
   assert(isObject(skills), "已生成基建技能目录必须是对象。");
+  assert(isObject(terms), "已生成词条目录必须是对象。");
   assert(isObject(manifest) && manifest.version === GENERATED_VERSION, "已生成来源清单版本无效。");
   normalizeCommit(manifest.source?.commit);
   assert(manifest.source?.repository === ARKNTOOLS_REPOSITORY, "已生成来源仓库无效。");
   assert(isObject(manifest.portraitsSource), "已生成头像来源清单无效。");
   normalizeCommit(manifest.portraitsSource?.commit);
   assert(manifest.portraitsSource?.repository === ARKNIGHTS_GAME_RESOURCE_REPOSITORY, "已生成头像来源仓库无效。");
+  assert(Array.isArray(manifest.products), "已生成产物来源清单无效。");
+  assert(JSON.stringify(manifest.products) === JSON.stringify(PRODUCT_ASSETS.map((asset) => ({
+    id: asset.id,
+    output: relativeAssetPath("products", asset.id, "webp"),
+    source: asset.source,
+    path: asset.path,
+  }))), "已生成产物来源清单与受管清单不一致。");
   const portraitVersion = portraitAssetVersion(manifest.portraitsSource.commit);
 
   const ids = new Set();
@@ -401,6 +534,7 @@ export async function checkGeneratedAssets(root) {
     names.add(operator.name);
     const shortId = operator.id.slice(5);
     assert(operator.portrait === relativeAssetPath("operator-portraits", shortId, "webp", portraitVersion), `干员 ${operator.id} 的头像路径无效。`);
+    assert(Number.isInteger(operator.order), `干员 ${operator.id} 的原始顺序无效。`);
     portraitNames.push(`${shortId}.webp`);
     assert(Array.isArray(operator.buildingSkills), `干员 ${operator.id} 的基建技能无效。`);
     operator.buildingSkills.forEach((skill, offset) => {
@@ -408,14 +542,20 @@ export async function checkGeneratedAssets(root) {
       assert(skills[skill.id], `干员 ${operator.id} 引用了未知基建技能 ${skill.id}。`);
       assert(Number.isInteger(skill.elite) && skill.elite >= 0 && skill.elite <= 2, `干员 ${operator.id} 的基建技能精英阶段无效。`);
       assert(Number.isInteger(skill.level) && skill.level >= 1 && skill.level <= 90, `干员 ${operator.id} 的基建技能等级无效。`);
+      assert(!("room" in skill) && !("roomLabel" in skill) && !("tags" in skill), `干员 ${operator.id} 的基建技能不应残留房间或标签字段。`);
     });
   }
 
   for (const [skillId, skill] of Object.entries(skills)) {
     assert(isObject(skill) && skill.id === skillId, `已生成基建技能 ${skillId} 无效。`);
     assert(typeof skill.name === "string" && skill.name.trim(), `已生成基建技能 ${skillId} 缺少名称。`);
-    assert(typeof skill.description === "string" && skill.description.trim(), `已生成基建技能 ${skillId} 缺少描述。`);
-    assert(!/<[^>]*>/.test(skill.description), `已生成基建技能 ${skillId} 仍包含富文本标记。`);
+    assert(typeof skill.descriptionRich === "string" && skill.descriptionRich.trim(), `已生成基建技能 ${skillId} 缺少富文本描述。`);
+    const plainDescription = stripGameMarkup(skill.descriptionRich);
+    assert(plainDescription, `已生成基建技能 ${skillId} 缺少纯文本描述。`);
+    assert(!/<[^>]*>/.test(plainDescription), `已生成基建技能 ${skillId} 的纯文本描述仍包含富文本标记。`);
+    assert(!("description" in skill), `已生成基建技能 ${skillId} 不应重复保存纯文本描述。`);
+    assert(Array.isArray(skill.tags), `已生成基建技能 ${skillId} 的标签无效。`);
+    assert(!("room" in skill) && !("roomLabel" in skill), `已生成基建技能 ${skillId} 不应保存可由技能 ID 推导的房间字段。`);
     const prefix = "/images/building-skills/";
     assert(typeof skill.icon === "string" && skill.icon.startsWith(prefix) && skill.icon.endsWith(".png"), `已生成基建技能 ${skillId} 的图标路径无效。`);
     const icon = skill.icon.slice(prefix.length, -4);
@@ -423,29 +563,44 @@ export async function checkGeneratedAssets(root) {
     referencedIcons.add(`${icon}.png`);
   }
 
+  for (const [termId, term] of Object.entries(terms)) {
+    assert(isObject(term) && term.id === termId, `已生成词条 ${termId} 无效。`);
+    assert(typeof term.name === "string" && term.name.trim(), `已生成词条 ${termId} 缺少名称。`);
+    assert(typeof term.desc === "string" && term.desc.trim(), `已生成词条 ${termId} 缺少描述。`);
+    assert(typeof term.descText === "string" && term.descText.trim(), `已生成词条 ${termId} 缺少纯文本描述。`);
+    assert(!/<[^>]*>/.test(term.descText), `已生成词条 ${termId} 的纯文本描述仍包含富文本标记。`);
+  }
+
   const portraitDirectory = path.join(resolvedRoot, MANAGED_PATHS[0]);
   const iconDirectory = path.join(resolvedRoot, MANAGED_PATHS[1]);
-  const [actualPortraits, actualIcons] = await Promise.all([
+  const productDirectory = path.join(resolvedRoot, MANAGED_PATHS[2]);
+  const [actualPortraits, actualIcons, actualProducts] = await Promise.all([
     listRegularAssetNames(portraitDirectory, "干员头像目录", "webp"),
     listRegularAssetNames(iconDirectory, "基建技能图标目录", "png"),
+    listRegularAssetNames(productDirectory, "产物图标目录", "webp"),
   ]);
   const expectedPortraits = portraitNames.sort((left, right) => left.localeCompare(right, "en"));
   const expectedIcons = [...referencedIcons].sort((left, right) => left.localeCompare(right, "en"));
   assert(JSON.stringify(actualPortraits) === JSON.stringify(expectedPortraits), "干员头像目录与生成目录不一致。");
   assert(JSON.stringify(actualIcons) === JSON.stringify(expectedIcons), "基建技能图标目录与生成目录不一致。");
+  const expectedProducts = PRODUCT_ASSETS.map((asset) => `${asset.id}.webp`).sort((left, right) => left.localeCompare(right, "en"));
+  assert(JSON.stringify(actualProducts) === JSON.stringify(expectedProducts), "产物图标目录与生成目录不一致。");
   assert(manifest.counts?.operators === operators.length, "来源清单的干员数量不一致。");
   assert(manifest.counts?.buildingSkills === Object.keys(skills).length, "来源清单的基建技能数量不一致。");
+  assert(manifest.counts?.terms === Object.keys(terms).length, "来源清单的词条数量不一致。");
   assert(manifest.counts?.portraits === actualPortraits.length, "来源清单的头像数量不一致。");
   assert(manifest.counts?.buildingSkillIcons === actualIcons.length, "来源清单的技能图标数量不一致。");
+  assert(manifest.counts?.productIcons === actualProducts.length, "来源清单的产物图标数量不一致。");
 
   await mapLimit(actualPortraits, 16, (name) => validateWebpFormat(path.join(portraitDirectory, name), `干员头像 ${name}`));
   await mapLimit(actualIcons, 16, (name) => validatePng(path.join(iconDirectory, name), 36, 36, `基建技能图标 ${name}`));
+  await mapLimit(actualProducts, 5, (name) => validateProductWebp(path.join(productDirectory, name), `产物图标 ${name}`));
   return manifest;
 }
 
 async function existingManifest(root) {
   try {
-    return await readJson(path.join(root, MANAGED_PATHS[2], "source.json"), "现有来源清单");
+    return await readJson(path.join(root, MANAGED_PATHS[3], "source.json"), "现有来源清单");
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return null;
     throw error;

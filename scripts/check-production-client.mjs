@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { stdout } from "node:process";
+import { env, stdout } from "node:process";
 
 const buildRoot = path.resolve(".next");
 const clientRoot = path.join(buildRoot, "static");
@@ -11,6 +11,8 @@ const forbiddenMarkers = [
   { label: "森空岛公开 API", value: "/api/skland" },
   { label: "森空岛 App 拉起地址", value: "skland://" },
 ];
+const sklandExpected = env.APP_DEPLOYMENT_ENV === "production"
+  && env.SKLAND_FEATURE_ENABLED === "1";
 
 async function collectFiles(root, include) {
   const files = [];
@@ -38,7 +40,7 @@ const publicDocuments = await collectFiles(
   (file) => !file.includes(`${path.sep}api${path.sep}`) && (file.endsWith(".html") || file.endsWith(".rsc"))
 );
 const inspectedFiles = [...clientFiles, ...publicDocuments];
-const violations = [];
+const matches = new Map(forbiddenMarkers.map((marker) => [marker.label, []]));
 let inspectedBytes = 0;
 
 for (const file of inspectedFiles) {
@@ -46,15 +48,25 @@ for (const file of inspectedFiles) {
   inspectedBytes += Buffer.byteLength(contents);
   for (const marker of forbiddenMarkers) {
     if (contents.includes(marker.value)) {
-      violations.push(`${path.relative(buildRoot, file)}：${marker.label}`);
+      matches.get(marker.label).push(path.relative(buildRoot, file));
     }
   }
 }
 
-if (violations.length) {
-  throw new Error(`production 浏览器产物仍包含森空岛登录相关内容：\n${violations.join("\n")}`);
+const presentMarkers = forbiddenMarkers.filter((marker) => matches.get(marker.label).length > 0);
+if (!sklandExpected && presentMarkers.length) {
+  const violations = presentMarkers.flatMap((marker) =>
+    matches.get(marker.label).map((file) => `${file}：${marker.label}`)
+  );
+  throw new Error(`森空岛关闭时，production 浏览器产物仍包含相关内容：\n${violations.join("\n")}`);
+}
+if (sklandExpected && presentMarkers.length !== forbiddenMarkers.length) {
+  const missing = forbiddenMarkers
+    .filter((marker) => matches.get(marker.label).length === 0)
+    .map((marker) => marker.label);
+  throw new Error(`森空岛显式开启时，production 浏览器产物缺少预期边界：${missing.join("、")}`);
 }
 
 stdout.write(
-  `production 浏览器产物隔离通过：检查 ${inspectedFiles.length} 个文件、${inspectedBytes} 字节，未包含森空岛文案、API 或 App 拉起地址。\n`
+  `production 浏览器产物开关校验通过：检查 ${inspectedFiles.length} 个文件、${inspectedBytes} 字节，森空岛${sklandExpected ? "已显式包含" : "已失败关闭"}。\n`
 );

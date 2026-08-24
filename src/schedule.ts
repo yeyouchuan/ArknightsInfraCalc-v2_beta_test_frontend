@@ -1,8 +1,8 @@
-import { operatorPresentationFor, type BuildingSkillPresentation } from "./operatorPortraits";
-import { maaRoomAutofill } from "./schedule-autofill";
-import { BaseBlueprint, BlueprintRoom, MaaOperatorSlot, MaaPlan, MaaRoom, MaaRooms, RoomEfficiency, RoomKind, RotationShift } from "./types";
+import type { BuildingSkillPresentation } from "./operatorPortraits";
+import { maaRoomAutofill } from "./schedule-autofill.ts";
+import type { BaseBlueprint, BlueprintRoom, MaaOperatorSlot, MaaPlan, MaaRoom, MaaRooms, RoomEfficiency, RoomKind, RotationShift, TrainingRoomShift } from "./types.ts";
 
-export type RoomGroup = keyof MaaRooms;
+export type RoomGroup = keyof MaaRooms | "training";
 
 export interface RoomRow {
   key: string;
@@ -15,6 +15,7 @@ export interface RoomRow {
   product?: string;
   operators: string[];
   operatorSlots: RoomOperatorSlot[];
+  positionSlots?: RoomPositionSlot[];
   autofill: boolean;
   efficiency?: RoomEfficiency;
   efficiencyLabel?: string;
@@ -26,8 +27,15 @@ export interface RoomOperatorSlot {
   name: string;
   label: string;
   skill?: number;
+  profession?: number;
   portrait?: string;
   buildingSkill?: BuildingSkillPresentation;
+}
+
+export interface RoomPositionSlot {
+  position: "trainee" | "trainer";
+  positionLabel: "训练位" | "协助位";
+  slot?: RoomOperatorSlot;
 }
 
 const GROUP_LABELS: Record<RoomGroup, string> = {
@@ -39,6 +47,7 @@ const GROUP_LABELS: Record<RoomGroup, string> = {
   meeting: "会客室",
   hire: "办公室",
   processing: "加工站",
+  training: "训练室",
 };
 
 const GROUP_ORDER: RoomGroup[] = [
@@ -50,6 +59,7 @@ const GROUP_ORDER: RoomGroup[] = [
   "hire",
   "processing",
   "meeting",
+  "training",
 ];
 
 const ROOM_PREFIX: Partial<Record<RoomGroup, string>> = {
@@ -61,6 +71,7 @@ const ROOM_PREFIX: Partial<Record<RoomGroup, string>> = {
   meeting: "meeting",
   hire: "office",
   processing: "workshop",
+  training: "training_room",
 };
 
 const BLUEPRINT_GROUP: Partial<Record<RoomKind, RoomGroup>> = {
@@ -72,6 +83,7 @@ const BLUEPRINT_GROUP: Partial<Record<RoomKind, RoomGroup>> = {
   office: "hire",
   meeting_room: "meeting",
   workshop: "processing",
+  training_room: "training",
 };
 
 const PRODUCT_LABELS: Record<string, string> = {
@@ -122,11 +134,9 @@ function operatorSlot(value: unknown): RoomOperatorSlot | null {
   if (typeof value === "string") {
     const name = value.trim();
     if (!name) return null;
-    const presentation = operatorPresentationFor({ name });
     return {
       name,
       label: name,
-      portrait: presentation.portrait,
     };
   }
 
@@ -134,13 +144,10 @@ function operatorSlot(value: unknown): RoomOperatorSlot | null {
     const slot = value as MaaOperatorSlot;
     const name = slot.name?.trim();
     if (!name) return null;
-    const presentation = operatorPresentationFor({ name, skill: slot.skill });
     return {
       name,
       label: slot.skill ? `${name} S${slot.skill}` : name,
       skill: slot.skill,
-      portrait: presentation.portrait,
-      buildingSkill: presentation.buildingSkill,
     };
   }
 
@@ -193,18 +200,19 @@ function ruleFor(group: RoomGroup, operators: string[]): string {
 
   if (group === "control") return "中枢全局注入";
   if (group === "power") return "发电效率";
+  if (group === "training") return "不参与 MAA 导出";
   return "辅助设施";
 }
 
 function titleFor(group: RoomGroup, index: number): string {
   const label = GROUP_LABELS[group];
-  if (["control", "meeting", "processing", "hire"].includes(group)) return label;
+  if (["control", "meeting", "processing", "hire", "training"].includes(group)) return label;
   return `${label} ${index + 1}`;
 }
 
 function roomIdFor(group: RoomGroup, index: number): string {
   const prefix = ROOM_PREFIX[group] ?? group;
-  if (["control", "meeting", "workshop", "office"].includes(prefix)) return prefix;
+  if (["control", "meeting", "workshop", "office", "training_room"].includes(prefix)) return prefix;
   return `${prefix}_${index + 1}`;
 }
 
@@ -270,7 +278,22 @@ function blueprintProductLabel(room: BlueprintRoom): string | undefined {
   return undefined;
 }
 
-function layoutToRows(layout: BaseBlueprint | undefined): RoomRow[] {
+function trainingPositionSlots(shift: TrainingRoomShift | undefined): RoomPositionSlot[] {
+  return [
+    {
+      position: "trainee",
+      positionLabel: "训练位",
+      ...(shift?.trainee ? { slot: { name: shift.trainee, label: shift.trainee } } : {}),
+    },
+    {
+      position: "trainer",
+      positionLabel: "协助位",
+      ...(shift?.trainer ? { slot: { name: shift.trainer, label: shift.trainer } } : {}),
+    },
+  ];
+}
+
+function layoutToRows(layout: BaseBlueprint | undefined, trainingShift?: TrainingRoomShift): RoomRow[] {
   if (!layout) return [];
 
   const rows: RoomRow[] = [];
@@ -287,6 +310,10 @@ function layoutToRows(layout: BaseBlueprint | undefined): RoomRow[] {
     if (!group) continue;
     const index = groupCounts.get(group) ?? 0;
     groupCounts.set(group, index + 1);
+    const positionSlots = group === "training" ? trainingPositionSlots(trainingShift) : undefined;
+    const operatorSlots = positionSlots
+      ? positionSlots.flatMap((positionSlot) => positionSlot.slot ? [positionSlot.slot] : [])
+      : [];
     rows.push({
       key: `${group}-${room.id}`,
       group,
@@ -296,8 +323,9 @@ function layoutToRows(layout: BaseBlueprint | undefined): RoomRow[] {
       title: titleFor(group, index),
       level: room.level,
       product: blueprintProductLabel(room),
-      operators: [],
-      operatorSlots: [],
+      operators: operatorSlots.map((slot) => slot.name),
+      operatorSlots,
+      ...(positionSlots ? { positionSlots } : {}),
       autofill: false,
       rule: ruleFor(group, []),
       suspicious: false,
@@ -307,8 +335,13 @@ function layoutToRows(layout: BaseBlueprint | undefined): RoomRow[] {
   return rows;
 }
 
-export function planToRows(plan: MaaPlan | undefined, shift?: RotationShift, layout?: BaseBlueprint): RoomRow[] {
-  if (!plan) return layoutToRows(layout);
+export function planToRows(
+  plan: MaaPlan | undefined,
+  shift?: RotationShift,
+  layout?: BaseBlueprint,
+  trainingShift?: TrainingRoomShift,
+): RoomRow[] {
+  if (!plan) return layoutToRows(layout, trainingShift);
 
   const rows: RoomRow[] = [];
   const efficiencyMap = efficiencyMapFor(shift);
@@ -316,6 +349,28 @@ export function planToRows(plan: MaaPlan | undefined, shift?: RotationShift, lay
   const layoutRoomMap = roomMapFor(layout);
   const roomsByGroup = plan.rooms && typeof plan.rooms === "object" ? plan.rooms : {};
   for (const group of GROUP_ORDER) {
+    if (group === "training") {
+      const layoutRoom = layoutRoomMap.get("training_room");
+      if (!layoutRoom) continue;
+      const positionSlots = trainingPositionSlots(trainingShift);
+      const operatorSlots = positionSlots.flatMap((positionSlot) => positionSlot.slot ? [positionSlot.slot] : []);
+      rows.push({
+        key: "training-training_room",
+        group,
+        groupLabel: GROUP_LABELS[group],
+        index: 0,
+        roomId: layoutRoom.id,
+        title: titleFor(group, 0),
+        level: layoutRoom.level,
+        operators: operatorSlots.map((slot) => slot.name),
+        operatorSlots,
+        positionSlots,
+        autofill: false,
+        rule: ruleFor(group, []),
+        suspicious: false,
+      });
+      continue;
+    }
     const rooms = Array.isArray(roomsByGroup[group]) ? roomsByGroup[group] : [];
     rooms.forEach((room, index) => {
       const operators = roomOperators(room);

@@ -15,6 +15,7 @@ import { RotationSettings } from "@/components/RotationSettings";
 import { FiammettaSettings } from "@/components/FiammettaSettings";
 import { WizardSteps } from "@/components/interior/wizard-steps";
 import { hasSetupConfigurationChanged } from "@/setup-configuration";
+import { useWebsiteSession } from "@/website-session";
 
 import type { FactoryRecipe, PowerBudget, TradeOrder } from "./blueprint";
 import { FileDrop, LayoutEditor, PresetSelector } from "./components";
@@ -41,12 +42,14 @@ type SetupDialogProps = {
   inputError: string | null;
   resultClearWarningDismissed: boolean;
   sklandSnapshot?: SklandScheduleSnapshot | null;
+  sklandBindingCount?: number;
   sklandConfigured?: boolean;
   sklandDisabledReason?: string | null;
   onOpenSkland?: () => void;
   onUseSklandSnapshot?: () => void;
   onMaaFile: (file: File) => Promise<boolean>;
   onMaaPaste: () => boolean;
+  onRequireWebsiteAccount: () => void;
   presets: PresetDef[];
   preset: PresetDef;
   layout: BaseBlueprint;
@@ -54,12 +57,7 @@ type SetupDialogProps = {
   rotationProfile: RotationProfile;
   onRotationProfileChange: (value: RotationProfile) => void;
   fiammettaEnabled: boolean;
-  fiammettaTarget: string | null;
-  fiammettaOrder: "pre" | "post";
-  scheduledOperators: ReadonlySet<string>;
   onFiammettaEnabledChange: (enabled: boolean) => void;
-  onFiammettaTargetChange: (target: string) => void;
-  onFiammettaOrderChange: (order: "pre" | "post") => void;
   onPresetSelect: (preset: PresetDef) => void;
   onLayoutFile: (file: File) => Promise<void>;
   onDownloadLayout: () => void;
@@ -100,12 +98,14 @@ export function SetupDialog({
   inputError,
   resultClearWarningDismissed,
   sklandSnapshot,
+  sklandBindingCount = 0,
   sklandConfigured,
   sklandDisabledReason,
   onOpenSkland,
   onUseSklandSnapshot,
   onMaaFile,
   onMaaPaste,
+  onRequireWebsiteAccount,
   presets,
   preset,
   layout,
@@ -113,12 +113,7 @@ export function SetupDialog({
   rotationProfile,
   onRotationProfileChange,
   fiammettaEnabled,
-  fiammettaTarget,
-  fiammettaOrder,
-  scheduledOperators,
   onFiammettaEnabledChange,
-  onFiammettaTargetChange,
-  onFiammettaOrderChange,
   onPresetSelect,
   onLayoutFile,
   onDownloadLayout,
@@ -132,6 +127,7 @@ export function SetupDialog({
   onFinish,
   onSkip,
 }: SetupDialogProps) {
+  const { data: websiteSession } = useWebsiteSession();
   const [step, setStep] = useState<SetupStep>(initialStep);
   const [stepDirection, setStepDirection] = useState(0);
   const [needsFacilityReview, setNeedsFacilityReview] = useState(false);
@@ -148,7 +144,9 @@ export function SetupDialog({
   const hasBox = Boolean(operbox?.length);
   const ownedCount = countOwned(operbox);
   const mustReviewFacilities = needsFacilityReview || !powerBudget.ok;
-  const currentDataLabel = fileName || sourceLabel(boxSource);
+  const currentDataLabel = CLIENT_SKLAND_ENABLED && boxSource === "skland" && !sklandSnapshot
+    ? "上次同步的森空岛数据"
+    : fileName || sourceLabel(boxSource);
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
@@ -196,6 +194,10 @@ export function SetupDialog({
   }
 
   async function importMaaFile(file: File) {
+    if (!websiteSession) {
+      onRequireWebsiteAccount();
+      return;
+    }
     if (await onMaaFile(file)) {
       setNeedsFacilityReview(true);
       setShowImportOptions(false);
@@ -204,6 +206,10 @@ export function SetupDialog({
   }
 
   function importMaaPaste() {
+    if (!websiteSession) {
+      onRequireWebsiteAccount();
+      return;
+    }
     if (onMaaPaste()) {
       setNeedsFacilityReview(true);
       setShowImportOptions(false);
@@ -222,6 +228,10 @@ export function SetupDialog({
   }
 
   function handleOpenSkland() {
+    if (!websiteSession) {
+      onRequireWebsiteAccount();
+      return;
+    }
     pendingExternalReviewRef.current = true;
     onOpenSkland?.();
   }
@@ -242,7 +252,7 @@ export function SetupDialog({
       }
       onOpenChange(nextOpen);
     }}>
-      <DialogContent data-setup-dialog className="max-h-[min(820px,calc(100dvh-1rem))] max-w-[calc(100%-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-[24px] p-0 sm:max-w-[min(880px,calc(100%-2rem))] sm:rounded-[32px]">
+      <DialogContent data-setup-dialog className="h-[min(660px,calc(100dvh-1rem))] max-w-[calc(100%-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-[24px] p-0 sm:max-w-[min(880px,calc(100%-2rem))] sm:rounded-[32px]">
         <Tabs
           value={step === "facilities" ? "layout" : step}
           onValueChange={(value) => {
@@ -338,6 +348,8 @@ export function SetupDialog({
                               </span>
                             ) : !sklandConfigured && sklandDisabledReason ? (
                               <span className="mt-0.5 block text-xs text-muted-foreground">{sklandDisabledReason}</span>
+                            ) : sklandBindingCount > 0 ? (
+                              <span className="mt-0.5 block text-xs text-muted-foreground">网站账号已绑定，当前浏览器需要重新扫码授权</span>
                             ) : null}
                           </div>
                           {sklandSnapshot && boxSource !== "skland" ? (
@@ -362,18 +374,31 @@ export function SetupDialog({
                         ) : null}
                       </TabsContent> : null}
                       <TabsContent value="maa" className="grid gap-3 pt-4">
-                        <FileDrop fileName={boxSource === "maa" ? fileName : null} onFile={(file) => void importMaaFile(file)} />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="min-h-11 w-fit"
-                          aria-expanded={showMaaPaste}
-                          aria-controls="setup-maa-paste"
-                          onClick={() => setShowMaaPaste((current) => !current)}
-                        >
-                          {showMaaPaste ? "收起 JSON" : "粘贴 JSON"}
-                        </Button>
-                        {showMaaPaste ? (
+                        {!websiteSession ? (
+                          <Alert>
+                            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <span>MAA 导入需要先登录已验证的网站账号；全角色示例和技能查询仍可匿名使用。</span>
+                              <Button type="button" size="sm" className="min-h-11 shrink-0" onClick={onRequireWebsiteAccount}>
+                                登录后导入
+                              </Button>
+                            </AlertDescription>
+                          </Alert>
+                        ) : (
+                          <>
+                            <FileDrop fileName={boxSource === "maa" ? fileName : null} onFile={(file) => void importMaaFile(file)} />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="min-h-11 w-fit"
+                              aria-expanded={showMaaPaste}
+                              aria-controls="setup-maa-paste"
+                              onClick={() => setShowMaaPaste((current) => !current)}
+                            >
+                              {showMaaPaste ? "收起 JSON" : "粘贴 JSON"}
+                            </Button>
+                          </>
+                        )}
+                        {websiteSession && showMaaPaste ? (
                           <div id="setup-maa-paste" className="grid gap-2">
                             <Label htmlFor="setup-maa-json">JSON 内容</Label>
                             <Textarea
@@ -448,13 +473,9 @@ export function SetupDialog({
                     <div className="border-t border-border/70 pt-5">
                       <FiammettaSettings
                         enabled={fiammettaEnabled}
-                        target={fiammettaTarget}
-                        order={fiammettaOrder}
                         operbox={operbox}
-                        scheduledOperators={scheduledOperators}
+                        rotation={rotationProfile}
                         onEnabledChange={onFiammettaEnabledChange}
-                        onTargetChange={onFiammettaTargetChange}
-                        onOrderChange={onFiammettaOrderChange}
                       />
                     </div>
 
@@ -517,7 +538,7 @@ export function SetupDialog({
           </TabsContent>
         </Tabs>
 
-        <footer data-setup-footer className="setup-dialog-footer flex min-h-14 w-full min-w-0 flex-nowrap items-center justify-end gap-1.5 px-2 py-1.5 sm:min-h-16 sm:gap-2 sm:px-7">
+        <footer data-setup-footer className="setup-dialog-footer flex w-full min-w-0 flex-nowrap items-center justify-end gap-1.5 px-4 pb-4 pt-2 sm:gap-2 sm:px-7 sm:pb-7 sm:pt-3">
           {step === "box" ? (
             <>
               <Button className="max-sm:min-w-16 sm:min-w-[88px]" size="dialog" type="button" variant="ghost" onClick={onSkip}>稍后</Button>
@@ -541,8 +562,8 @@ export function SetupDialog({
                 </span>
                 <span className={`max-sm:hidden ${powerBudget.ok ? "text-emerald-700" : "text-red-600"}`}>
                   {powerBudget.ok
-                    ? `电力正常 · ${powerBudget.generated}/${powerBudget.consumed}`
-                    : `电力不足 ${powerBudget.consumed - powerBudget.generated} · ${powerBudget.generated}/${powerBudget.consumed}`}
+                    ? `电力正常 · ${powerBudget.consumed}/${powerBudget.generated}`
+                    : `电力不足 ${powerBudget.consumed - powerBudget.generated} · ${powerBudget.consumed}/${powerBudget.generated}`}
                 </span>
               </span>
               <Button className="max-sm:min-w-16 sm:min-w-[88px]" size="dialog" type="button" variant="ghost" onClick={goToBasics}>返回</Button>

@@ -44,12 +44,6 @@ export const COMPACT_DORM_WRAPPER_CLASS = "flex min-h-0 flex-1";
 export const COMPACT_DORM_OPERATOR_AREA_CLASS =
   "flex min-h-0 flex-1 items-center";
 
-export const COMPACT_AUXILIARY_WIDTHS = {
-  meeting: 50,
-  hire: 25,
-  processing: 25,
-} as const;
-
 export const COMPACT_CARD_CLASS =
   "infra-room-surface relative flex flex-col justify-start gap-2 overflow-hidden px-3 py-2";
 
@@ -98,8 +92,4 @@ export function compactFactoryAccent(recipe: string) {
 
 export function isCompactScheduleGroupVisible(group: string) {
   return Boolean(group);
-}
-
-export function usesCompactHorizontalCard(group: string, powerCount: number) {
-  return group === "power" && powerCount !== 2;
 }

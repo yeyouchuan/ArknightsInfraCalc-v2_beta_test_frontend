@@ -6,7 +6,7 @@ import { OperatorSlot } from "@/components";
 import { InfraTechnicalCard } from "@/components/InfraTechnicalCard";
 import { cn } from "@/lib/utils";
 import { MOTION_DURATION, MOTION_EASE_OUT } from "@/motion";
-import { operatorPortraitFor } from "@/operatorPortraits";
+import { operatorPortraitFor, operatorProfessionFor } from "@/operatorPortraits";
 import type { OperBoxEntry, UserProfileAction } from "@/types";
 
 const DOMAIN_LABELS: Record<string, string> = { trade: "贸易站", trading: "贸易站", manufacture: "制造站", manu: "制造站", power: "发电站", control: "控制中枢", general: "综合" };
@@ -25,7 +25,7 @@ function currentState(action: UserProfileAction, entry?: OperBoxEntry) {
   return "练度未知";
 }
 
-export function RecommendationCard({ action, entry, variant = "full", index = 0 }: { action: UserProfileAction; entry?: OperBoxEntry; variant?: "full" | "compact"; index?: number }) {
+export function RecommendationCard({ action, entry, variant = "full", index = 0, showSkillTooltip = true }: { action: UserProfileAction; entry?: OperBoxEntry; variant?: "full" | "compact"; index?: number; showSkillTooltip?: boolean }) {
   const reduceMotion = useReducedMotion();
   const priority = action.priority || "未分级";
   const isHighPriority = /高|urgent|critical|p0|p1/i.test(priority);
@@ -43,7 +43,16 @@ export function RecommendationCard({ action, entry, variant = "full", index = 0 
   ) : (
     <InfraTechnicalCard group={DOMAIN_GROUPS[action.domain_id.toLowerCase()] ?? "training"} className={cn("min-w-0", isHighPriority && "ring-1 ring-inset ring-[var(--room-accent)]/50")} dataSlot="training-advice-card" showEmblem={false}>
       <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-4" data-recommendation-card="full">
-        <OperatorSlot slot={{ name: action.operator || "未知干员", label: action.operator || "未知干员", portrait: operatorPortraitFor(action.operator, entry?.id) }} portraitSize={80} showSkillTooltip />
+        <OperatorSlot
+          slot={{
+            name: action.operator || "未知干员",
+            label: action.operator || "未知干员",
+            portrait: operatorPortraitFor(action.operator, entry?.id),
+            profession: operatorProfessionFor(action.operator),
+          }}
+          portraitSize={80}
+          showSkillTooltip={showSkillTooltip}
+        />
         <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <div className="min-w-0"><div className="flex flex-wrap items-center gap-2 text-xs text-white/55"><span className="font-medium text-[var(--room-accent)]">{recommendationDomainLabel(action.domain_id)}</span><span aria-hidden="true">·</span><span>{recommendationKindLabel(action.kind)}</span></div><p className="font-number mt-2 max-w-[72ch] text-pretty text-sm leading-6 text-white/82">{action.message || "暂无具体说明"}</p></div>
           <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end"><span className={cn("font-number border px-2.5 py-1 text-xs font-semibold", isHighPriority ? "border-[var(--room-accent)] bg-[var(--room-accent)] text-[#202223]" : "border-[var(--room-accent)]/45 bg-black/18 text-[var(--room-accent)]")}>{priority}</span><span className="border border-white/15 bg-white/7 px-2.5 py-1 text-xs text-white/70">{currentState(action, entry)}</span></div>

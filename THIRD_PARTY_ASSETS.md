@@ -17,6 +17,10 @@ Operator portraits under `public/images/operator-portraits` come from the public
 
 The frontend consumes only public JSON and PNG artifacts. It does not execute private downloader or unpacking workflows, does not require access to private repositories, and never opens pull requests or writes to either upstream repository.
 
+## Rainyun partner mark
+
+The Rainyun logo at `public/images/partners/rainyun-logo.png` was provided for this site integration and links only to [Rainyun](https://www.rainyun.com/riic_). The Rainyun name and logo remain the property of their respective rights holder; this project does not claim ownership of the mark. The image is bundled locally, so loading the page does not contact Rainyun before a visitor chooses the link.
+
 ## Updating
 
 The `Sync arkntools assets` GitHub Actions workflow performs shallow sparse checkouts of both public sources once per day at 10:17 Asia/Shanghai and opens or refreshes a pull request in this frontend repository when generated content changes. It uses the repository-scoped `GITHUB_TOKEN`; maintainers must enable **Allow GitHub Actions to create and approve pull requests** in the repository Actions settings. The workflow creates pull requests but never approves or merges them.
@@ -25,7 +29,7 @@ For a local, explicitly reviewed update:
 
 ```powershell
 git clone --depth 1 --filter=blob:none --sparse https://github.com/arkntools/arknights-toolbox-data.git .tmp/arkntools-data
-git -C .tmp/arkntools-data sparse-checkout set --no-cone /assets/data/character.json /assets/data/building.json /assets/locales/cn/character.json /assets/locales/cn/building.json /assets/img/building_skill /LICENSE /package.json
+git -C .tmp/arkntools-data sparse-checkout set --no-cone /assets/data/character.json /assets/data/building.json /assets/locales/cn/character.json /assets/locales/cn/building.json /assets/locales/cn/term.json /assets/img/building_skill /LICENSE /package.json
 git clone --depth 1 --filter=blob:none --sparse https://github.com/yuanyan3060/ArknightsGameResource.git .tmp/arknights-game-resource
 git -C .tmp/arknights-game-resource sparse-checkout set --no-cone /avatar/char_*.png
 $sourceSha = git -C .tmp/arkntools-data rev-parse HEAD

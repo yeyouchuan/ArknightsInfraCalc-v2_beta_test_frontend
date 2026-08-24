@@ -3,6 +3,7 @@
 import type { ReactElement } from "react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { RichTextStatic } from "@/components/RichTextStatic";
 import {
   BUILDING_SKILL_ENHANCED_WORD,
   buildingSkillUnlockLabel,
@@ -52,7 +53,9 @@ function SkillBlock({ skill }: { skill: BuildingSkillPresentation }) {
           buildingSkillUnlockLabel(skill.elite, skill.level)
         )}
       </span>
-      <span className="mt-1 block">{skill.description}</span>
+      <span className="mt-1 block">
+        {skill.descriptionRich ? <RichTextStatic text={skill.descriptionRich} /> : skill.description}
+      </span>
     </div>
   );
 }

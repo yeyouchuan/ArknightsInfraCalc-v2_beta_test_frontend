@@ -49,6 +49,7 @@ test("plan.compute rotation keeps the worker profile and daily summary while whi
       power_charge_sum: 120,
       room_lines: [{
         room_id: "manu_1",
+        final_efficiency: 1.55,
         manu_score: 155,
         manu_prod_skill: 95,
         manu_display_pct: 105,
@@ -75,7 +76,7 @@ test("legacy rotation falls back through result and profile fields", () => {
           trade_score: 1.8,
           manu_prod_sum: 420,
           power_charge_sum: 110,
-          room_lines: [{ room_id: "trade_1", trade_score: 1.8, trade_skill_pct: 80 }],
+          room_lines: [{ room_id: "trade_1", final_efficiency: 1.8, trade_score: 1.8, trade_skill_pct: 80 }],
         },
       }, { scores: {} }],
     },
@@ -89,9 +90,34 @@ test("legacy rotation falls back through result and profile fields", () => {
   assert.equal(rotation.shifts[1].duration_hours, 12);
   assert.deepEqual(rotation.shifts[0].scores.room_lines[0], {
     room_id: "trade_1",
+    final_efficiency: 1.8,
     trade_score: 1.8,
     trade_skill_pct: 80,
   });
+});
+
+test("legacy room totals migrate to final_efficiency at the protocol boundary", () => {
+  const rotation = normalizeRotationResult({
+    source: {
+      rotation: "main_backup_12_12",
+      shifts: [{
+        scores: {
+          room_lines: [
+            { room_id: "trade_1", trade_pct: 120 },
+            { room_id: "manu_1", manu_prod_total: 145 },
+            { room_id: "power_1", power_charge_speed_pct: 20 },
+          ],
+        },
+      }],
+    },
+    profile: {},
+    fallbackProfile: "abc_12_6_6",
+  });
+
+  assert.deepEqual(
+    rotation.shifts[0].scores.room_lines.map((line) => line.final_efficiency),
+    [2.2, 2.45, 1.2]
+  );
 });
 
 test("missing summaries use the profile snapshot and requested profile", () => {

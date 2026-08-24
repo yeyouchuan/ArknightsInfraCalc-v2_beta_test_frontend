@@ -15,11 +15,14 @@ import type {
   SklandOperatorStatus,
   SklandOwnedSkin,
   SklandPowerRoom,
+  SklandProcessingRoom,
   SklandProgress,
   SklandRole,
   SklandScheduleSnapshot,
   SklandStatusSnapshot,
   SklandTradingRoom,
+  SklandTrainingPosition,
+  SklandTrainingRoom,
 } from "../../types.ts";
 
 const MORALE_DIVISOR = 360_000;
@@ -37,6 +40,12 @@ const CLUE_NAMES: Record<string, string> = {
 };
 
 type FactoryProduct = SklandManufactureRoom["product"];
+
+// Skland's manufacture array reports rooms 3 and 4 opposite to the numbering shown in-game.
+export function manufacturesInGameOrder<T>(rooms: readonly T[]): T[] {
+  if (rooms.length < 4) return [...rooms];
+  return [rooms[0]!, rooms[1]!, rooms[3]!, rooms[2]!, ...rooms.slice(4)];
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -88,6 +97,22 @@ function normalizeResident(info: PlayerInfo, resident: ResidentCharacter): Sklan
     morale: Math.round(clamp(finiteNumber(resident.ap) / MORALE_DIVISOR, 0, 24) * 10) / 10,
     workTime: nonNegative(resident.workTime),
     lastMoraleUpdateTs: nonNegative(resident.lastApAddTime),
+  };
+}
+
+function normalizeTrainingResident(
+  info: PlayerInfo,
+  resident: { charId: string; ap: number; lastApAddTime: number },
+  position: SklandTrainingPosition,
+): SklandTrainingRoom["operators"][number] | null {
+  const name = nameFor(info, resident.charId);
+  if (!name) return null;
+  return {
+    id: resident.charId,
+    name,
+    morale: Math.round(clamp(finiteNumber(resident.ap) / MORALE_DIVISOR, 0, 24) * 10) / 10,
+    lastMoraleUpdateTs: nonNegative(resident.lastApAddTime),
+    position,
   };
 }
 
@@ -194,7 +219,7 @@ function infrastructureFromPlayerInfo(
     })),
     lastUpdateTime: nonNegative(value.lastUpdateTime),
   }));
-  const manufactures: SklandManufactureRoom[] = building.manufactures.map((value, index) => ({
+  const manufactures: SklandManufactureRoom[] = manufacturesInGameOrder(building.manufactures).map((value, index) => ({
     ...roomBase(info, "manufacture", index, value),
     product: factoryProduct(info, value.formulaId),
     production: {
@@ -242,6 +267,35 @@ function infrastructureFromPlayerInfo(
       }]
     : [];
   const trainingRoom = building.training;
+  const trainingRooms: SklandTrainingRoom[] = trainingRoom
+    ? [{
+        key: trainingRoom.slotId || "training-1",
+        group: "training",
+        index: 0,
+        level: nonNegative(trainingRoom.level),
+        operators: [
+          trainingRoom.trainee
+            ? normalizeTrainingResident(info, trainingRoom.trainee, "trainee")
+            : null,
+          trainingRoom.trainer
+            ? normalizeTrainingResident(info, trainingRoom.trainer, "trainer")
+            : null,
+        ].filter((operator): operator is SklandTrainingRoom["operators"][number] => operator !== null),
+        occupancy: {
+          current: Number(Boolean(trainingRoom.trainee)) + Number(Boolean(trainingRoom.trainer)),
+          capacity: 2,
+        },
+      }]
+    : [];
+  const processingRooms: SklandProcessingRoom[] = suggestion.layoutSuggestion?.rooms
+    .filter((room) => room.kind === "workshop")
+    .map((room, index) => ({
+      key: room.id || `processing-${index + 1}`,
+      group: "processing",
+      index,
+      level: nonNegative(room.level),
+      operators: [],
+    })) ?? [];
   const hasTrainingTask = Boolean(
     trainingRoom?.trainee
     && finiteNumber(trainingRoom.trainee.targetSkill, -1) >= 0
@@ -263,7 +317,17 @@ function infrastructureFromPlayerInfo(
     currentTs: nonNegative(info.currentTs),
     storeTs: optionalNonNegative(info.status.storeTs),
     ...suggestion,
-    rooms: [control, ...tradings, ...manufactures, ...powers, ...dormitories, ...meeting, ...hire],
+    rooms: [
+      control,
+      ...tradings,
+      ...manufactures,
+      ...powers,
+      ...dormitories,
+      ...meeting,
+      ...hire,
+      ...trainingRooms,
+      ...processingRooms,
+    ],
     tiredOperators: building.tiredChars.flatMap((value) => {
       const name = nameFor(info, value.charId);
       return name ? [name] : [];
@@ -470,18 +534,20 @@ function scheduleInfrastructure(infrastructure: SklandInfrastructure): SklandSch
     layoutSuggestion: infrastructure.layoutSuggestion,
     layoutWarning: infrastructure.layoutWarning,
     tiredOperators: [...infrastructure.tiredOperators],
-    rooms: infrastructure.rooms.map((room) => ({
-      key: room.key,
-      group: room.group,
-      index: room.index,
-      level: room.level,
-      operators: room.operators.map((operator) => ({
-        id: operator.id,
-        name: operator.name,
-        morale: operator.morale,
+    rooms: infrastructure.rooms
+      .filter((room) => room.group !== "training" && room.group !== "processing")
+      .map((room) => ({
+        key: room.key,
+        group: room.group,
+        index: room.index,
+        level: room.level,
+        operators: room.operators.map((operator) => ({
+          id: operator.id,
+          name: operator.name,
+          morale: operator.morale,
+        })),
+        ...("product" in room ? { product: room.product } : {}),
       })),
-      ...("product" in room ? { product: room.product } : {}),
-    })),
   };
 }
 

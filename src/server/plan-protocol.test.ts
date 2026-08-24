@@ -23,6 +23,7 @@ test("uses plan.compute for matching versions regardless of schema byte hash", (
         pong: true,
         protocol_version: 1,
         plan_schema_version: 1,
+        supported_plan_schema_versions: [1, 2, 3],
         plan_contract_sha256: planContractSha256,
       },
     });
@@ -52,7 +53,8 @@ test("keeps incompatible protocol or schema versions on the legacy plan method",
     ok: true,
     result: {
       protocol_version: 1,
-      plan_schema_version: 2,
+      plan_schema_version: 1,
+      supported_plan_schema_versions: [1],
     },
   });
 
@@ -69,6 +71,7 @@ test("normalizes Worker fingerprints and keeps them diagnostic-only", () => {
     result: {
       protocol_version: 1,
       plan_schema_version: 1,
+      supported_plan_schema_versions: [1, 2, 3],
       plan_contract_sha256: "not-a-hash",
       solver_executable_sha256: executableHash,
     },
@@ -84,6 +87,7 @@ test("normalizes Worker fingerprints and keeps them diagnostic-only", () => {
       result: {
         protocol_version: 1,
         plan_schema_version: 1,
+        supported_plan_schema_versions: [1, 2, 3],
         solver_executable_sha256: invalidFingerprint,
       },
     });
@@ -99,6 +103,7 @@ test("deployment readiness requires current versions and the configured artifact
     result: {
       protocol_version: 1,
       plan_schema_version: 1,
+      supported_plan_schema_versions: [1, 2, 3],
       solver_executable_sha256: executableHash,
     },
   });
@@ -119,6 +124,7 @@ test("feedback metadata reuses the matching private run observation and tolerate
     result: {
       protocol_version: 1,
       plan_schema_version: 1,
+      supported_plan_schema_versions: [1, 2, 3],
       plan_contract_sha256: "d".repeat(64),
       solver_executable_sha256: "e".repeat(64),
     },
@@ -140,21 +146,174 @@ test("validates the complete plan.compute success payload", () => {
   const payload = parsePlanComputePayload({
     ok: true,
     result: {
-      schema_version: 1,
+      schema_version: 3,
       profile: { schema_version: 4 },
       rotation: { profile: "abc_12_6_6", daily: {}, shifts: [] },
       maa: { plans: [] },
+      training_advice: {
+        schema_version: 2,
+        context: {},
+        newbie_section_status: "complete",
+        incomplete_newbie: [],
+        combinations: [],
+        recommendations: [],
+      },
     },
   });
 
   assert.deepEqual(payload?.rotation.shifts, []);
   assert.equal(payload?.profile.schema_version, 4);
+  assert.equal(payload?.trainingAdvice?.schema_version, 2);
+});
+
+function planComputeWithTrainingRoom(trainingRoom: unknown, plans = [
+  { name: "早班", rooms: { control: [{ operators: ["阿米娅"] }] } },
+  { name: "中班", rooms: { manufacture: [{ operators: [{ name: "泡普卡", skill: 1 }] }] } },
+  { name: "晚班", rooms: {} },
+]) {
+  return {
+    ok: true,
+    result: {
+      schema_version: 3,
+      profile: { schema_version: 4 },
+      rotation: { profile: "abc_12_6_6", daily: {}, shifts: plans.map((_, index) => ({ index })) },
+      maa: { title: "排班", plans },
+      training_room: trainingRoom,
+      training_advice: {
+        schema_version: 2,
+        context: {},
+        newbie_section_status: "complete",
+        incomplete_newbie: [],
+        combinations: [],
+        recommendations: [],
+      },
+    },
+  };
+}
+
+test("accepts optional independent training-room shifts and trims operator names", () => {
+  const withoutTrainingRoom = structuredClone(planComputeWithTrainingRoom(undefined));
+  delete (withoutTrainingRoom.result as { training_room?: unknown }).training_room;
+  assert.equal(parsePlanComputePayload(withoutTrainingRoom)?.trainingRoom, undefined);
+
+  const payload = parsePlanComputePayload(planComputeWithTrainingRoom({
+    schema_version: 1,
+    shifts: [
+      { trainee: " 能天使 ", trainer: "德克萨斯" },
+      { trainee: null, trainer: "拉普兰德" },
+      { trainee: null, trainer: null },
+    ],
+  }));
+  assert.deepEqual(payload?.trainingRoom, {
+    schema_version: 1,
+    shifts: [
+      { trainee: "能天使", trainer: "德克萨斯" },
+      { trainee: null, trainer: "拉普兰德" },
+      { trainee: null, trainer: null },
+    ],
+  });
+});
+
+test("rejects malformed training-room shift counts, names, duplicates, and MAA conflicts", () => {
+  const invalidValues = [
+    {
+      label: "shift count",
+      value: { schema_version: 1, shifts: [{ trainee: null, trainer: null }] },
+      pattern: /数量必须与 maa\.plans 一致/,
+    },
+    {
+      label: "duplicate positions",
+      value: { schema_version: 1, shifts: [
+        { trainee: "能天使", trainer: "能天使" },
+        { trainee: null, trainer: null },
+        { trainee: null, trainer: null },
+      ] },
+      pattern: /不能使用同一干员/,
+    },
+    {
+      label: "empty name",
+      value: { schema_version: 1, shifts: [
+        { trainee: "   ", trainer: null },
+        { trainee: null, trainer: null },
+        { trainee: null, trainer: null },
+      ] },
+      pattern: /不能为空/,
+    },
+    {
+      label: "long name",
+      value: { schema_version: 1, shifts: [
+        { trainee: "干".repeat(81), trainer: null },
+        { trainee: null, trainer: null },
+        { trainee: null, trainer: null },
+      ] },
+      pattern: /不能超过 80 个字符/,
+    },
+    {
+      label: "MAA string conflict",
+      value: { schema_version: 1, shifts: [
+        { trainee: "阿米娅", trainer: null },
+        { trainee: null, trainer: null },
+        { trainee: null, trainer: null },
+      ] },
+      pattern: /已在该班 MAA 房间中进驻/,
+    },
+    {
+      label: "MAA slot conflict",
+      value: { schema_version: 1, shifts: [
+        { trainee: null, trainer: null },
+        { trainee: "泡普卡", trainer: null },
+        { trainee: null, trainer: null },
+      ] },
+      pattern: /已在该班 MAA 房间中进驻/,
+    },
+  ];
+
+  for (const scenario of invalidValues) {
+    assert.throws(
+      () => parsePlanComputePayload(planComputeWithTrainingRoom(scenario.value)),
+      scenario.pattern,
+      scenario.label,
+    );
+  }
 });
 
 test("rejects malformed successful plan.compute payloads", () => {
   assert.throws(
-    () => parsePlanComputePayload({ ok: true, result: { schema_version: 1, profile: {}, rotation: { shifts: [] } } }),
+    () => parsePlanComputePayload({ ok: true, result: { schema_version: 3, profile: {}, rotation: { shifts: [] } } }),
     /maa/
+  );
+  assert.throws(
+    () => parsePlanComputePayload({
+      ok: true,
+      result: {
+        schema_version: 3,
+        profile: {},
+        rotation: { shifts: [] },
+        maa: {},
+        training_advice: { schema_version: 3 },
+      },
+    }),
+    /training_advice\.schema_version/
+  );
+  assert.throws(
+    () => parsePlanComputePayload({
+      ok: true,
+      result: {
+        schema_version: 3,
+        profile: {},
+        rotation: { shifts: [] },
+        maa: {},
+        training_advice: {
+          schema_version: 2,
+          context: {},
+          newbie_section_status: "complete",
+          incomplete_newbie: [],
+          combinations: {},
+          recommendations: [],
+        },
+      },
+    }),
+    /training_advice\.combinations/
   );
 });
 

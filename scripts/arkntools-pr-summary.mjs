@@ -65,6 +65,7 @@ console.log(`## arkntools 自动资源同步
 - 基建技能：${source.counts.buildingSkills}（${delta(source.counts.buildingSkills, beforeSkillIds.size)}）
 - 干员头像：${source.counts.portraits}
 - 去重后的基建技能图标：${source.counts.buildingSkillIcons}
+- 产物图标：${source.counts.productIcons}
 - 新增干员：${list(addedOperators)}
 - 移除干员：${list(removedOperators)}
 - 新增技能定义：${[...afterSkillIds].filter((id) => !beforeSkillIds.has(id)).length}

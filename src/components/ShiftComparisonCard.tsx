@@ -193,10 +193,10 @@ export function ShiftComparisonDetails({ comparison }: { comparison: ShiftCompar
   const exactMatch = comparison.adjustments.length === 0;
   return (
     <section className="pt-4 text-sm" aria-labelledby="closest-shift-title" data-shift-comparison-details>
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div><span className="text-xs font-medium text-muted-foreground">当前状态匹配</span><h3 id="closest-shift-title" className="mt-0.5 text-base font-semibold">当前最接近第 <span className="font-number">{comparison.planIndex + 1}</span> 班</h3></div><div className="text-right"><span className="text-xs text-muted-foreground">房间匹配</span><strong className="ml-2 text-lg tabular-nums">{comparison.score}%</strong></div></div>
-      <div className="mt-3 h-1.5 overflow-hidden bg-border/70" role="progressbar" aria-label="房间匹配百分比" aria-valuemin={0} aria-valuemax={100} aria-valuenow={comparison.score}><div className="h-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, comparison.score))}%` }} /></div>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div><span className="text-xs font-medium text-muted-foreground">当前状态匹配</span><h3 id="closest-shift-title" className="mt-0.5 text-base font-semibold">当前最接近第 <span className="font-number">{comparison.planIndex + 1}</span> 班</h3></div><div className="text-right"><span className="text-xs text-muted-foreground">非宿舍匹配</span><strong className="ml-2 text-lg tabular-nums">{comparison.score}%</strong></div></div>
+      <div className="mt-3 h-1.5 overflow-hidden bg-border/70" role="progressbar" aria-label="非宿舍设施匹配百分比" aria-valuemin={0} aria-valuemax={100} aria-valuenow={comparison.score}><div className="h-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, comparison.score))}%` }} /></div>
       {exactMatch ? (
-        <div className="mt-5 flex gap-3 border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-900" role="status"><CheckCircle2 className="mt-0.5 size-5 shrink-0" aria-hidden="true" /><div><strong className="block">当前进驻与排班完全一致</strong><span className="mt-1 block text-xs text-emerald-800/75">无需换入、换出或调整房间。</span></div></div>
+        <div className="mt-5 flex gap-3 border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-900" role="status"><CheckCircle2 className="mt-0.5 size-5 shrink-0" aria-hidden="true" /><div><strong className="block">当前非宿舍进驻与排班完全一致</strong><span className="mt-1 block text-xs text-emerald-800/75">非宿舍设施无需换入、换出或调整房间。</span></div></div>
       ) : (
         <>
           <MobileAdjustmentGroups adjustments={comparison.adjustments} reduceMotion={Boolean(reduceMotion)} />

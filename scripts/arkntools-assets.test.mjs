@@ -9,11 +9,14 @@ import sharp from "sharp";
 
 import {
   ARKNIGHTS_GAME_RESOURCE_REPOSITORY,
+  ARKNTOOLS_REPOSITORY,
   GENERATED_VERSION,
   checkGeneratedAssets,
   generateAssets,
+  operatorSupplementalTags,
   parseUnlock,
   stripGameMarkup,
+  supplementalSkillTags,
 } from "./arkntools-assets-lib.mjs";
 
 const SOURCE_SHA = "0123456789abcdef0123456789abcdef01234567";
@@ -69,12 +72,14 @@ async function createSource(root, operatorIds = ["001_alpha", "002_beta"]) {
     "assets/data",
     "assets/locales/cn",
     "assets/img/building_skill",
+    "assets/img/item",
   ];
   // 干员头像来自独立的 ArknightsGameResource 风格来源目录（avatar/char_<shortId>.png，180×180）
   const portraitsRoot = path.join(root, "portraits");
   await Promise.all([
     ...directories.map((directory) => mkdir(path.join(root, directory), { recursive: true })),
     mkdir(path.join(portraitsRoot, "avatar"), { recursive: true }),
+    mkdir(path.join(portraitsRoot, "item"), { recursive: true }),
   ]);
 
   const characters = Object.fromEntries(operatorIds.map((id, index) => [id, {
@@ -97,19 +102,43 @@ async function createSource(root, operatorIds = ["001_alpha", "002_beta"]) {
   };
   const descriptions = {
     desc_alpha: "进驻时，生产力<@cc.vup>+10%</>。",
-    ...(operatorIds.length > 1 ? { desc_beta: "精英后<$cc.test><@cc.kw>生效</></>。" } : {}),
+    ...(operatorIds.length > 1 ? { desc_beta: "自身心情每小时恢复<@cc.vup>+0.5</>。" } : {}),
+  };
+  const buffInfo = {
+    desc_alpha: { building: "MANUFACTURE", num: { product: 10 }, is: { "贵金属": 1 } },
+    ...(operatorIds.length > 1 ? { desc_beta: { building: "DORMITORY", num: {}, is: { "单体恢复": 1 } } } : {}),
+  };
+  const roomNames = {
+    CONTROL: "控制中枢",
+    POWER: "发电站",
+    MANUFACTURE: "制造站",
+    TRADING: "贸易站",
+    DORMITORY: "宿舍",
+    MEETING: "会客室",
+    WORKSHOP: "加工站",
+    TRAINING: "训练室",
+    HIRE: "办公室",
+  };
+  const terms = {
+    cc_test: { name: "测试词条", desc: "<$cc.x><@cc.rem>红松骑士团</></>" },
   };
 
   await Promise.all([
     writeFile(path.join(root, "assets/data/character.json"), JSON.stringify(characters), "utf8"),
     writeFile(path.join(root, "assets/locales/cn/character.json"), JSON.stringify(names), "utf8"),
-    writeFile(path.join(root, "assets/data/building.json"), JSON.stringify({ char: charSkills, buff: { data: buffData } }), "utf8"),
-    writeFile(path.join(root, "assets/locales/cn/building.json"), JSON.stringify({ buff: { name: buffNames, description: descriptions } }), "utf8"),
+    writeFile(path.join(root, "assets/data/building.json"), JSON.stringify({ char: charSkills, buff: { data: buffData, info: buffInfo } }), "utf8"),
+    writeFile(path.join(root, "assets/locales/cn/building.json"), JSON.stringify({ name: roomNames, buff: { name: buffNames, description: descriptions } }), "utf8"),
+    writeFile(path.join(root, "assets/locales/cn/term.json"), JSON.stringify(terms), "utf8"),
     ...operatorIds.map((id, index) => png(path.join(portraitsRoot, `avatar/char_${id}.png`), 180, 180, { r: index * 40, g: 20, b: 30, alpha: 1 })),
     png(path.join(root, "assets/img/building_skill/icon_shared.png"), 35, 36, { r: 10, g: 20, b: 30, alpha: 1 }),
     ...(operatorIds.length > 1
       ? [png(path.join(root, "assets/img/building_skill/icon_beta.png"), 36, 36, { r: 30, g: 20, b: 10, alpha: 1 })]
       : []),
+    png(path.join(root, "assets/img/item/4001.png"), 183, 183, { r: 220, g: 180, b: 25, alpha: 0.7 }),
+    png(path.join(root, "assets/img/item/2003.png"), 183, 183, { r: 50, g: 160, b: 190, alpha: 0.7 }),
+    png(path.join(portraitsRoot, "item/MTL_GOLD3.png"), 183, 183, { r: 190, g: 150, b: 20, alpha: 0.7 }),
+    png(path.join(portraitsRoot, "item/MTL_DIAMOND_SHD.png"), 183, 183, { r: 80, g: 70, b: 90, alpha: 0.7 }),
+    png(path.join(portraitsRoot, "item/DIAMOND_SHD.png"), 183, 183, { r: 210, g: 45, b: 55, alpha: 0.7 }),
   ]);
 }
 
@@ -118,6 +147,20 @@ test("strips game markup and parses unlock requirements", () => {
   assert.deepEqual(parseUnlock("2_30"), { elite: 2, level: 30 });
   assert.throws(() => parseUnlock("3_1"), /非法精英阶段/);
   assert.throws(() => parseUnlock("bad"), /无法解析/);
+});
+
+test("supplements skill tags by room rules and operator names", () => {
+  assert.deepEqual(supplementalSkillTags("CONTROL", "人脉资源的联络速度+10%"), ["办公室"]);
+  assert.deepEqual(supplementalSkillTags("HIRE", "人脉资源的联络速度+10%"), ["联络速度"]);
+  assert.deepEqual(supplementalSkillTags("MEETING", "更容易获得线索板上尚未拥有的线索"), ["未拥有加成"]);
+  assert.deepEqual(supplementalSkillTags("DORMITORY", "自身心情每小时恢复+0.5"), ["自身恢复"]);
+  assert.deepEqual(supplementalSkillTags("DORMITORY", "恢复效果额外+10%"), ["特殊恢复"]);
+  assert.deepEqual(supplementalSkillTags("HIRE", "不包含初始招募位"), ["特殊加成"]);
+  assert.deepEqual(supplementalSkillTags("TRAINING", "该名干员下次训练所需时间-50%（任意一方离开训练室时，效果消失）"), ["减半"]);
+  assert.deepEqual(supplementalSkillTags("TRADING", "如果下笔赤金订单是违约订单，则赤金交付数额外+1"), ["特殊订单"]);
+  assert.deepEqual(supplementalSkillTags("MANUFACTURE", "生产力+10%"), []);
+  assert.deepEqual(operatorSupplementalTags("九色鹿"), ["精英材料"]);
+  assert.deepEqual(operatorSupplementalTags("阿米娅"), []);
 });
 
 test("generates deterministic catalogs and normalizes the known 35px icon input", async (t) => {
@@ -131,18 +174,47 @@ test("generates deterministic catalogs and normalizes the known 35px icon input"
   await generateAssets({ sourceRoot: source, sourceSha: SOURCE_SHA, portraitsRoot: portraitsSource, portraitsSha: PORTRAITS_SHA, outputRoot: first, allowRemovals: true });
   await generateAssets({ sourceRoot: source, sourceSha: SOURCE_SHA, portraitsRoot: portraitsSource, portraitsSha: PORTRAITS_SHA, outputRoot: second, allowRemovals: true });
   const manifest = await checkGeneratedAssets(first);
-  assert.deepEqual(manifest.counts, { operators: 2, buildingSkills: 2, portraits: 2, buildingSkillIcons: 2 });
+  assert.deepEqual(manifest.counts, { operators: 2, buildingSkills: 2, terms: 1, portraits: 2, buildingSkillIcons: 2, productIcons: 5 });
   assert.equal(manifest.portraitsSource.repository, ARKNIGHTS_GAME_RESOURCE_REPOSITORY);
   assert.equal(manifest.portraitsSource.commit, PORTRAITS_SHA);
+  assert.deepEqual(manifest.products.map((product) => [product.id, product.source]), [
+    ["lmd_orders", "arkntools"],
+    ["gold", "game-resource"],
+    ["experience", "arkntools"],
+    ["originium_shard", "game-resource"],
+    ["orundum", "game-resource"],
+  ]);
+  assert.equal(manifest.source.repository, ARKNTOOLS_REPOSITORY);
   const operators = JSON.parse(await readFile(path.join(first, "src/generated/arkntools/operator-catalog.json"), "utf8"));
   assert.equal(operators[0].portrait, `/images/operator-portraits/001_alpha.webp?v=${GENERATED_VERSION}-${PORTRAITS_SHA.slice(0, 12)}`);
+  assert.equal(operators[0].order, 0);
+  assert.equal(operators[1].order, 1);
+  assert.deepEqual(operators[0].buildingSkills[0], { index: 1, id: "skill_alpha", elite: 0, level: 1 });
+  assert.deepEqual(operators[1].buildingSkills[0], { index: 1, id: "skill_beta", elite: 2, level: 1 });
+
+  const skills = JSON.parse(await readFile(path.join(first, "src/generated/arkntools/building-skill-catalog.json"), "utf8"));
+  assert.equal(skills.skill_alpha.descriptionRich, "进驻时，生产力<@cc.vup>+10%</>。");
+  assert.equal("description" in skills.skill_alpha, false);
+  assert.equal("room" in skills.skill_alpha, false);
+  assert.equal("roomLabel" in skills.skill_alpha, false);
+  assert.deepEqual(skills.skill_alpha.tags, ["贵金属"]);
+  assert.deepEqual(skills.skill_beta.tags, ["单体恢复", "自身恢复"]);
+
+  const terms = JSON.parse(await readFile(path.join(first, "src/generated/arkntools/term-catalog.json"), "utf8"));
+  assert.deepEqual(terms.cc_test, { id: "cc_test", name: "测试词条", desc: "<$cc.x><@cc.rem>红松骑士团</></>", descText: "红松骑士团" });
 
   const relativeFiles = [
     "src/generated/arkntools/operator-catalog.json",
     "src/generated/arkntools/building-skill-catalog.json",
+    "src/generated/arkntools/term-catalog.json",
     "src/generated/arkntools/source.json",
     "public/images/building-skills/icon_shared.png",
     "public/images/operator-portraits/001_alpha.webp",
+    "public/images/products/lmd_orders.webp",
+    "public/images/products/gold.webp",
+    "public/images/products/experience.webp",
+    "public/images/products/originium_shard.webp",
+    "public/images/products/orundum.webp",
   ];
   for (const relative of relativeFiles) {
     assert.deepEqual(await readFile(path.join(first, relative)), await readFile(path.join(second, relative)));
@@ -152,6 +224,10 @@ test("generates deterministic catalogs and normalizes the known 35px icon input"
   const portrait = await sharp(await readFile(path.join(first, "public/images/operator-portraits/001_alpha.webp"))).metadata();
   assert.deepEqual([portrait.width, portrait.height], [180, 180]);
   assert.equal(portrait.format, "webp");
+  for (const name of ["lmd_orders", "gold", "experience", "originium_shard", "orundum"]) {
+    const product = await sharp(await readFile(path.join(first, `public/images/products/${name}.webp`))).metadata();
+    assert.deepEqual([product.format, product.width, product.height, product.hasAlpha], ["webp", 183, 183, true]);
+  }
   const [webpSize, pngSize] = await Promise.all([
     stat(path.join(first, "public/images/operator-portraits/001_alpha.webp")),
     stat(path.join(source, "portraits/avatar/char_001_alpha.png")),

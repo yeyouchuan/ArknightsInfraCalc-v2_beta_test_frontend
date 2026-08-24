@@ -78,7 +78,7 @@
 | plan | 直接暴露内部运行对象 | 构造白名单 DTO；生产无调试字段 |
 | 错误 | 自由字符串、常见统一 400 | AIC 错误码、HTTP 映射、requestId、retryable、fieldErrors |
 | 本地保存 | 渲染期读取，保存完整结果 | 挂载后恢复、v4 白名单、30 天过期、迁移和清理 |
-| 调试开关 | `?beta`即可显示 | 服务端 flag 与 `?beta`同时满足 |
+| 调试开关 | `?beta`即可显示 | 产品页无调试入口；仅本地直接 API 可显式请求服务端诊断字段 |
 
 ### 公开数据流
 
@@ -97,15 +97,16 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  E["BETA_DEBUG_TOOLS_ENABLED=1"] --> G{"URL 包含 ?beta"}
-  E --> D["服务端允许 data.debug"]
-  G -->|"是"| P["前端显示调试面板"]
-  G -->|"否"| H["前端隐藏调试面板"]
-  D --> V["仅当前内存可用"]
-  V --> X["v4 持久化剔除 debug"]
+  U["产品页面"] --> H["始终请求 /api/plan"]
+  H --> N["仅返回公开白名单字段"]
+  M["本地直接请求 /api/plan?beta=1"] --> D{"BETA_DEBUG_TOOLS_ENABLED=1"}
+  D -->|"是"| P["向直接调用方返回 data.debug"]
+  D -->|"否"| N
+  P --> V["仅当前内存可用"]
+  V --> X["v5 持久化剔除 debug"]
 ```
 
-服务端关闭 flag 时，即使 URL 带 `?beta`也不会下发调试字段，health 的 `debugTools`为 false，前端不渲染调试 UI。
+页面 URL 中遗留的 `?beta` 不再改变界面或后续导航，浏览器也不会请求调试字段。服务端关闭 flag 时，即使直接 API 请求带 `?beta=1`也不会下发调试字段；服务端开启 flag 时，普通请求仍不会收到 `data.debug`。
 
 ### 错误处理流
 
@@ -211,6 +212,7 @@ flowchart TD
 | `AIC-AUTH-2003` | 503 | 森空岛登录暂不可用 |
 | `AIC-AUTH-2004` | 409 | 森空岛账号数量已达上限 |
 | `AIC-AUTH-2005` | 400 | 未同意当前服务条款或隐私政策 |
+| `AIC-AUTH-2006` | 409 | 森空岛账号已绑定其他网站账号 |
 | `AIC-AUTH-2007` | 404 | 当前部署不提供该功能 |
 | `AIC-PLAN-3001` | 503 | 排班服务未就绪 |
 | `AIC-PLAN-3002` | 429 | 已有排班任务或请求过频 |
@@ -237,19 +239,11 @@ flowchart TD
 
 公共 DTO 变更必须同时更新 mapper 与泄露测试。错误码新增或修改必须同步更新类型、映射测试和本报告目录。UI 修改必须检查三个一级导航和两处锁定区域，不得把“一图流布局”在手机端隐藏，也不得替换加工站“暂不显示”。
 
-GitHub Actions 工作流位于 `.github/workflows/frontend-quality.yml`，使用 Node 22，并按以下顺序执行：
-
-1. `npm ci`
-2. `npm run lint`
-3. `npm test`
-4. `npm run test:api-contract`
-5. `npm run build`
-6. 安装 Playwright Chromium
-7. `npm run test:e2e`
+GitHub Actions 工作流位于 `.github/workflows/frontend-quality.yml`，使用 Node 22。当前先由`Change scope`按失败关闭的保守白名单判定文档、测试、浏览器测试、发布工作流和运行时范围；选中的 Core/Chromium Job 必须成功，未选中的 Job 必须确实为`skipped`，再由保持原状态名称的`quality`汇总。文档、仓库元数据、测试和非发布型 CI 变更不创建服务器 release；运行时、未知路径和发布工作流仍在受保护分支 push 后部署。不得用 workflow 级`paths-ignore`移除必需检查。Chromium 与 WebKit Job 使用和 lockfile 中 Playwright 版本一致、以 digest 固定的官方 noble 镜像，避免临时 runner 为系统字体和浏览器依赖重复访问 Ubuntu 软件源；浏览器 Job 使用自身的临时数据库 owner，权限边界仍由 Core checks 中的独立集成测试验证。完整 WebKit E2E 每日定时运行，也可手动触发，作为不阻塞逐次发布的 Safari 兼容性回归。PR 的新提交会取消同一 PR 的过期运行，分支 push 和已开始的部署不会被取消。
 
 ## 开发调试环境使用指南
 
-### 启动调试模式
+### 启动服务端诊断
 
 Windows PowerShell：
 
@@ -259,11 +253,7 @@ $env:BETA_RATE_LIMIT_ENABLED='0'
 npm run dev
 ```
 
-访问：
-
-```text
-http://127.0.0.1:5174/?beta
-```
+产品页面仍访问普通地址；如需核对诊断字段，只对本地 `/api/plan?beta=1` 发起直接请求。
 
 ### 排查 hydration
 
@@ -323,12 +313,12 @@ $env:BETA_RATE_LIMIT_ENABLED='0'
 - 手机端“一图流布局”仍然可见且禁用；
 - 加工站仍有“暂不显示”并可恢复。
 
-### 切换公开/调试模式
+### 核对产品页/服务端诊断边界
 
-1. 开启 flag 并访问 `?beta`，调试面板应出现。
-2. 去掉 `?beta`，即使 flag 开启也不显示面板。
+1. 开启 flag 并访问产品页，确认 plan 请求不带 beta 参数、响应只有公开白名单字段且页面没有调试入口或面板。
+2. 直接请求本地 `/api/plan?beta=1`，确认只有显式请求可收到 `data.debug`。
 3. 关闭 `BETA_DEBUG_TOOLS_ENABLED`后重启服务。
-4. 再访问 `?beta`，调试 UI 和 `data.debug`都不得出现。
+4. 再直接请求 `/api/plan?beta=1`，确认响应不含 `data.debug`。
 
 ## 验证与发布结果
 
@@ -350,8 +340,8 @@ $env:BETA_RATE_LIMIT_ENABLED='0'
 - 390×844、768×900、1440×900；
 - v4 预置排班刷新后 Console 无 hydration 错误；
 - Chrome 扩展在根元素注入 `data-fabric-scheme`时不再触发 hydration mismatch，应用子树仍保留严格 hydration 检查；
-- 生产 `?beta`不显示调试 UI；
-- server flag + `?beta`显示调试 UI；
+- 遗留的页面 `?beta` 不显示调试 UI，也不会传播到排班请求；
+- server flag 只允许本地直接 API 显式请求调试字段；
 - Full E2 载入、生成、三班切换、MAA 下载、反馈编号；
 - 手机端一图流保持显示且禁用；
 - 加工站“暂不显示”及恢复交互。

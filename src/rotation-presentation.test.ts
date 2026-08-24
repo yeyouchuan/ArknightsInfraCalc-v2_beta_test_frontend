@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  formatPlanDuration,
   relativeMetricDelta,
   rotationMetricValue,
   rotationTeamLabel,
@@ -37,4 +38,11 @@ test("manufacture and power multipliers become percentages", () => {
 test("relative comparison omits zero baselines", () => {
   assert.equal(relativeMetricDelta(5.288, 4.968)?.toFixed(1), "6.4");
   assert.equal(relativeMetricDelta(1, 0), undefined);
+});
+
+test("plan durations use milliseconds below one second and one decimal second otherwise", () => {
+  assert.equal(formatPlanDuration(735), "735 ms");
+  assert.equal(formatPlanDuration(999), "999 ms");
+  assert.equal(formatPlanDuration(1000), "1.0 秒");
+  assert.equal(formatPlanDuration(2764), "2.8 秒");
 });

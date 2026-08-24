@@ -9,22 +9,23 @@ import {
   rotationOption,
 } from "./rotation-settings.ts";
 
-test("exposes only the profiles accepted by plan.compute v1", () => {
+test("exposes the selectable rotation profiles accepted by plan.compute v2", () => {
   assert.deepEqual(ROTATION_OPTIONS.map(({ profile }) => profile), [
     "abc_12_6_6",
     "main_backup_12_12",
-    "fiammetta_8_8_4_4",
-    "abyssal_7_5_7_5",
+    "abc_12_12_12",
   ]);
   assert.equal(isRotationProfile("abc_12_6_6"), true);
+  assert.equal(isRotationProfile("abc_12_12_12"), true);
+  // 隐藏的旧 profile 仍受支持，避免改写已持久化会话。
+  assert.equal(isRotationProfile("fiammetta_8_8_4_4"), true);
   assert.equal(isRotationProfile("auto_rotation"), false);
 });
 
 test("keeps the worker-defined durations for every supported profile", () => {
   assert.deepEqual(rotationOption("abc_12_6_6").durations, [12, 6, 6]);
   assert.deepEqual(rotationOption("main_backup_12_12").durations, [12, 12]);
-  assert.deepEqual(rotationOption("fiammetta_8_8_4_4").durations, [8, 8, 4, 4]);
-  assert.deepEqual(rotationOption("abyssal_7_5_7_5").durations, [7, 5, 7, 5]);
+  assert.deepEqual(rotationOption("abc_12_12_12").durations, [12, 12, 12]);
 });
 
 test("invalid persisted values fall back to the existing default profile", () => {

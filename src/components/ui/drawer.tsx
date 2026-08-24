@@ -26,6 +26,7 @@ export function Drawer({
   children,
   width = 560,
   className,
+  onCloseComplete,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,6 +35,7 @@ export function Drawer({
   children: ReactNode;
   width?: number;
   className?: string;
+  onCloseComplete?: () => void;
 }) {
   const titleId = useId();
   const hintId = useId();
@@ -45,6 +47,8 @@ export function Drawer({
   const shellRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const closePendingRef = useRef(false);
+  const onCloseCompleteRef = useRef(onCloseComplete);
   const dragStartClientXRef = useRef<number | null>(null);
   const dragMaxOffsetXRef = useRef(0);
   const animationRef = useRef<{ stop: () => void } | null>(null);
@@ -61,6 +65,9 @@ export function Drawer({
 
   useEffect(() => setHost(document.body), []);
   useEffect(() => {
+    onCloseCompleteRef.current = onCloseComplete;
+  }, [onCloseComplete]);
+  useEffect(() => {
     if (open && !mounted) {
       x.set(away);
       setMounted(true);
@@ -69,6 +76,7 @@ export function Drawer({
     if (!mounted) return;
     glide(open ? 0 : away);
     if (!open) {
+      closePendingRef.current = true;
       const closingAnimation = animationRef.current;
       void Promise.resolve(closingAnimation).then(() => {
         if (animationRef.current === closingAnimation) setMounted(false);
@@ -97,6 +105,10 @@ export function Drawer({
       const target = returnFocusRef.current;
       returnFocusRef.current = null;
       if (target?.isConnected) target.focus({ preventScroll: true });
+      if (closePendingRef.current) {
+        closePendingRef.current = false;
+        onCloseCompleteRef.current?.();
+      }
     }
   }, [mounted, open]);
 

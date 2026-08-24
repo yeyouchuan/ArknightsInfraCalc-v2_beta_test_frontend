@@ -12,6 +12,7 @@ import type {
 type JsonRecord = Record<string, unknown>;
 
 const ROOM_EFFICIENCY_FIELDS = [
+  "final_efficiency",
   "trade_score",
   "trade_pct",
   "trade_skill_pct",
@@ -62,6 +63,20 @@ function normalizedRoomLine(value: unknown): RotationRoomLine {
   for (const field of ROOM_EFFICIENCY_FIELDS) {
     const number = finiteNumber(value[field]);
     if (number !== undefined) line[field] = number;
+  }
+  if (line.final_efficiency === undefined) {
+    const tradeBonus = finiteNumber(value.trade_pct) ?? finiteNumber(value.trade_display_pct);
+    const manufactureScore = finiteNumber(value.manu_score);
+    const manufactureBonus = finiteNumber(value.manu_prod_total);
+    const powerScore = finiteNumber(value.power_score);
+    const powerBonus = finiteNumber(value.power_charge_speed_pct) ?? finiteNumber(value.power_display_pct);
+    const migratedFinal = finiteNumber(value.trade_score)
+      ?? (tradeBonus !== undefined ? 1 + tradeBonus / 100 : undefined)
+      ?? (manufactureScore !== undefined ? manufactureScore / 100 : undefined)
+      ?? (manufactureBonus !== undefined ? 1 + manufactureBonus / 100 : undefined)
+      ?? (powerScore !== undefined ? powerScore / 100 : undefined)
+      ?? (powerBonus !== undefined ? 1 + powerBonus / 100 : undefined);
+    if (migratedFinal !== undefined) line.final_efficiency = migratedFinal;
   }
   return line;
 }

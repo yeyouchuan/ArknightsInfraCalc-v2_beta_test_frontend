@@ -21,6 +21,8 @@ type ErrorDefinition = {
 };
 
 export const ERROR_DEFINITIONS: Record<AppErrorCode, ErrorDefinition> = {
+  "AIC-AUTH-2008": { status: 401, message: "请先登录网站账号后再使用此功能。", retryable: false },
+  "AIC-AUTH-2009": { status: 403, message: "当前账号没有管理员权限。", retryable: false },
   "AIC-REQ-1001": { status: 400, message: "请求格式无法识别，请检查后重试。", retryable: false },
   "AIC-REQ-1002": { status: 413, message: "提交的数据过大，请精简后重试。", retryable: false },
   "AIC-BOX-1101": { status: 422, message: "干员数据无效，请重新导入。", retryable: false },
@@ -30,6 +32,7 @@ export const ERROR_DEFINITIONS: Record<AppErrorCode, ErrorDefinition> = {
   "AIC-AUTH-2003": { status: 503, message: "当前未开放森空岛登录，可使用 MAA 导入。", retryable: true },
   "AIC-AUTH-2004": { status: 409, message: "同一浏览器最多可登录 5 个森空岛账号，请先退出一个账号。", retryable: false },
   "AIC-AUTH-2005": { status: 400, message: "请先阅读并同意本站服务条款和隐私政策。", retryable: false },
+  "AIC-AUTH-2006": { status: 409, message: "这个森空岛账号已经绑定到其他网站账号。", retryable: false },
   "AIC-AUTH-2007": { status: 404, message: "当前站点不提供此功能。", retryable: false },
   "AIC-PLAN-3001": { status: 503, message: "排班服务暂不可用，请稍后重试。", retryable: true },
   "AIC-PLAN-3002": { status: 429, message: "已有排班任务或请求过于频繁，请稍后重试。", retryable: true },
@@ -40,6 +43,10 @@ export const ERROR_DEFINITIONS: Record<AppErrorCode, ErrorDefinition> = {
   "AIC-SYS-5000": { status: 500, message: "服务暂时出现问题，请稍后重试。", retryable: true },
   "AIC-RATE-6001": { status: 429, message: "操作过于频繁，请稍后重试。", retryable: true },
   "AIC-LOCAL-7001": { status: 0, message: "浏览器无法保存本地数据，但仍可继续生成排班。", retryable: false },
+  "AIC-DATA-8001": { status: 403, message: "请先确认当前版本的服务条款与隐私政策。", retryable: false },
+  "AIC-DATA-8002": { status: 503, message: "账号云端数据暂不可用，请继续使用本地模式。", retryable: true },
+  "AIC-DATA-8003": { status: 422, message: "云端工作区数据无效，请检查后重试。", retryable: false },
+  "AIC-DATA-8004": { status: 404, message: "请求的云端数据不存在或已过期。", retryable: false },
 };
 
 export class PublicApiError extends Error {
@@ -283,14 +290,23 @@ export function acquirePlanSlot(ip: string): () => void {
 }
 
 export function validateFeedbackRequest(value: unknown): asserts value is FeedbackRequest {
-  const body = value as Partial<FeedbackRequest> | null;
-  const room = body?.room;
+  const body = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+  const room = body?.room && typeof body.room === "object" && !Array.isArray(body.room)
+    ? body.room as Record<string, unknown>
+    : null;
+  const kind = body?.kind === undefined ? "room_issue" : body.kind;
   const note = typeof body?.note === "string" ? body.note.trim() : "";
-  const valid =
+  const commonValid =
     Boolean(body)
     && typeof body?.diagnosticId === "string"
     && body.diagnosticId.length >= 1
     && body.diagnosticId.length <= 80
+    && note.length >= 1
+    && note.length <= 1000
+    && body?.consent === true;
+  const roomValid = kind === "room_issue"
     && Boolean(room)
     && typeof room?.id === "string"
     && room.id.length >= 1
@@ -303,17 +319,15 @@ export function validateFeedbackRequest(value: unknown): asserts value is Feedba
     && room.group.length <= 80
     && Array.isArray(room?.operators)
     && room.operators.length <= 10
-    && room.operators.every((operator) => typeof operator === "string" && operator.length <= 80)
-    && note.length >= 1
-    && note.length <= 1000
-    && body?.consent === true;
+    && room.operators.every((operator) => typeof operator === "string" && operator.length <= 80);
+  const performanceValid = kind === "performance_issue" && body?.room === undefined;
 
-  if (!valid) {
+  if (!commonValid || (!roomValid && !performanceValid)) {
     throw new PublicApiError("AIC-FEEDBACK-4001", {
       fieldErrors: [{
         path: "body",
         code: "invalid_feedback",
-        message: "请填写 1–1000 字说明，并确认提交本次排班问题。",
+        message: "请填写 1–1000 字说明，选择有效的反馈类型，并确认提交本次排班问题。",
       }],
     });
   }
@@ -348,6 +362,32 @@ export function assertPlanCollectionLimits(
         path: "sourceName",
         code: "invalid_source_name",
         message: "数据来源名称最多 80 个字符。",
+      }],
+    });
+  }
+}
+
+export function normalizeFiammettaEnable(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (typeof value !== "boolean") {
+    throw new PublicApiError("AIC-REQ-1001", {
+      fieldErrors: [{
+        path: "fiammetta_enable",
+        code: "invalid_fiammetta_enable",
+        message: "fiammetta_enable 必须是布尔值。",
+      }],
+    });
+  }
+  return value;
+}
+
+export function assertFiammettaEnableCompatible(fiammettaEnable: boolean, rotation: string): void {
+  if (!fiammettaEnable && rotation === "fiammetta_8_8_4_4") {
+    throw new PublicApiError("AIC-REQ-1001", {
+      fieldErrors: [{
+        path: "fiammetta_enable",
+        code: "fiammetta_enable_conflicts_with_rotation",
+        message: "未启用菲亚梅塔时不能使用菲亚梅塔轮换。",
       }],
     });
   }

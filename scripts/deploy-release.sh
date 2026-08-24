@@ -80,7 +80,7 @@ if [[ "$test_mode" == "1" ]]; then
     *) fail_validation "Test mode requires an isolated directory below /tmp." ;;
   esac
   case "$test_fail_stage" in
-    none|install|build|restart|internal-health|solver-version|solver-fingerprint|public-health) ;;
+    none|install|build|migration|auth-readiness|restart|internal-health|solver-version|solver-fingerprint|public-health) ;;
     *) fail_validation "Invalid test failure stage." ;;
   esac
   if [[ -n "$test_available_kib" && ! "$test_available_kib" =~ ^[0-9]+$ ]]; then
@@ -380,6 +380,35 @@ if [[ -f "$shared_root/.env.local" ]]; then
   install -m 0600 "$shared_root/.env.local" "$release_dir/.env.local"
 fi
 
+read_shared_feature_flag() {
+  local key="$1"
+  local default_value="$2"
+  local value
+  if [[ ! -f "$shared_root/.env.local" ]]; then
+    printf '%s\n' "$default_value"
+    return
+  fi
+  if ! value="$(awk -v key="$key" '
+    index($0, key "=") == 1 {
+      count += 1
+      value = substr($0, length(key) + 2)
+    }
+    END {
+      if (count > 1) exit 2
+      if (count == 1) print value
+    }
+  ' "$shared_root/.env.local")"; then
+    fail_validation "$key must be declared at most once in shared/.env.local."
+  fi
+  if [[ -z "$value" ]]; then
+    printf '%s\n' "$default_value"
+  elif [[ "$value" == "0" || "$value" == "1" ]]; then
+    printf '%s\n' "$value"
+  else
+    fail_validation "$key must be exactly 0 or 1 in shared/.env.local."
+  fi
+}
+
 has_complete_solver_data() {
   local data_root="$1"
   local required_file
@@ -401,12 +430,13 @@ if [[ -d "$shared_root/bin-data" ]] && has_complete_solver_data "$shared_root/bi
   cp -a "$shared_root/bin-data/." "$release_dir/bin/data/"
 fi
 
-skland_enabled="1"
+skland_default="1"
 if [[ "$deployment_environment" == "production" ]]; then
-  skland_enabled="0"
+  skland_default="0"
   debug_tools_enabled="0"
   rate_limit_enabled="1"
 fi
+skland_enabled="$(read_shared_feature_flag SKLAND_FEATURE_ENABLED "$skland_default")"
 cat > "$release_dir/.env.production.local" <<EOF
 APP_DEPLOYMENT_ENV=$deployment_environment
 SKLAND_FEATURE_ENABLED=$skland_enabled
@@ -439,6 +469,41 @@ else
     bash -lc "cd '$release_dir' && npm run build"
 fi
 
+auth_hook_state="$(node -e "
+const fs = require('node:fs');
+const packageJson = JSON.parse(fs.readFileSync(0, 'utf8'));
+const scripts = packageJson.scripts ?? {};
+const hasMigration = typeof scripts['db:migrate'] === 'string' && scripts['db:migrate'].trim().length > 0;
+const hasReadiness = typeof scripts['auth:check'] === 'string' && scripts['auth:check'].trim().length > 0;
+process.stdout.write(hasMigration && hasReadiness ? 'complete' : hasMigration || hasReadiness ? 'partial' : 'none');
+" < "$release_dir/package.json")"
+
+case "$auth_hook_state" in
+  complete)
+    simulate_failure migration
+    if [[ "$test_mode" == "0" ]]; then
+      runuser -u "$run_user" -- bash -lc "cd '$release_dir' && npm run db:migrate"
+    fi
+
+    simulate_failure auth-readiness
+    if [[ "$test_mode" == "0" ]]; then
+      runuser -u "$run_user" -- bash -lc "cd '$release_dir' && npm run auth:check"
+    fi
+    echo "Authentication database migration and readiness hooks completed."
+    ;;
+  none)
+    echo "Skipping authentication database hooks for a legacy release without either script."
+    ;;
+  partial)
+    echo "Release must define both db:migrate and auth:check scripts, or neither." >&2
+    exit 1
+    ;;
+  *)
+    echo "Unable to determine authentication database hook state." >&2
+    exit 1
+    ;;
+esac
+
 ln -s "$release_dir" "$next_link"
 mv -Tf "$next_link" "$current_link"
 
@@ -467,10 +532,10 @@ if [[ "$test_mode" == "1" ]]; then
   if simulate_failure internal-health \
     && simulate_failure solver-version \
     && simulate_failure solver-fingerprint; then
-    if [[ "$deployment_environment" == "production" ]]; then
-      health_body='{"success":true,"data":{"plannerReady":true}}'
-    else
+    if [[ "$skland_enabled" == "1" ]]; then
       health_body='{"success":true,"data":{"plannerReady":true,"skland":{"available":true}}}'
+    else
+      health_body='{"success":true,"data":{"plannerReady":true}}'
     fi
   else
     health_body='{"success":false,"data":{"plannerReady":false}}'
@@ -490,11 +555,11 @@ if ! printf '%s' "$health_body" | node -e '
   process.stdin.on("end", () => {
     const body = JSON.parse(input);
     if (body?.success !== true || body?.data?.plannerReady !== true) process.exit(1);
-    const expected = process.argv[1];
+    const expected = process.argv[1] === "1";
     const hasSkland = Object.prototype.hasOwnProperty.call(body.data, "skland");
-    if ((expected === "production" && hasSkland) || (expected === "development" && !hasSkland)) process.exit(1);
+    if (hasSkland !== expected) process.exit(1);
   });
-' "$deployment_environment"; then
+' "$skland_enabled"; then
   echo "Internal health verification failed: $health_url" >&2
   rollback || true
   exit 1

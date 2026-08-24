@@ -20,7 +20,10 @@ export function appDeploymentEnvironment(
 export function isSklandFeatureEnabled(
   environment: DeploymentEnvironment = process.env
 ): boolean {
-  if (appDeploymentEnvironment(environment) === "production") return false;
+  if (appDeploymentEnvironment(environment) === "production") {
+    return environment.APP_DEPLOYMENT_ENV === "production"
+      && environment.SKLAND_FEATURE_ENABLED === "1";
+  }
   if (environment.SKLAND_FEATURE_ENABLED === "0") return false;
   return true;
 }

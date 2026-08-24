@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { chmod, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
 import type {
@@ -19,7 +19,9 @@ import type {
 } from "@/types";
 import { isSklandConfigured, sklandDisabledReason } from "@/server/skland/session";
 import { PublicApiError } from "./api-contract";
+import { feedbackDirectoryGroup, toStoredFeedbackIssue } from "./feedback-record";
 import {
+  PLAN_SCHEMA_VERSION,
   createSolverObservation,
   inspectPlanComputeCapability,
   inspectSolverDeploymentReadiness,
@@ -35,6 +37,14 @@ import {
   isSafePrivateStorageRoot,
 } from "./private-storage";
 import { resolveRuntimeDataDir } from "./runtime-data";
+import {
+  deleteExpiredBusinessRecords,
+  queryBusinessRecords,
+  recordFeedbackIfEnabled,
+  updateFeedbackRecord,
+  type PrivateArtifactDescriptor,
+} from "./business-records";
+import { isBusinessDatabaseReadEnabled, isBusinessFileFallbackEnabled } from "./business-config";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -62,6 +72,7 @@ type PlanRequestBody = {
   operbox: OperBoxEntry[];
   sourceName?: string | null;
   rotation: RotationProfile;
+  fiammettaEnable?: boolean;
   dataOwnerTag?: string | null;
 };
 
@@ -209,6 +220,9 @@ function assertPlanBody(body: unknown): asserts body is PlanRequestBody {
   if (!isRotationProfile(body.rotation)) {
     throw new Error("请求缺少受支持的 rotation 参数。");
   }
+  if (body.fiammettaEnable != null && typeof body.fiammettaEnable !== "boolean") {
+    throw new Error("请求的 fiammetta_enable 参数无效。");
+  }
   if (body.dataOwnerTag != null && (typeof body.dataOwnerTag !== "string" || !/^[a-f0-9]{64}$/.test(body.dataOwnerTag))) {
     throw new Error("内部数据归属标识无效。");
   }
@@ -238,6 +252,24 @@ async function readJsonIfExists(filePath: string) {
     return JSON.parse(await readFile(filePath, "utf-8")) as unknown;
   } catch {
     return undefined;
+  }
+}
+
+async function artifactDescriptor(
+  key: string,
+  filePaths: string[],
+): Promise<PrivateArtifactDescriptor | null> {
+  try {
+    const values = await Promise.all(filePaths.map((filePath) => readFile(filePath)));
+    const hash = createHash("sha256");
+    let bytes = 0;
+    for (const value of values) {
+      bytes += value.byteLength;
+      hash.update(value);
+    }
+    return { key, bytes, sha256: hash.digest("hex") };
+  } catch {
+    return null;
   }
 }
 
@@ -345,6 +377,9 @@ export async function maintainPrivateRecords(now = Date.now()): Promise<void> {
     }
     await writeJson(legacySklandPurgeMarker, { version: 1, completedAt: new Date(now).toISOString() });
   }
+  await deleteExpiredBusinessRecords(new Date(now)).catch(() => {
+    console.error(JSON.stringify({ level: "error", event: "business_database_cleanup_failed" }));
+  });
 }
 
 async function maintainPrivateRecordsIfDue(now = Date.now()): Promise<void> {
@@ -862,6 +897,19 @@ export async function getHealth(): Promise<HealthApiResponse> {
   }
 }
 
+export async function getPlanCacheSolverIdentity(): Promise<SolverObservation | null> {
+  try {
+    resolveCliPath();
+    const ping = await getServeClient().ping();
+    const capability = inspectPlanComputeCapability(ping.response);
+    if (!capability.supported || !capability.solverExecutableSha256) return null;
+    const readiness = inspectSolverDeploymentReadiness(capability, process.env.INFRA_CLI_EXPECTED_SHA256);
+    return readiness.ready ? createSolverObservation(capability, new Date().toISOString()) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getSampleOperbox() {
   const samplePath = resolveSampleOperboxPath();
   const sample = JSON.parse(await readFile(samplePath, "utf-8")) as unknown;
@@ -875,7 +923,8 @@ export async function getSampleOperbox() {
 export async function saveFeedback(body: FeedbackRequest): Promise<FeedbackData> {
   const savedAt = new Date().toISOString();
   const feedbackId = randomUUID();
-  const dirName = makeStampedDirName(savedAt, body.room.group, feedbackId);
+  const kind = body.kind ?? "room_issue";
+  const dirName = makeStampedDirName(savedAt, feedbackDirectoryGroup(body), feedbackId);
   const feedbackDir = path.join(feedbackRoot, dirName);
   const metaPath = path.join(feedbackDir, "meta.json");
   const issuePath = path.join(feedbackDir, "issue.json");
@@ -891,18 +940,19 @@ export async function saveFeedback(body: FeedbackRequest): Promise<FeedbackData>
     feedbackId,
     savedAt,
     diagnosticId: body.diagnosticId,
+    kind,
     consent: body.consent,
     solver,
     ...(dataOwnerTag ? { dataOwnerTag } : {}),
   };
 
   await writeJson(metaPath, meta);
-  await writeJson(issuePath, {
-    type: "room_issue",
-    diagnosticId: body.diagnosticId,
-    room: body.room,
-    note: body.note,
-    consent: true,
+  await writeJson(issuePath, toStoredFeedbackIssue(body));
+  await recordFeedbackIfEnabled({
+    feedbackId,
+    savedAt: new Date(savedAt),
+    body,
+    artifact: await artifactDescriptor(feedbackId, [metaPath, issuePath]),
   });
 
   return {
@@ -911,8 +961,17 @@ export async function saveFeedback(body: FeedbackRequest): Promise<FeedbackData>
   };
 }
 
+export async function describePlanArtifact(result: PlanApiResponse): Promise<PrivateArtifactDescriptor | null> {
+  if (!result.runId || !result.resultPath) return null;
+  const resolved = path.resolve(/* turbopackIgnore: true */ result.resultPath);
+  const root = path.resolve(/* turbopackIgnore: true */ cliRunRoot);
+  if (!isPrivateStorageChild(root, resolved)) return null;
+  return artifactDescriptor(result.runId, [resolved]);
+}
+
 export async function runPlan(body: unknown): Promise<PlanApiResponse> {
   let runDir = "";
+  let ephemeralRunDir = "";
   let resultPath = "";
   let solver: SolverObservation | undefined;
   const startedAt = new Date().toISOString();
@@ -926,7 +985,12 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
     const cliPath = resolveCliPath();
     const runId = randomUUID();
     runDir = path.join(cliRunRoot, makeStampedDirName(startedAt, body.sourceName, runId));
-    await mkdir(runDir, { recursive: true });
+    try {
+      await mkdir(runDir, { recursive: true });
+    } catch {
+      ephemeralRunDir = await mkdtemp(path.join(tmpdir(), "arknights-infra-run-"));
+      runDir = ephemeralRunDir;
+    }
     if (body.dataOwnerTag) {
       await writeJson(path.join(runDir, "owner.json"), {
         version: 1,
@@ -981,6 +1045,8 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
     let serveResult: ServeResult;
     let profileJson: unknown;
     let maaJson: unknown;
+    let trainingRoomJson: unknown;
+    let trainingAdviceJson: unknown;
     let rotationSource: unknown;
     let serveShifts: unknown[] = [];
     let shiftFiles: string[] = [];
@@ -990,7 +1056,7 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
 
     if (planCompute.supported) {
       serveResult = await getServeClient().send("plan.compute", {
-        schema_version: 1,
+        schema_version: PLAN_SCHEMA_VERSION,
         layout: body.layout,
         operbox: body.operbox,
         labels: {
@@ -1002,6 +1068,7 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
           top: 20,
           system_preferences: {},
           maa_title: `${body.sourceName ?? "Arknights InfraCalc"} · ${String(body.layout.template ?? "layout")}`,
+          fiammetta_enable: body.fiammettaEnable ?? true,
         },
       });
 
@@ -1013,6 +1080,8 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
       }
       profileJson = payload?.profile;
       maaJson = payload?.maa;
+      trainingRoomJson = payload?.trainingRoom;
+      trainingAdviceJson = payload?.trainingAdvice;
       rotationSource = payload?.rotation;
       serveShifts = payload && Array.isArray(payload.rotation.shifts) ? payload.rotation.shifts : [];
       if (profileJson) await writeJson(profilePath, profileJson);
@@ -1033,6 +1102,9 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
       maaJson = await readJsonIfExists(maaPath);
       const shiftRead = await readShiftFiles(shiftsDir);
       const responseResult = isObject(serveResult.response.result) ? serveResult.response.result : undefined;
+      trainingAdviceJson = responseResult && typeof responseResult === "object"
+        ? (responseResult as { training_advice?: unknown }).training_advice
+        : undefined;
       rotationSource = responseResult;
       const responseShifts = responseResult && Array.isArray(responseResult.shifts) ? responseResult.shifts : [];
       serveShifts = responseShifts.length > 0 ? responseShifts : shiftRead.shifts;
@@ -1083,7 +1155,7 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
       serveResponse: serveResult.response,
       stdout: serveResult.stdout,
       stderr: serveResult.stderr,
-      savedFiles: {
+      savedFiles: ephemeralRunDir ? undefined : {
         runDir: path.relative(repoRoot, runDir),
         layout: path.relative(repoRoot, layoutPath),
         operbox: path.relative(repoRoot, operboxPath),
@@ -1114,6 +1186,8 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
       stderr: serveResult.stderr,
       profileJson: profileJson as PlanApiResponse["profileJson"],
       maaJson: maaJson as PlanApiResponse["maaJson"],
+      trainingRoomJson: trainingRoomJson as PlanApiResponse["trainingRoomJson"],
+      trainingAdviceJson: trainingAdviceJson as PlanApiResponse["trainingAdviceJson"],
       rotationJson: rotationJson as PlanApiResponse["rotationJson"],
       solver,
       debugBundle,
@@ -1149,17 +1223,43 @@ export async function runPlan(body: unknown): Promise<PlanApiResponse> {
       await writeJson(resultPath, errorPayload);
     }
     return errorPayload;
+  } finally {
+    if (ephemeralRunDir) await rm(ephemeralRunDir, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 
 export async function listOpsRecords() {
-  const [feedback, runs, releases, health, storage] = await Promise.all([
-    listStoredRecords(feedbackRoot, "meta.json", "issue.json"),
-    listStoredRecords(cliRunRoot, "result.json", "debug-bundle.json"),
+  const databaseReads = isBusinessDatabaseReadEnabled();
+  const recordsPromise = (async () => {
+    if (databaseReads) {
+      try {
+        const [feedbackRecords, runRecords] = await Promise.all([
+          queryBusinessRecords({ kind: "feedback", limit: 100 }),
+          queryBusinessRecords({ kind: "runs", limit: 100 }),
+        ]);
+        return { feedbackRecords, runRecords };
+      } catch (error) {
+        if (!isBusinessFileFallbackEnabled()) throw error;
+      }
+    }
+    const [feedbackRecords, runRecords] = await Promise.all([
+      listStoredRecords(feedbackRoot, "meta.json", "issue.json"),
+      listStoredRecords(cliRunRoot, "result.json", "debug-bundle.json"),
+    ]);
+    return { feedbackRecords, runRecords };
+  })();
+  const [{ feedbackRecords, runRecords }, releases, health, storage] = await Promise.all([
+    recordsPromise,
     listCliReleases(),
     getHealth(),
     getOpsStorageStats(),
   ]);
+  const feedback = databaseReads && "items" in feedbackRecords
+    ? feedbackRecords.items.map((data) => ({ id: "id" in data ? String(data.id) : "", data, ops: { status: "status" in data ? data.status : null, note: "adminNote" in data ? data.adminNote : null } }))
+    : feedbackRecords;
+  const runs = databaseReads && "items" in runRecords
+    ? runRecords.items.map((data) => ({ id: "diagnosticId" in data ? String(data.diagnosticId) : "", data, ops: null }))
+    : runRecords;
   return { feedback, runs, releases, health, storage, activeCli: readActiveCliPath() ?? null };
 }
 
@@ -1198,6 +1298,17 @@ async function getOpsStorageStats() {
 export async function updateFeedbackOps(id: string, status: string, note: string) {
   if (!/^[\w.-]+$/.test(id)) throw new Error("记录 ID 非法。");
   if (!["pending", "working", "resolved"].includes(status)) throw new Error("状态非法。");
+  if (isBusinessDatabaseReadEnabled()) {
+    const updated = await updateFeedbackRecord({
+      feedbackId: id,
+      status: status as "pending" | "working" | "resolved",
+      note,
+    });
+    if (updated || !isBusinessFileFallbackEnabled()) {
+      if (!updated) throw new Error("记录不存在。");
+      return updated;
+    }
+  }
   const dir = path.join(feedbackRoot, id);
   await stat(dir);
   const value = { status, note: note.trim().slice(0, 2000), updatedAt: new Date().toISOString() };

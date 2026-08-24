@@ -9,7 +9,8 @@ import {
 } from "@/server/api-contract";
 import { isCurrentPolicyConsent } from "@/legal-policy";
 import { startScan } from "@/server/skland/adapter";
-import { assertSklandAvailable, sklandErrorResponse } from "@/server/skland/http";
+import { assertSklandAvailable, assertSklandFeatureEnabled, sklandErrorResponse } from "@/server/skland/http";
+import { requireWebsiteSession } from "@/server/auth/authorization";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,8 @@ export async function POST(request: Request) {
   const requestId = createRequestId();
   const startedAt = performance.now();
   try {
+    assertSklandFeatureEnabled();
+    await requireWebsiteSession(request);
     assertSklandAvailable(request);
     assertSameOrigin(request);
     const ip = requestClientIp(request);
