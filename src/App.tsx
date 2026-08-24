@@ -1578,7 +1578,7 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
         />
 
       <div
-        className={page === "calculator" && !scheduleResult
+        className={page === "calculator" && !scheduleResult && onboardingPreference === "active"
           ? "w-full flex-1"
           : "app-content-track py-4"}
         data-app-content

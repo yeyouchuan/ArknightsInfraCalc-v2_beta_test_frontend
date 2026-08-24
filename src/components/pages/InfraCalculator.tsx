@@ -140,18 +140,88 @@ function CalculatorStartPanel({
   ] as const;
   const personalActionLabel = !websiteAuthenticated
     ? hasPersonalBox ? "登录并继续生成" : "登录并导入 BOX"
-    : hasPersonalBox && !plannerReady ? "排班服务未就绪" : hasPersonalBox ? "生成第一份方案" : "导入自己的 BOX";
+    : hasPersonalBox && !plannerReady
+      ? "排班服务未就绪"
+      : hasPersonalBox
+        ? showOnboarding ? "生成第一份方案" : "生成排班"
+        : "导入自己的 BOX";
   const personalActionAriaLabel = hasPersonalBox ? "生成排班" : "配置Box与布局";
   const personalPlanUnavailable = websiteAuthenticated && hasPersonalBox && !plannerReady;
+  const actionControls = (
+    <div className={cn(
+      "flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center",
+      showOnboarding && "mt-7",
+    )} data-calculator-controls>
+      <Button
+        type="button"
+        size="lg"
+        className="min-h-11 sm:min-w-44"
+        aria-label={personalActionAriaLabel}
+        title={personalPlanUnavailable ? "排班服务尚未就绪" : undefined}
+        disabled={loading || personalPlanUnavailable}
+        onClick={hasPersonalBox && websiteAuthenticated ? onRun : onStartPersonalFlow}
+      >
+        {loading && hasPersonalBox ? <Loader2 className="animate-spin" /> : <Play />}
+        {loading && hasPersonalBox
+          ? showOnboarding ? "正在生成第一份方案…" : "正在生成排班…"
+          : personalActionLabel}
+      </Button>
+      <Button
+        type="button"
+        size="lg"
+        variant="outline"
+        className="min-h-11 bg-white/72 sm:min-w-44"
+        aria-label={hasSampleBox ? "生成排班" : "全角色导入"}
+        disabled={sampleLoading || loading || (hasSampleBox && !plannerReady)}
+        onClick={hasSampleBox ? onRun : () => void onLoadSample()}
+      >
+        {sampleLoading || (loading && hasSampleBox) ? <Loader2 className="animate-spin" /> : <FlaskConical />}
+        {sampleLoading ? "正在载入示例…" : loading && hasSampleBox ? "正在生成示例…" : hasSampleBox ? "生成示例排班" : "先看全角色示例"}
+      </Button>
+      {hasPersonalBox ? (
+        <div className="inline-flex min-w-0 max-sm:[&_[data-skland-account-control]]:rounded-l-none" data-calculator-setup-group>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className={accountControl
+              ? "h-9 rounded-r-none max-sm:h-11"
+              : "h-9 max-sm:h-11"}
+            aria-label="配置Box与布局"
+            onClick={onOpenSetup}
+          >
+            <Settings2 />调整 BOX 与布局
+          </Button>
+          {accountControl}
+        </div>
+      ) : null}
+      {!hasPersonalBox && accountControl ? <div className="self-center">{accountControl}</div> : null}
+      {showOnboarding ? (
+        <Button type="button" variant="ghost" className="min-h-11" onClick={onDismissOnboarding}>
+          暂时跳过引导
+        </Button>
+      ) : (
+        <Button type="button" variant="ghost" className="min-h-11" onClick={onRestartOnboarding}>
+          重新查看三步起步卡
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <section
-      className="relative isolate flex min-h-[calc(100svh-3.5rem)] items-center overflow-hidden bg-[#f7f5ec] px-4 py-8 sm:px-6 md:min-h-svh lg:px-8"
-      aria-label="生成排班起步区"
-      data-calculator-start-panel
+      className={cn(
+        "relative isolate flex items-center overflow-hidden px-4 sm:px-6 lg:px-8",
+        showOnboarding
+          ? "min-h-[calc(100svh-3.5rem)] bg-[#f7f5ec] py-8 md:min-h-svh"
+          : "min-h-[22rem] py-12",
+      )}
+      aria-label={showOnboarding ? "生成排班起步区" : "重新生成排班"}
+      data-calculator-start-panel={showOnboarding ? "" : undefined}
+      data-calculator-regenerate-panel={!showOnboarding ? "" : undefined}
       data-onboarding-active={showOnboarding ? "true" : "false"}
     >
-      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[34%] bg-[linear-gradient(135deg,transparent_0_38%,rgb(49_49_49/0.035)_38%_62%,transparent_62%)] lg:block" aria-hidden="true" />
+      {showOnboarding ? <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[34%] bg-[linear-gradient(135deg,transparent_0_38%,rgb(49_49_49/0.035)_38%_62%,transparent_62%)] lg:block" aria-hidden="true" /> : null}
       <div className="relative mx-auto flex w-full max-w-5xl flex-col justify-center">
         {showOnboarding ? (
           <ol
@@ -206,64 +276,11 @@ function CalculatorStartPanel({
               );
             })}
           </ol>
-        ) : null}
+        ) : (
+          <h2 className="mb-5 text-center text-lg font-semibold tracking-tight">按当前配置生成排班</h2>
+        )}
 
-        <div className={cn(
-          "flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center",
-          showOnboarding && "mt-7",
-        )} data-calculator-controls>
-          <Button
-            type="button"
-            size="lg"
-            className="min-h-11 sm:min-w-44"
-            aria-label={personalActionAriaLabel}
-            title={personalPlanUnavailable ? "排班服务尚未就绪" : undefined}
-            disabled={loading || personalPlanUnavailable}
-            onClick={hasPersonalBox && websiteAuthenticated ? onRun : onStartPersonalFlow}
-          >
-            {loading && hasPersonalBox ? <Loader2 className="animate-spin" /> : <Play />}
-            {loading && hasPersonalBox ? "正在生成第一份方案…" : personalActionLabel}
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            variant="outline"
-            className="min-h-11 bg-white/72 sm:min-w-44"
-            aria-label={hasSampleBox ? "生成排班" : "全角色导入"}
-            disabled={sampleLoading || loading || (hasSampleBox && !plannerReady)}
-            onClick={hasSampleBox ? onRun : () => void onLoadSample()}
-          >
-            {sampleLoading || (loading && hasSampleBox) ? <Loader2 className="animate-spin" /> : <FlaskConical />}
-            {sampleLoading ? "正在载入示例…" : loading && hasSampleBox ? "正在生成示例…" : hasSampleBox ? "生成示例排班" : "先看全角色示例"}
-          </Button>
-          {hasPersonalBox ? (
-            <div className="inline-flex min-w-0 max-sm:[&_[data-skland-account-control]]:rounded-l-none" data-calculator-setup-group>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className={accountControl
-                  ? "h-9 rounded-r-none max-sm:h-11"
-                  : "h-9 max-sm:h-11"}
-                aria-label="配置Box与布局"
-                onClick={onOpenSetup}
-              >
-                <Settings2 />调整 BOX 与布局
-              </Button>
-              {accountControl}
-            </div>
-          ) : null}
-          {!hasPersonalBox && accountControl ? <div className="self-center">{accountControl}</div> : null}
-          {showOnboarding ? (
-            <Button type="button" variant="ghost" className="min-h-11" onClick={onDismissOnboarding}>
-              暂时跳过引导
-            </Button>
-          ) : (
-            <Button type="button" variant="ghost" className="min-h-11" onClick={onRestartOnboarding}>
-              重新查看三步起步卡
-            </Button>
-          )}
-        </div>
+        {actionControls}
       </div>
     </section>
   );
@@ -434,7 +451,7 @@ export function InfraCalculator(props: InfraCalculatorProps) {
           <Panel
             className={cn(
               "min-h-[calc(100vh-112px)]",
-              !scheduleResult && "py-0",
+              !scheduleResult && showOnboarding && "py-0",
             )}
             action={scheduleResult ? (
               <div

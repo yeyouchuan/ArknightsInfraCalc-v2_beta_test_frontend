@@ -173,7 +173,8 @@ test("the onboarding cards reuse the Skland technical grid and can be reopened a
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
 
   await page.getByRole("button", { name: "暂时跳过引导" }).click();
-  await expect(page.locator('[data-calculator-start-panel][data-onboarding-active="false"]')).toBeVisible();
+  await expect(page.locator("[data-calculator-start-panel]")).toHaveCount(0);
+  await expect(page.locator('[data-calculator-regenerate-panel][data-onboarding-active="false"]')).toBeVisible();
   await expect(onboardingList).toHaveCount(0);
   await expect(page.getByRole("button", { name: "重新查看三步起步卡" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem("arknights-infra-calc-beta-onboarding-v1"))).toBe("dismissed");
@@ -182,6 +183,45 @@ test("the onboarding cards reuse the Skland technical grid and can be reopened a
   await expect(page.locator('[data-calculator-start-panel][data-onboarding-active="true"]')).toBeVisible();
   await expect(cards).toHaveCount(3);
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem("arknights-infra-calc-beta-onboarding-v1"))).toBeNull();
+});
+
+test("completed onboarding does not return after changing the layout", async ({ page }) => {
+  await mockApis(page);
+  await seedV4Session(page, planData, { boxSource: "maa" });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("arknights-infra-calc-beta-onboarding-v1", "completed");
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await expect(page.locator("[data-plan-board]")).toBeVisible();
+  await page.getByRole("button", { name: "配置Box与布局" }).first().click();
+  const setupDialog = page.getByRole("dialog");
+  await setupDialog.getByRole("button", { name: /第 2 步，共 3 步：布局/ }).click();
+  await setupDialog.getByRole("button", { name: /^342/ }).click();
+  await setupDialog.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("dialog", { name: "关闭排班设置？" })
+    .getByRole("button", { name: "关闭设置" })
+    .click();
+
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 768, height: 900 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(page.locator("[data-plan-board]")).toHaveCount(0);
+    await expect(page.locator("[data-calculator-start-panel]")).toHaveCount(0);
+    await expect(page.locator("[data-calculator-regenerate-panel]")).toBeVisible();
+    await expect(page.getByRole("button", { name: "生成排班" })).toBeVisible();
+    await expect(page.getByText("生成第一份方案", { exact: true })).toHaveCount(0);
+    const dimensions = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth, JSON.stringify({ viewport, dimensions })).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  }
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("arknights-infra-calc-beta-onboarding-v1"))).toBe("completed");
 });
 
 test("an authenticated personal plan stays disabled while the planner is unavailable", async ({ page }) => {
@@ -2612,7 +2652,7 @@ test("Skland calculator keeps the schedule visible before and after sidebar navi
   await expect(runButton).toBeEnabled();
 
   await expect(page.locator("[data-plan-board]")).toHaveCount(0);
-  await expect(page.locator("[data-calculator-start-panel]")).toBeVisible();
+  await expect(page.locator("[data-calculator-regenerate-panel]")).toBeVisible();
 
   await runButton.click();
   await expect(page.locator('[data-slot="live-activity"]')).toHaveAttribute("data-activity-phase", "success");
@@ -2754,13 +2794,13 @@ test("100% Skland match does not count fatigue-only notices as adjustments", asy
   }
 });
 
-test("empty calculator returns directly to the inline start panel without loading a schedule", async ({ page }) => {
+test("empty returning calculator uses the regeneration panel without loading a schedule", async ({ page }) => {
   await mockApis(page);
   await seedPreferences(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await expect(page.locator("[data-calculator-start-panel]")).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator("[data-calculator-regenerate-panel]")).toBeVisible({ timeout: 45_000 });
   await expect(page.locator("[data-schedule-view]")).toHaveCount(0);
   await expect(page.locator("[data-compact-schedule-skeleton]")).toHaveCount(0);
   await page.getByRole("button", { name: "练卡建议", exact: true }).click();
@@ -2769,7 +2809,7 @@ test("empty calculator returns directly to the inline start panel without loadin
   await expect(page.getByRole("button", { name: "前往生成排班", exact: true })).toHaveCSS("border-radius", "22px");
   await page.getByRole("button", { name: "基建计算器", exact: true }).click();
 
-  await expect(page.locator("[data-calculator-start-panel]")).toBeVisible();
+  await expect(page.locator("[data-calculator-regenerate-panel]")).toBeVisible();
   await expect(page.locator("[data-schedule-view]")).toHaveCount(0);
   await expect(page.locator("[data-compact-schedule-skeleton]")).toHaveCount(0);
 });
@@ -3591,10 +3631,9 @@ test("the compact mobile navigation stays pinned while the account control belon
   await expect.poll(async () => (await page.locator("[data-app-content]").boundingBox())?.y ?? -1).toBeCloseTo(0, 0);
 });
 
-test("the empty calculator is full-screen while other primary pages keep one content offset", async ({ page }) => {
+test("the initial onboarding is full-screen while other primary pages keep one content offset", async ({ page }) => {
   test.setTimeout(60_000);
   await mockApis(page, { sklandConfigured: true, sklandSnapshot: authenticatedSklandSnapshot });
-  await seedPreferences(page);
 
   for (const viewport of [
     { width: 390, height: 844 },
@@ -5276,7 +5315,7 @@ test("setup routes Skland account actions to the status center", async ({ page }
   await page.goto("/");
 
   await expect(page.locator("[data-skland-account-control]")).toBeVisible();
-  await page.locator("[data-calculator-start-panel] [data-calculator-setup-group]")
+  await page.locator("[data-calculator-regenerate-panel] [data-calculator-setup-group]")
     .getByRole("button", { name: "配置Box与布局" })
     .click();
   const dialog = page.getByRole("dialog");
