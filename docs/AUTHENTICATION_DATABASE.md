@@ -1,6 +1,6 @@
 # 网站账号、登录与 PostgreSQL 技术及运维手册
 
-本文说明当前网站账号系统的真实实现、数据库用途、登录生命周期、安全边界、开发方式和服务器运维流程。内容已按 2026-08-21 的当前代码核对；当本文与代码不一致时，以 Drizzle Schema、已提交 migration、认证配置和部署脚本为准。
+本文说明当前网站账号系统的真实实现、数据库用途、登录生命周期、安全边界、开发方式和服务器运维流程。内容已按 2026-08-24 的当前代码核对；当本文与代码不一致时，以 Drizzle Schema、已提交 migration、认证配置和部署脚本为准。首次 production 启用或完整跨分支发布还必须结合[Production 完整发布 Runbook](./PRODUCTION_RELEASE_RUNBOOK.md)执行。
 
 不要把本文示例中的占位值直接投入使用，也不要把生成的密钥、连接串、Resend Key、Cookie、验证码、重置链接或真实邮件写入 Git、Issue、日志或聊天记录。
 
@@ -151,7 +151,7 @@ runtime 连接池只在第一次数据库请求时创建，配置为最大 10 �
 | --- | --- | --- |
 | 技能查询、全角色样例、配置与求解 | 可用 | 可用 |
 | MAA JSON / xlsx 导入及求解 | 返回 `AIC-AUTH-2008` | 可用 |
-| 森空岛登录、同步和求解 | 不可用 | 仅 development 可用 |
+| 森空岛登录、同步和求解 | 不可用 | deployment 显式启用`SKLAND_FEATURE_ENABLED=1`时可用 |
 | `/admin/users` | 不可用 | 初始管理员及其通过管理页授予权限的管理员可用 |
 | 云端工作区与排班历史 | 不可用 | 当前政策同意且功能开关开启后可用 |
 
@@ -351,7 +351,7 @@ psql 'postgresql://<dev-backup-user>:<password>@127.0.0.1:55433/<dev-db>' \
   -c 'select id, email, email_verified, created_at from "user" order by created_at desc;'
 ```
 
-把确认无误的 ID 写入 `BETTER_AUTH_ADMIN_USER_IDS`，多个 ID 用逗号分隔；随后重启 development 服务并访问 `/admin/users`。这些 ID 是权限恢复与后续委派的信任根，不应删除最后一个可用的初始管理员。日常管理员可由初始管理员在页面中授予，不需要继续修改服务器环境变量。
+把确认无误的 ID 写入 shared 配置中的 `BETTER_AUTH_ADMIN_USER_IDS`，多个 ID 用逗号分隔；随后重新发布准确的已验证 development SHA，再访问 `/admin/users`。部署脚本只在创建 release 时把`shared/.env.local`复制为环境快照，单纯重启当前服务不会加载 shared 的新值。这些 ID 是权限恢复与后续委派的信任根，不应删除最后一个可用的初始管理员。日常管理员可由初始管理员在页面中授予，不需要继续修改服务器环境变量。
 
 ### 6.7 配置每日加密备份
 
@@ -397,7 +397,7 @@ production 显式启用森空岛后必须保留对应代码、文案、健康字
 
 ### 6.9 production 一次性启用清单
 
-production 使用全新账号库，不复制 development 用户、Session、管理员、政策同意、云工作区、排班历史或森空岛绑定。上线前按以下原子顺序执行，任一前置条件失败都不得合并`main`：
+production 使用全新账号库，不复制 development 用户、Session、管理员、政策同意、云工作区、排班历史或森空岛绑定。完整的 DNS/Resend、备份恢复、release PR、回填、证据记录和回滚步骤以[Production 完整发布 Runbook](./PRODUCTION_RELEASE_RUNBOOK.md)为准；下面保留认证与数据库相关的最小原子清单。任一前置条件失败都不得合并`main`：
 
 1. 确认`riic.autos`指向 production HTTPS 入口，`ark.riic.autos`只做永久跳转；`auth.riic.autos`的 SPF、DKIM、DMARC 与 Resend 验证全部通过。
 2. 使用仅属于 production 的 bootstrap、runtime、migration、backup 四组随机密码创建`production.env`，再启动并核对数据库：
@@ -439,7 +439,7 @@ production 使用全新账号库，不复制 development 用户、Session、管�
 4. 从待合并、已评审 commit 原子安装固定 deploy helper，确认普通文件、`root:root 0755`、契约版本`1`和 SHA-256。该兼容修改不增加参数，也不升级契约版本；helper 会从`shared/.env.local`读取严格的`SKLAND_FEATURE_ENABLED=0|1`，production 未设置时继续失败关闭。
 5. 为 production 生成独立 age recipient，把`BACKUP_LOCAL_DIR`设为`/var/backups/arknights-infra/production`，手工运行`arknights-infra-db-backup@production.service`并在隔离 PostgreSQL 完成一次解密恢复。首期不设置`RESTIC_REPOSITORY`或`RESTIC_PASSWORD_FILE`。
 6. 合并并发布准确的已验证`main` SHA；migration 与`auth:check`必须在切换`current`前成功。发布后运行一次`npm run db:backfill-business`，只回填 production 当前七天内的运行/反馈白名单摘要，并记录成功、跳过与数据库行数。
-7. 在 production 新注册并验证运营网站账号，用 backup 只读账号查询 Better Auth user ID，把确认后的 ID 写入`BETTER_AUTH_ADMIN_USER_IDS`再重启服务。不得填写邮箱或复制 development 管理员 ID。
+7. 在 production 新注册并验证运营网站账号，用 backup 只读账号查询 Better Auth user ID，把确认后的 ID 写入 shared 的`BETTER_AUTH_ADMIN_USER_IDS`，再重新发布准确的已验证 main SHA 以生成新环境快照。不得填写邮箱、复制 development 管理员 ID，或用单纯重启当前 release 代替重新发布。
 
 首发验收必须覆盖邮件验证码、登录/退出、找回密码、Session 撤销、管理员权限、MAA 求解、云工作区、排班历史、森空岛扫码/切角/同步/求解/退出/删除全部数据，并确认公开响应、日志、数据库和浏览器存储不含凭据、明文 Box、内部路径或调试字段。失败时原子回滚应用 release；已执行的向前兼容 migration 保留。关闭森空岛需要修改开关后重新构建发布，不能只重启旧构建。
 

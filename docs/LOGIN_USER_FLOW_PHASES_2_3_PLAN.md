@@ -339,7 +339,7 @@ npm run test:auth-integration
 
 - 所有阶段先合并 `develop`，由现有范围感知工作流完成 development 发布。
 - development 验收至少包含健康检查、Full E2、三班切换、MAA 下载、刷新恢复和最小反馈。
-- 稳定后从最新 `main` 建迁移分支，以 `cherry-pick -x` 移植对应提交，不合并 develop-only 历史。
+- 稳定后从最新`origin/develop`创建`release/develop-to-main-<date>`，合入最新`origin/main`并解决差异，再向`main`创建专门 release PR；完整流程按[Production 完整发布 Runbook](./PRODUCTION_RELEASE_RUNBOOK.md)执行，不再逐提交`cherry-pick`。
 
 ### 目标指标
 

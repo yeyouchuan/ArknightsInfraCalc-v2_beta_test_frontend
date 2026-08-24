@@ -120,7 +120,7 @@ helper 的精确 SHA-256 仍应在安装和回滚时记录，但不参与每个�
 
 ## 6. develop 到 main 的发布顺序
 
-当前策略是先在 `develop`验证，再把本任务提交用 `cherry-pick -x`移植到最新 `main`；不要为一个修复合并 develop 的其他提交。
+功能先在`develop`验证；需要把 develop 的完整已验证能力晋级到 production 时，从最新`origin/develop`创建专门 release 分支，将最新`origin/main`合入该分支，解决分叉并向`main`创建 release PR。不要逐提交`cherry-pick`，也不要把未合并工作区直接发布到 production。
 
 ```mermaid
 flowchart LR
@@ -128,14 +128,15 @@ flowchart LR
   P1 --> Q1["范围感知 quality 门禁"]
   Q1 --> D["运行时变更自动发布 development"]
   D --> S["真实 Full E2 / MAA / 反馈冒烟"]
-  S --> C["从最新 main cherry-pick -x"]
-  C --> P2["PR 到 main"]
+  S --> B["从最新 develop 创建 release 分支"]
+  B --> M["合入最新 main 并解决差异"]
+  M --> P2["release PR 到 main"]
   P2 --> Q2["范围感知 quality 门禁"]
   Q2 --> R["运行时变更自动发布 production"]
   R --> A["生产验收"]
 ```
 
-每次移植前后检查 `git log --left-right`和 PR 文件列表，确认没有 develop-only 提交。长期应安排独立任务收敛 main/develop 分叉；日常修复不应顺手完成大规模分支合并。
+冲突处理必须同时保留 develop 的完整产品能力和 main 独有的代理、发布、回滚与稳定性修复。创建 PR 前后检查`git log --left-right`、PR 文件列表、最终 tree 与已验证 SHA，防止遗漏一侧修复或带入 development 密钥、数据和运行产物。完整的数据库、认证、域名、备份、回填、管理员初始化和发布证据要求见[Production 完整发布 Runbook](./PRODUCTION_RELEASE_RUNBOOK.md)。
 
 文档、测试和非发布型 CI 变更通过`quality`后不会创建 release，也不需要服务器冒烟；一旦分类要求 deploy，仍必须完成图中的真实环境验证。
 
@@ -164,7 +165,7 @@ flowchart LR
 
 以下是独立改进项，不是普通功能 PR 的顺手改动：
 
-- 规划 main/develop 的一次受控收敛，减少长期 cherry-pick 冲突。
+- 每次 release PR 审计 main/develop 的左右历史与最终 tree，避免再次积累依赖逐提交移植的长期分叉。
 - 为 deployment、Worker 重启循环、`plannerReady`和磁盘空间增加持续监控与告警。
 - 将 Linux 求解器构建升级为可复现、带 commit/toolchain/hash 证明的 CI 制品流程。
 - 定期审计服务器 `authorized_keys`、sudoers、固定 helper hash 和所有权。

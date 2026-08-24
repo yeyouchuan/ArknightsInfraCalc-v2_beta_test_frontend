@@ -85,7 +85,7 @@ MAA JSON / xlsx 与已启用的森空岛能力要求先登录已验证的网站�
 
 业务数据使用 PostgreSQL `app` schema 与受保护文件目录混合保存。功能开关启用后，运行与反馈只双写白名单摘要；CLI 请求响应、命令和 stdout/stderr 仍只在文件目录保留 7 天。登录用户确认当前版本政策后会自动同步布局、设置、最近排班和应用层信封加密的 MAA Box；普通云端数据滚动保留 30 天，最多固定 5 条排班长期保留。森空岛 UID、昵称、Box、凭据和完整状态不会进入业务数据库，森空岛来源也不会进入共享排班缓存。部署与回填顺序见[业务数据存储与分阶段启用手册](./docs/BUSINESS_DATA_STORAGE.md)。
 
-数据库容器、runtime/migration/backup 最小权限账号、邮件域名、固定 deploy helper、管理员初始化、加密备份和双环境验收顺序见[网站账号与 PostgreSQL 上线手册](./docs/AUTHENTICATION_DATABASE.md)。
+数据库容器、runtime/migration/backup 最小权限账号与认证生命周期见[网站账号与 PostgreSQL 上线手册](./docs/AUTHENTICATION_DATABASE.md)；首次启用 production、整体`develop → main`晋级、域名/发信、固定 helper、回填、管理员初始化、完整验收与回滚统一按[Production 完整发布 Runbook](./docs/PRODUCTION_RELEASE_RUNBOOK.md)执行。
 
 法律页面默认以“明日方舟基建排班助手项目维护者”署名并链接仓库 Issues，可通过 `LEGAL_OPERATOR_NAME`、`LEGAL_CONTACT_EMAIL`、`LEGAL_CONTACT_URL` 覆盖。修改政策正文时还应同步更新 `src/legal-policy.ts` 中的政策版本，使旧同意失效并要求重新确认。
 
@@ -192,6 +192,7 @@ fixtures/operbox_full_e2.json
 
 ## 文档入口
 
+- [Production 完整发布 Runbook](./docs/PRODUCTION_RELEASE_RUNBOOK.md)：分支收敛、DNS/Resend、独立数据库、生产配置、加密备份、精确 SHA 发布、回填、管理员初始化、验收证据与回滚。
 - [开发指南](./docs/DEVELOPMENT_GUIDE.md)：API 契约、环境变量、本地调试和质量门禁。
 - [登录用户主流程第二、三阶段计划](./docs/LOGIN_USER_FLOW_PHASES_2_3_PLAN.md)：结果行动化、个人筛选、性能门禁与显式选择的聚合体验指标。
 - [网站账号与 PostgreSQL 上线手册](./docs/AUTHENTICATION_DATABASE.md)：认证生命周期、管理员权限、数据库迁移、备份与 production/development 验收。
@@ -207,4 +208,3 @@ fixtures/operbox_full_e2.json
 - [键盘快捷键](./docs/keyboard-shortcuts.md)：当前快捷键约定及实现状态。
 - [更新线上求解器](./docs/UPDATE_SOLVER.md)：仅在契约或真实求解验证需要时更新服务器 CLI。
 - [第三方素材说明](./THIRD_PARTY_ASSETS.md)：素材来源、许可与再分发说明。
-- [设计 QA 记录](./design-qa.md)：森空岛与练卡页面的视觉对照、实现截图和历史检查结果。
