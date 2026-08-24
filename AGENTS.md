@@ -45,7 +45,7 @@
 - 不对 ELF、PE、图片、字体等二进制做行尾或编码转换。不要假定 Windows 能运行 Linux ELF，也不要依赖 Windows 文件系统替代 Linux 的 executable bit、大小写和符号链接语义。
 - PowerShell 适合日常前端命令；`scripts/*.sh`发布测试必须在 Linux CI 或显式指定的 WSL Ubuntu 中运行。Windows 裸`bash`可能命中 Docker WSL、Git Bash 或系统 shim，不能作为可重复环境。
 - 求解器或协议改动必须把核心 commit、Linux CLI、完整运行数据、同提交 Full E2 fixture、制品 hash 和真实三班冒烟当成一个原子集合核对。
-- 跨平台、求解器身份、helper 契约和双分支发布的长期原因与操作见[`docs/DEVELOPMENT_RELEASE_GUARDRAILS.md`](docs/DEVELOPMENT_RELEASE_GUARDRAILS.md)。本节保留每次任务必须执行的动作，不在两处复制全部背景。
+- 跨平台、求解器身份、helper 契约和双分支发布的长期原因与操作见[`docs/DEVELOPMENT_RELEASE_GUARDRAILS.md`](docs/DEVELOPMENT_RELEASE_GUARDRAILS.md)；首次启用生产能力、整体`develop → main`晋级、数据库/认证/域名变更和完整验收见[`docs/PRODUCTION_RELEASE_RUNBOOK.md`](docs/PRODUCTION_RELEASE_RUNBOOK.md)。本节保留每次任务必须执行的动作，不在多处复制全部背景。
 
 ## 关键结构
 
@@ -77,6 +77,7 @@
 | `bin/infra-cli*`、`bin/data/` | 当前平台 CLI 与可选运行数据 |
 | `e2e/production-readiness.spec.ts` | 产品边界、响应式、持久化、调试开关与森空岛 UI 回归 |
 | `.github/workflows/frontend-quality.yml` | main/develop PR 与 push 的范围感知质量门禁 |
+| `docs/PRODUCTION_RELEASE_RUNBOOK.md` | production 完整发布、基础设施准备、回填、管理员初始化、验收、证据记录与回滚 |
 | `docs/FRONTEND_PRODUCTION_READINESS_REPORT.md` | 公开边界、错误码和产品化基线 |
 | `docs/UPDATE_SOLVER.md` | 只更新线上求解器时的操作与回滚说明 |
 
@@ -294,6 +295,8 @@ npm run dev
 
 除非用户明确要求，不执行服务器部署、服务重启、线上求解器替换或数据清理。
 
+首次启用生产能力、整体晋级`develop`、变更数据库/认证/域名、安装 helper 或执行生产数据回填时，必须按[`docs/PRODUCTION_RELEASE_RUNBOOK.md`](docs/PRODUCTION_RELEASE_RUNBOOK.md)逐阶段执行并留下去敏发布记录。不得在文档、PR、聊天、命令行或临时脚本中记录真实密钥、管理员 user ID、邮箱、Cookie、森空岛身份或 Box。
+
 当前双环境约定：
 
 ```text
@@ -319,6 +322,10 @@ development persistent storage: /var/lib/arknights-infra-dev
 
 `main`和`develop` push 必须先通过`Frontend quality`；只有范围分类输出`deploy_required=true`时，`Deploy verified branch`才从已验证 SHA 自动发布到对应 GitHub Environment。文档、仓库元数据、测试和非发布型 CI 配置不得创建无意义的服务器 release；运行时、未知路径和发布工作流改动仍必须部署。发布包只包含 Git 跟踪内容；服务器优先通过`/usr/local/sbin/arknights-infra-prepare-release`和`/var/cache/arknights-infra-deploy/repository.git`增量准备准确 SHA。helper 返回临时故障码`75`时，Runner 优先读取对应服务器缓存 ref，并发送从该 ref 到已验证 SHA 的增量 Git bundle；缓存 ref 不可用时才使用上一次 push SHA。helper 校验路径、HEAD、前置对象、tree、完整对象图后导入，仅在 bundle 不可用时回退完整 SCP。SHA、tree、路径、bundle 或 helper 契约错误必须直接失败。新 release 从应用根目录的`shared/.env.local`继承环境配置；`shared/bin-data`只有包含当前 Worker 所需的完整数据文件集时才注入 release，不完整的旧数据保留但不得覆盖制品内置数据。随后以`arkinfra`用户执行`npm ci`/`npm run build`，再原子切换`current`并重启对应 systemd。部署锁内只允许清理命名和提交标记均合法的 release 直属目录；每个环境保留当前 release 加两个回滚版本，失败半成品必须移除，清理后可用空间少于 3 GiB 时必须在创建新 release 前失败。`shared`和`/var/lib`永不进入 release 淘汰范围。不得把服务器密码写入文件或命令；只使用受保护的 SSH key 与 known_hosts。手动发布仍必须基于对应已合并、已验证的远端分支。
 
+完整`develop → main`晋级不再逐提交`cherry-pick`。从最新`origin/develop`创建`release/develop-to-main-<date>`分支，将最新`origin/main`合入该 release 分支，解决差异并同时保留 develop 完整能力与 main 独有代理/发布/稳定性修复，再向`main`创建专门 release PR；禁止直推受保护分支或从未合并工作区发布。
+
+`shared/.env.local`只在创建新 release 时复制为该 release 的环境快照。修改 shared 后单纯重启当前服务不会加载新值；管理员信任根、邮件配置或其他运行时变量变化后，应重新发布准确的已验证 SHA，不要把直接修改当前 release 当成常规配置流程。
+
 两个固定 helper 必须是`root:root 0755`普通文件并支持`--contract-version`；当前 prepare/deploy 契约均为`1`。工作流以契约版本做兼容握手，并把服务器文件 SHA-256只作为审计信息。内部实现保持参数、退出码和权限语义兼容时不得随意升级版本；任何不兼容修改必须成套更新脚本、工作流、测试和文档，先通过完整 PR 门禁，再在合并前原子安装并复核新 helper。不得通过跳过 owner/mode/version 检查让部署通过。
 
 发布后至少验证：
@@ -329,6 +336,8 @@ development persistent storage: /var/lib/arknights-infra-dev
 - 浏览器可载入 Full E2、生成三班、刷新恢复、下载 MAA 并提交一次最小反馈。
 - `/var/lib/arknights-infra/cli-runs` 和 `/var/lib/arknights-infra/feedback` 保持持久化且有正确所有权。
 - 每个环境最多存在当前 release 和两个合法回滚 release，没有失败半成品，应用分区剩余空间不少于 3 GiB。
+- 首次 production 上线还要运行一次幂等业务摘要回填、用 Better Auth user ID 初始化管理员并重新发布环境快照；不得用邮箱代替 user ID。
+- 完整发布记录要包含 PR、main SHA、Actions run、release、migration/`auth:check`、回填计数、备份恢复、隐私审计、未执行的破坏性验收和已接受风险，但不得包含真实凭据或用户身份值。
 
 前端发布失败时，把 `current` 原子切回已确认的上一 release 后重启并复查健康检查。只更新线上 CLI 时遵循 `docs/UPDATE_SOLVER.md`，不要借机发布未合并的前端工作区。
 
