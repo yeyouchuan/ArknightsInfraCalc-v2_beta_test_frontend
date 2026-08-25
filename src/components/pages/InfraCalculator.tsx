@@ -124,7 +124,7 @@ function CalculatorStartPanel({
     {
       title: "导入自己的 BOX",
       eyebrow: "干员数据",
-      description: hasPersonalBox ? "个人 BOX 已就绪，可以配置布局并生成方案。" : "支持 MAA JSON 与兼容的一图流表格。",
+      description: hasPersonalBox ? "个人 BOX 已就绪，可以配置布局并生成方案。" : "支持自主上传或第三方同步。",
       group: "trading",
     },
     {

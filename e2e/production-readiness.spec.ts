@@ -65,6 +65,7 @@ test("an anonymous cold start probes the shared session once and does not touch 
   await expect(page.locator('[data-calculator-start-panel][data-onboarding-active="true"]')).toBeVisible();
   await expect(page.getByText("登录网站账号", { exact: true })).toBeVisible();
   await expect(page.getByText("导入自己的 BOX", { exact: true })).toBeVisible();
+  await expect(page.getByText("支持自主上传或第三方同步。", { exact: true })).toBeVisible();
   await expect(page.getByText("生成第一份方案", { exact: true })).toBeVisible();
   await expect(page.getByText("从可执行的排班开始", { exact: true })).toHaveCount(0);
   await expect(page.getByText("把你的 BOX 变成今天就能照着换的三班方案", { exact: true })).toHaveCount(0);
@@ -2109,7 +2110,8 @@ test("anonymous MAA data cannot drive planning or training advice", async ({ pag
   await page.getByRole("button", { name: "练卡建议" }).click();
   await expect(page.locator('[data-primary-page="training"]')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator("[data-training-page]")).toBeVisible({ timeout: 45_000 });
-  await expect(page.getByRole("heading", { name: "登录后查看 MAA 练卡建议" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "登录后查看练卡建议" })).toBeVisible();
+  await expect(page.getByText("当前数据来自自主上传或第三方同步。请前往账号管理登录；匿名状态仍可改用全角色样例生成建议。", { exact: true })).toBeVisible();
   await expect(page.locator("[data-training-advice-list]")).toHaveCount(0);
 });
 
