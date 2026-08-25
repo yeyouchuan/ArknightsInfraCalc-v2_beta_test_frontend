@@ -162,8 +162,8 @@ export function TrainingAdvice({
           <InfraTechnicalCard group="training" className="min-h-[248px]" dataSlot="training-account-required" showEmblem={false}>
             <div className="grid min-h-[216px] place-content-center text-center">
               <CircleAlert className="mx-auto size-8 text-[var(--room-accent)]" aria-hidden="true" />
-              <h2 className="mt-4 text-xl font-semibold">登录后查看 MAA 练卡建议</h2>
-              <p className="mt-2 max-w-lg text-sm leading-6 text-white/62">当前数据来自 MAA 或第三方同步。请前往账号管理登录；匿名状态仍可改用全角色样例生成建议。</p>
+              <h2 className="mt-4 text-xl font-semibold">登录后查看练卡建议</h2>
+              <p className="mt-2 max-w-lg text-sm leading-6 text-white/62">当前数据来自自主上传或第三方同步。请前往账号管理登录；匿名状态仍可改用全角色样例生成建议。</p>
               <Button type="button" className="mx-auto mt-4 h-9 bg-white text-[#272a2b] hover:bg-white/90 max-sm:h-11" onClick={onOpenCalculator}>返回基建计算器</Button>
             </div>
           </InfraTechnicalCard>
