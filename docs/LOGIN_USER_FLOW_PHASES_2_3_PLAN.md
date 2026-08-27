@@ -3,11 +3,11 @@
 > 状态：已确认方向，待按阶段拆分实施
 > 基线：第一阶段完成共享 Website Session、显式登录意图、内联起步卡、768px 列表布局和移动端工具栏收敛
 > 适用仓库：`ArknightsInfraCalc-v2_beta_test_frontend`
-> 最后更新：2026-08-24
+> 最后更新：2026-08-27
 
 ## 1. 目标与边界
 
-第二阶段把已经生成的结果变成用户可以直接执行的行动清单；第三阶段在不收集个人数据的前提下缩短首屏加载、控制长列表成本，并建立可重复验证的体验指标。
+第二阶段把已经生成的结果变成用户可以直接执行的行动清单；第三阶段缩短首屏加载、控制长列表成本，并通过本站自建的第一方明细埋点建立可重复验证的体验指标。
 
 主流程保持为：
 
@@ -22,15 +22,15 @@
 - 让技能查询在存在个人 BOX 时支持“仅看我拥有”和“仅看未解锁技能”。
 - 让森空岛入口和状态中心优先表达绑定、续期、同步失败及当前进驻差异。
 - 让最近一次有效方案成为返回用户的默认入口，并明确来源、生成时间和匹配状态。
-- 按用户主动选择记录无访客标识的聚合体验计数。
+- 自动记录带稳定浏览器分析会话标识的第一方性能、行为和错误明细，并保留 30 天。
 - 建立首路由 gzip 体积报告、意图触发预加载、长列表分段渲染和 Web Vitals 门禁。
 
 ### 1.2 明确不建设的内容
 
 - 不在前端实现排班搜索、干员技能策略或新的效率公式。
 - 不修改 `infra-cli` 协议、`PublicPlanData` 白名单或求解器输出含义。
-- 不把森空岛 UID、昵称、完整状态、BOX、搜索词或账号 ID 写入体验统计。
-- 不引入第三方分析 SDK、广告标识、指纹、Cookie 标识或稳定访客 ID。
+- 不把森空岛 UID、昵称、完整状态、BOX、搜索词、凭据或完整 User-Agent 写入体验统计。
+- 不引入第三方分析 SDK或广告标识；本站会使用 localStorage 中随机生成的稳定分析会话 ID，并在登录时关联网站用户 ID，在存在有效森空岛账号时关联不可逆 HMAC。
 - 不用前端推算“提升百分比”；没有服务端可信基线时只展示绝对日产物和可验证的房间调整。
 - 不把虚拟化强加给短列表；只有数据量和实测渲染成本达到门槛时启用。
 
@@ -54,16 +54,16 @@ Workbench context ───────────────┐
   ├── Skills ───── Personal BOX filters
   └── Skland ───── Binding state + ShiftComparison
 
-Explicit local consent
+Automatic first-party telemetry
+        │ stable browser session ID + same-origin credentials
+        ▼
+Telemetry client
+        │ POST /api/telemetry
+        ▼
+Whitelist validation + same-origin + 128 KiB + rate limit
         │
         ▼
-Experience event client (credentials omitted)
-        │ POST /api/experience-events
-        ▼
-Whitelist validation + same-origin + 4 KiB + rate limit
-        │
-        ▼
-PostgreSQL app.experience_daily (daily aggregate only, 90 days)
+PostgreSQL app.telemetry_event (detailed events, 30-day TTL)
 ```
 
 ## 3. 第二阶段：让结果可执行
@@ -224,84 +224,44 @@ type TrainingAdviceFilter =
 - 登录、设置、训练、技能和森空岛 chunk 不因空闲预取进入匿名首屏。
 - 390px 中 200 条练卡数据和完整技能目录操作时无长时间主线程阻塞，键盘焦点和读屏顺序保持稳定。
 
-### 4.2 PR 3B：显式选择的第一方聚合体验指标
+### 4.2 PR 3B：第一方明细体验指标
 
-#### 用户选择
+#### 收集方式与身份关联
 
-- 首次成功生成个人方案后，在结果详情关闭后显示“帮助改进体验”开关，默认关闭。
-- 选择只保存在本地键 `arknights-infra-experience-consent-v1`；清除本地数据时一并删除。
-- 关闭开关后立即停止发送，不补发关闭期间的事件。
-- 请求使用 `credentials: "omit"`，服务端不读取 Website Session，不创建访客标识。
+- 体验分析随页面自动启用，不设置单独 consent 开关；隐私政策必须明确列出字段、目的、关联方式、保存期限和清除方式。
+- 浏览器在 localStorage 键 `arknights-infra-telemetry-session` 保存随机 UUID，用于关联同一浏览器后续事件；“清除本地数据”必须删除该键。
+- 同源请求携带当前网站 Session。服务端在登录时关联 Better Auth user ID；存在有效森空岛账号时关联由上游账号标识生成的不可逆 HMAC。
+- 不保存森空岛 UID、昵称、BOX、完整状态、令牌、完整 User-Agent、请求正文或客户端自报时间。
 
-#### 公共类型
+#### 事件与字段
 
-在 `src/types.ts` 增加严格联合类型，所有事件带粗粒度视口 `small | medium | large`：
-
-```ts
-type ExperienceViewport = "small" | "medium" | "large";
-type ExperienceDurationBucket =
-  | "lt_1s"
-  | "1_2_5s"
-  | "2_5_5s"
-  | "5_10s"
-  | "10_30s"
-  | "gte_30s";
-
-type ExperienceEvent = { viewport: ExperienceViewport } & (
-  | { name: "auth_gate_shown"; intent: "account" | "run" | "setup" | "skland" }
-  | { name: "box_import_succeeded"; source: "maa_json" | "xlsx" | "skland" }
-  | { name: "first_plan_started"; source: "maa" | "skland" }
-  | { name: "first_plan_succeeded"; duration: ExperienceDurationBucket }
-  | { name: "first_plan_failed"; code: AppErrorCode }
-  | { name: "onboarding_completed" }
-  | { name: "onboarding_skipped" }
-  | { name: "web_vital"; metric: "LCP" | "INP" | "CLS"; rating: "good" | "needs_improvement" | "poor" }
-);
-```
-
-耗时只允许以下区间，不上传毫秒值：
-
-```text
-lt_1s | 1_2_5s | 2_5_5s | 5_10s | 10_30s | gte_30s
-```
-
-Web Vitals 分桶固定为：
-
-- LCP：`good <= 2500ms`，`needs_improvement <= 4000ms`，其余 `poor`。
-- INP：`good <= 200ms`，`needs_improvement <= 500ms`，其余 `poor`。
-- CLS：`good <= 0.1`，`needs_improvement <= 0.25`，其余 `poor`。
+- `performance | interaction | navigation | error | environment` 五类事件使用服务端固定名称和字段白名单。
+- 允许记录页面路由、精确毫秒耗时、非负整数指标，以及设备类型、操作系统、浏览器类别、屏幕尺寸、像素比、内存、CPU 核心数、网络类型等白名单环境字段。
+- 设备信息每次页面运行只发送一次；不支持的 Performance API 直接跳过。
+- 所有字符串、整数和元数据都有长度或范围限制，拒绝额外字段和未知事件。
 
 #### API 与存储
 
-- 新增 `POST /api/experience-events`，使用 `ApiSuccess | ApiFailure` 信封和 `X-Request-Id`。
-- 依次执行：同源校验、每 IP 每小时 120 次限流、4 KiB 正文限制、严格联合类型校验。
-- 成功响应固定为 `{ accepted: true }`，不返回聚合值、数据库状态或内部路径。
-- PostgreSQL 新增 `app.experience_daily`：
-  - `day date`
-  - `event text`
-  - `dimension text`
-  - `viewport text`
-  - `count integer`
-  - `(day, event, dimension, viewport)` 复合主键
-- 每次写入只执行原子 `INSERT ... ON CONFLICT ... count = count + 1`，不保存事件时间、IP、requestId、账号、Session 或正文副本。
-- `dimension` 由服务端从联合类型映射到固定字符串；拒绝额外字段、未知错误码和任意文本。
-- `BETA_BUSINESS_DB_ENABLED` 关闭或数据库不可用时，验证后的请求仍返回 `accepted: true` 并静默放弃统计，不能影响排班主流程。
-- 每个进程在 UTC 日期首次成功写入前删除 90 天以前的行；重复清理必须幂等，数据库维护脚本再提供独立清理入口。
-- 日志继续只包含 requestId、code、route、status、durationMs，不记录 IP 或事件正文。
+- 新增 `POST /api/telemetry`，使用 `ApiSuccess | ApiFailure` 信封和 `X-Request-Id`。
+- 依次执行同源校验、每 IP 每分钟 60 次限流、128 KiB 正文限制、每批 1–20 条和严格白名单校验。
+- 成功响应只返回接受条数，不返回数据库状态、账号关联值或内部路径。
+- PostgreSQL 新增 `app.telemetry_event`，保存随机事件 ID、稳定浏览器会话 ID、可选网站用户 ID、可选森空岛 HMAC、事件明细、服务端接收时间和到期时间。
+- 网站用户外键使用级联删除；注销账号会删除关联事件，匿名事件保留至到期。
+- 明细自服务端接收起 30 天到期；每次写入和现有业务维护流程都删除过期行，并为到期时间建立索引。
+- 日志继续只包含 requestId、code、route、status、durationMs，不记录 IP、会话 ID或事件正文。
 
-#### 客户端采集
+#### 客户端与性能
 
-- 新增 `src/experience-events.ts`，只暴露白名单事件函数和分桶函数。
-- Web Vitals 使用浏览器 `PerformanceObserver`，不引入第三方 SDK；不支持的浏览器直接跳过。
-- 页面隐藏时使用不带凭据的 `fetch(..., { keepalive: true })`；普通交互使用相同 API，不缓存失败事件。
-- “首次”只由当前本地会话状态判定，不创建跨设备标识。
+- `src/lib/telemetry.ts` 负责批量队列、`sendBeacon` 和 keepalive fetch；发送失败直接丢弃，不阻塞排班流程。
+- 全局 Web Vitals/长任务运行时和具体业务事件通过动态 import 加载，不进入工作台初始 JavaScript 预算。
+- 页面隐藏或卸载前冲刷队列，PerformanceObserver 在组件卸载时断开。
 
 #### 测试
 
-- 单元测试覆盖事件联合类型、额外字段拒绝、视口/耗时/Web Vitals 分桶和 consent 默认关闭。
-- API 契约覆盖非法字段、未知错误码、4 KiB 超限、跨源、限流、数据库关闭降级和响应白名单。
-- PostgreSQL 集成测试覆盖并发累加、复合主键、90 天边界和不含用户标识的 schema。
-- E2E 验证未同意时零请求；同意后只发送白名单事件；关闭后停止；生产响应无内部字段。
+- 单元/API 契约覆盖额外字段、未知事件、字符串/数值边界、30 天到期和公开响应白名单。
+- PostgreSQL 集成测试覆盖 migration、账号删除级联和运行角色 DML。
+- E2E 覆盖隐私政策披露、页面自动请求、白名单负载以及清除本地数据后分析会话 ID 被删除。
+- production build 必须继续通过现有 bundle budget，不得放宽阈值。
 
 ## 5. 实施顺序与合并门槛
 
@@ -311,7 +271,7 @@ Web Vitals 分桶固定为：
 | 2 | 2B 练卡/技能筛选 | 2A 的工作台上下文 | 四类筛选、匿名技能库、个人数据不出浏览器 |
 | 3 | 2C 森空岛行动状态 | 2A 的摘要模型 | dev 与显式开启的 production 可用；关闭构建隔离通过 |
 | 4 | 3A 性能与分段渲染 | 第二阶段 UI 稳定 | gzip 基线可重复，首路由下降至少 20% |
-| 5 | 3B 聚合体验指标 | 3A 的指标基线 | 默认关闭、无标识、API/数据库契约通过 |
+| 5 | 3B 明细体验指标 | 3A 的指标基线 | 隐私披露、30 天 TTL、API/数据库契约和 bundle budget 通过 |
 
 每个 PR 至少运行：
 
@@ -346,13 +306,13 @@ npm run test:auth-integration
 - 匿名冷启动：一次 Better Auth Session 请求、零森空岛请求。
 - 移动端：LCP < 2.5s、INP < 200ms、CLS < 0.1。
 - `/` 首路由 gzip 传输量：相对 3A 实施前基线下降至少 20%。
-- 体验指标：只有显式开启后产生每日聚合行，90 天以前数据自动删除。
+- 体验指标：页面自动产生白名单明细事件，30 天以前数据在写入和维护流程中删除。
 
 ### 回滚
 
 - 2A、2B、2C 都只改变展示与客户端编排，可按 PR 单独回滚，不需要数据迁移。
 - 3A 可回滚动态导入和预算配置；不得删除仍被旧 release 引用的静态资源。
-- 3B 回滚顺序为先停止客户端发送，再下线 route，最后在确认无旧 release 写入后单独删除 `experience_daily`；常规前端回滚不删除表中数据。
+- 3B 回滚顺序为先停止客户端发送，再下线 route，最后在确认无旧 release 写入后单独删除 `telemetry_event`；常规前端回滚不删除表中数据。
 - 任一阶段出现健康检查正常但真实 Full E2、MAA 导出或反馈失败时，回滚完整前端 release，不替换 CLI。
 
 ## 7. 外部依赖与凭据
@@ -371,5 +331,5 @@ npm run test:auth-integration
 - 森空岛入口提供一致的续期、重试和差异行动；production 显式开启时保持完整能力，关闭构建继续完全隔离。
 - 返回用户能看见最近方案的来源、时间和匹配状态，过期或不匹配数据不会静默覆盖当前工作区。
 - 性能报告可在 Node 22 CI 重复生成，首路由 gzip 目标达成，长列表无明显交互阻塞。
-- 体验统计默认关闭、可随时撤销、无稳定访客标识，只保留 90 天每日聚合计数。
+- 体验统计按隐私政策自动启用，使用稳定浏览器分析会话标识并保留 30 天明细；清除本地数据和账号注销的删除语义均通过测试。
 - 完整质量门禁和 development 真实发布验收通过，未修改求解器或公共排班 DTO。

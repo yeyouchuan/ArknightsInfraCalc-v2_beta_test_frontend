@@ -17,6 +17,7 @@ test("app schema stores only encrypted Box data and cascades account-owned busin
   const snapshotId = randomUUID();
   const planId = randomUUID();
   const feedbackId = randomUUID();
+  const telemetryId = randomUUID();
   const cacheKey = "c".repeat(64);
   const operboxContentHmac = "f".repeat(64);
   const key = Buffer.alloc(32, 9);
@@ -62,6 +63,11 @@ test("app schema stores only encrypted Box data and cascades account-owned busin
     await pool.query(`INSERT INTO app.feedback (id,diagnostic_id,plan_run_diagnostic_id,user_id,kind,note,consent_at,expires_at) VALUES ($1,$2,$2,$3,'performance_issue','test',now(),now()+interval '30 days')`, [feedbackId, diagnosticId, userId]);
     await pool.query(`INSERT INTO app.plan_cache (key_hmac,solver_executable_sha256,protocol_version,plan_schema_version,expires_at) VALUES ($1,$2,1,3,now()+interval '1 day')`, [cacheKey, "a".repeat(64)]);
     await pool.query(`INSERT INTO app.plan_cache_reference (id,cache_key_hmac,diagnostic_id,user_id) VALUES ($1,$2,$3,$4)`, [randomUUID(), cacheKey, diagnosticId, userId]);
+    await pool.query(
+      `INSERT INTO app.telemetry_event (id,session_id,user_id,type,name,expires_at)
+       VALUES ($1,$2,$3,'interaction','plan_click',now()+interval '30 days')`,
+      [telemetryId, randomUUID(), userId],
+    );
 
     await pool.query("DELETE FROM app.plan_run WHERE diagnostic_id=$1", [diagnosticId]);
     const retainedFeedback = await pool.query(
@@ -81,9 +87,10 @@ test("app schema stores only encrypted Box data and cascades account-owned busin
        (SELECT count(*)::int FROM app.saved_plan WHERE user_id=$1) plans,
        (SELECT count(*)::int FROM app.plan_run WHERE user_id=$1) runs,
        (SELECT count(*)::int FROM app.feedback WHERE user_id=$1) feedback,
-       (SELECT count(*)::int FROM app.plan_cache_reference WHERE user_id=$1) refs`, [userId],
+       (SELECT count(*)::int FROM app.plan_cache_reference WHERE user_id=$1) refs,
+       (SELECT count(*)::int FROM app.telemetry_event WHERE user_id=$1) telemetry`, [userId],
     );
-    assert.deepEqual(counts.rows[0], { snapshots: 0, workspaces: 0, plans: 0, runs: 0, feedback: 0, refs: 0 });
+    assert.deepEqual(counts.rows[0], { snapshots: 0, workspaces: 0, plans: 0, runs: 0, feedback: 0, refs: 0, telemetry: 0 });
   } finally {
     await pool.query("DELETE FROM app.plan_cache WHERE key_hmac=$1", [cacheKey]).catch(() => undefined);
     await pool.query('DELETE FROM "user" WHERE id=$1', [userId]).catch(() => undefined);

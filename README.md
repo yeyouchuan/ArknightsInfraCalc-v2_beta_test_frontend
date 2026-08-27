@@ -85,7 +85,9 @@ MAA JSON / xlsx 与已启用的森空岛能力要求先登录已验证的网站�
 
 业务数据使用 PostgreSQL `app` schema 与受保护文件目录混合保存。功能开关启用后，运行与反馈只双写白名单摘要；CLI 请求响应、命令和 stdout/stderr 仍只在文件目录保留 7 天。登录用户确认当前版本政策后会自动同步布局、设置、最近排班和应用层信封加密的 MAA Box；普通云端数据滚动保留 30 天，最多固定 5 条排班长期保留。森空岛 UID、昵称、Box、凭据和完整状态不会进入业务数据库，森空岛来源也不会进入共享排班缓存。部署与回填顺序见[业务数据存储与分阶段启用手册](./docs/BUSINESS_DATA_STORAGE.md)。
 
-数据库容器、runtime/migration/backup 最小权限账号与认证生命周期见[网站账号与 PostgreSQL 上线手册](./docs/AUTHENTICATION_DATABASE.md)；首次启用 production、整体`develop → main`晋级、域名/发信、固定 helper、回填、管理员初始化、完整验收与回滚统一按[Production 完整发布 Runbook](./docs/PRODUCTION_RELEASE_RUNBOOK.md)执行。
+本站还会自动发送第一方体验埋点到 `POST /api/telemetry`：浏览器在 localStorage 保存随机稳定的分析会话 ID，并记录白名单页面、排班交互、精确性能耗时和设备类别；登录时关联网站 user ID，存在有效森空岛账号时关联不可逆 HMAC。明细设置 30 天到期，不保存完整 User-Agent、请求正文、MAA Box、森空岛 UID/昵称/状态或任何凭据；清除本地数据会删除浏览器分析 ID，注销网站账号会级联删除账号关联明细。完整字段与权利说明以[隐私政策](./src/app/privacy/page.tsx)为准。
+
+数据库容器、runtime/migration/backup 最小权限账号与认证生命周期见[网站账号与 PostgreSQL 上线手册](./docs/AUTHENTICATION_DATABASE.md)；首次启用 production、整体`develop → main`晋级、域名/发信、固定 helper、回填、管理员初始化、加密备份、完整验收与回滚统一按[Production 完整发布 Runbook](./docs/PRODUCTION_RELEASE_RUNBOOK.md)执行。
 
 法律页面默认以“明日方舟基建排班助手项目维护者”署名并链接仓库 Issues，可通过 `LEGAL_OPERATOR_NAME`、`LEGAL_CONTACT_EMAIL`、`LEGAL_CONTACT_URL` 覆盖。修改政策正文时还应同步更新 `src/legal-policy.ts` 中的政策版本，使旧同意失效并要求重新确认。
 
@@ -194,11 +196,11 @@ fixtures/operbox_full_e2.json
 
 - [Production 完整发布 Runbook](./docs/PRODUCTION_RELEASE_RUNBOOK.md)：分支收敛、DNS/Resend、独立数据库、生产配置、加密备份、精确 SHA 发布、回填、管理员初始化、验收证据与回滚。
 - [开发指南](./docs/DEVELOPMENT_GUIDE.md)：API 契约、环境变量、本地调试和质量门禁。
-- [登录用户主流程第二、三阶段计划](./docs/LOGIN_USER_FLOW_PHASES_2_3_PLAN.md)：结果行动化、个人筛选、性能门禁与显式选择的聚合体验指标。
+- [登录用户主流程第二、三阶段计划](./docs/LOGIN_USER_FLOW_PHASES_2_3_PLAN.md)：结果行动化、个人筛选、性能门禁与第一方明细体验指标。
 - [网站账号与 PostgreSQL 上线手册](./docs/AUTHENTICATION_DATABASE.md)：认证生命周期、管理员权限、数据库迁移、备份与 production/development 验收。
 - [PostgreSQL 部署资产](./deploy/postgres/README.md)：双环境容器、最小权限角色和加密备份模板。
 - [业务数据存储与分阶段启用手册](./docs/BUSINESS_DATA_STORAGE.md)：`app` schema、保留策略、加密、回填、备份与功能开关顺序。
-- [预计日产物计算逻辑](./docs/计算逻辑.md)：经验、龙门币、赤金、源石碎片、合成玉和历史排班上下文的计算口径。
+- [预计日产物计算逻辑](./docs/计算逻辑.md)：求解器 `daily.production`、旧结果兼容估算、经验、龙门币、赤金、源石碎片、合成玉和历史排班上下文的展示口径。
 - [森空岛数据能力矩阵](./docs/SKLAND_DATA_CAPABILITIES.md)：账号状态白名单、排班最小字段与禁止持久化的数据。
 - [开发与发布维护准则](./docs/DEVELOPMENT_RELEASE_GUARDRAILS.md)：Windows/Linux 差异、求解器身份、helper 契约和双分支发布。
 - [上线产品化报告](./docs/FRONTEND_PRODUCTION_READINESS_REPORT.md)：改造基线、错误码、数据流、验证结果和 DevTools 排查方法。

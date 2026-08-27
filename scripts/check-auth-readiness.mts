@@ -25,6 +25,7 @@ const expectedBusinessTables = [
   "plan_run",
   "policy_consent",
   "saved_plan",
+  "telemetry_event",
   "user_workspace",
   "workspace_revision",
 ];

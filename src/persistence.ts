@@ -8,6 +8,7 @@ import type {
   UserProfile,
 } from "./types";
 import { stripInternalFields } from "./internal-field-safety.ts";
+import { TELEMETRY_SESSION_STORAGE_KEY } from "./telemetry-contract.ts";
 import { parseTrainingAdviceReport } from "./training-advice-contract.ts";
 import { parseTrainingRoomSchedule } from "./training-room-contract.ts";
 import { sanitizeMaaJson } from "./maa-safety.ts";
@@ -275,6 +276,7 @@ export function clearLocalProductData(storage: StorageLike, extraKeys: string[] 
     SESSION_KEY_V4,
     SESSION_KEY_V5,
     RESULT_CLEAR_WARNING_DISMISSED_KEY,
+    TELEMETRY_SESSION_STORAGE_KEY,
     ...extraKeys,
   ].forEach((key) => storage.removeItem(key));
 }

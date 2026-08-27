@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "overlayscrollbars/overlayscrollbars.css";
 
 import "./globals.css";
+import { TelemetryLoader } from "@/components/telemetry/TelemetryLoader";
 
 const technicalFont = Barlow_Condensed({
   variable: "--font-technical-source",
@@ -42,7 +43,10 @@ export default function RootLayout({
       className={`${technicalFont.variable} ${numberFont.variable} antialiased`}
       suppressHydrationWarning
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <TelemetryLoader />
+      </body>
     </html>
   );
 }

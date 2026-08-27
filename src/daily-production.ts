@@ -131,7 +131,15 @@ function tradeOrder(room: ShiftRoom): TradeOrder {
 }
 
 function finalEfficiency(efficiency: RoomEfficiency | undefined): number | null {
-  return finite(efficiency?.final_efficiency) ? efficiency.final_efficiency : null;
+  if (!efficiency) return null;
+  // serve 新输出：最终效率 = total_efficiency × order_multiplier（非贸易房倍率为 1）。
+  const total = finite(efficiency.total_efficiency) ? efficiency.total_efficiency : undefined;
+  if (total !== undefined) {
+    const order = finite(efficiency.order_multiplier) ? efficiency.order_multiplier : 1;
+    return total * order;
+  }
+  // 旧输出兜底：final_efficiency 本身已是含倍率最终值。
+  return finite(efficiency.final_efficiency) ? efficiency.final_efficiency : null;
 }
 
 function powerBonus(efficiency: RoomEfficiency | undefined): number | null {
@@ -319,6 +327,21 @@ export function estimateDailyProduction({
       shards.drones += equivalent * SHARD_BASE_DAILY * multiplier;
     }
   });
+
+  // 轮换周期归一化：abc_12_12_12 等 36 小时周期（3×12h）折算回 24 小时等效每日产量。
+  // 现有公式按 duration_hours / 24 加权，36h 周期会算成 1.5 天，这里整体乘 24/总时长。
+  const totalDurationHours = rotation.shifts.reduce(
+    (sum, shift) => sum + (Number.isFinite(shift.duration_hours) ? shift.duration_hours : 0),
+    0,
+  );
+  const normalizeScale = totalDurationHours > 0 ? 24 / totalDurationHours : 1;
+  if (normalizeScale !== 1) {
+    for (const amount of [lmdOrders, gold, experience, shards, orundumTrade]) {
+      amount.natural *= normalizeScale;
+      amount.drones *= normalizeScale;
+    }
+    droneTrade *= normalizeScale;
+  }
 
   const lmdOrderAmount = finalizedAmount(lmdOrders);
   const goldAmount = finalizedAmount(gold);

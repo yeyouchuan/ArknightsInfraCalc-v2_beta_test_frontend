@@ -14,6 +14,7 @@ import {
   SESSION_KEY_V5,
   SESSION_TTL_MS,
 } from "./persistence.ts";
+import { TELEMETRY_SESSION_STORAGE_KEY } from "./telemetry-contract.ts";
 
 class MemoryStorage {
   values = new Map<string, string>();
@@ -56,7 +57,7 @@ const result = {
     narration_hints: [],
   },
   maa: { title: "排班", plans: [] },
-  rotation: { profile: DEFAULT_ROTATION_PROFILE, shifts: [], daily: { trade: null, manu: null, power: null } },
+  rotation: { profile: DEFAULT_ROTATION_PROFILE, shifts: [], daily: { trade: null, manufacture: null, power: null } },
   trainingAdvice: {
     schema_version: 2 as const,
     context: {},
@@ -110,7 +111,7 @@ function resultWithShifts(count: number, rotationProfile: RotationProfile = DEFA
         weighted_manu: 0,
         weighted_power: 0,
       })),
-      daily: { trade: 1, manu: 2, power: 3 },
+      daily: { trade: 1, manufacture: 2, power: 3 },
     },
   };
 }
@@ -410,6 +411,9 @@ test("old v4 results migrate a missing rotation profile from the saved setting",
   const legacyResult = JSON.parse(JSON.stringify(resultWithShifts(4))) as Record<string, Record<string, unknown>>;
   delete legacyResult.profile.rotation_profile;
   delete legacyResult.rotation.profile;
+  const legacyDaily = legacyResult.rotation.daily as Record<string, unknown>;
+  legacyDaily.manu = legacyDaily.manufacture;
+  delete legacyDaily.manufacture;
   storage.setItem(SESSION_KEY_V4, JSON.stringify({
     version: 4,
     savedAt: new Date(now).toISOString(),
@@ -427,12 +431,14 @@ test("old v4 results migrate a missing rotation profile from the saved setting",
 
   const migrated = loadPersistedSession(storage, now);
   assert.equal(migrated?.result?.rotation.profile, "fiammetta_8_8_4_4");
+  assert.equal(migrated?.result?.rotation.daily.manufacture, 2);
+  assert.equal("manu" in (migrated?.result?.rotation.daily ?? {}), false);
   assert.equal(migrated?.activeShift, 3);
 });
 
 test("clear removes all session generations and product preferences", () => {
   const storage = new MemoryStorage();
-  [SESSION_KEY_V2, SESSION_KEY_V3, SESSION_KEY_V4, SESSION_KEY_V5, "onboarding"].forEach((key) => storage.setItem(key, "1"));
+  [SESSION_KEY_V2, SESSION_KEY_V3, SESSION_KEY_V4, SESSION_KEY_V5, TELEMETRY_SESSION_STORAGE_KEY, "onboarding"].forEach((key) => storage.setItem(key, "1"));
   clearLocalProductData(storage, ["onboarding"]);
   assert.equal(storage.values.size, 0);
 });

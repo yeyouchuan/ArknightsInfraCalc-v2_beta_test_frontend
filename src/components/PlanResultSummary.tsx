@@ -11,11 +11,11 @@ import { RecommendationCard } from "@/components/RecommendationCard";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { estimateDailyProduction, type DailyProductionAmount, type DailyProductionEstimate, type DailyProductionUnavailableReason } from "@/daily-production";
+import { estimateDailyProduction, type DailyProductionUnavailableReason } from "@/daily-production";
+import { dailyProductionGroups, type DailyProductionGroup, type ProductionDetailProduct } from "@/daily-production-presentation";
 import { manufacturePoolReady } from "@/efficiency";
 import { cn } from "@/lib/utils";
 import { MOTION_DURATION, MOTION_EASE_OUT } from "@/motion";
-import { PRODUCT_ICON_URLS } from "@/product-assets";
 import { formatPlanDuration, relativeMetricDelta, type RotationMetricKind } from "@/rotation-presentation";
 import { countShiftPlacementAdjustments } from "@/skland";
 import type { BaseBlueprint, MaaJson, RotationJson, ShiftComparison, UserProfile } from "@/types";
@@ -69,17 +69,6 @@ function dailyNumber(value: number | null): string {
   return value === null ? "—" : Math.round(value).toLocaleString("zh-CN");
 }
 
-type ProductionDetailProduct = {
-  id: string;
-  label: string;
-  unit: string;
-  icon: string;
-  amount: DailyProductionAmount;
-  rows: Array<[string, number | null, string]>;
-  relation?: string;
-  note?: string;
-};
-
 function unavailableReason(reason: DailyProductionUnavailableReason | undefined): string {
   if (reason === "ambiguous-recipe") return "配方无法归类";
   if (reason === "missing-drone-data") return "无人机数据不足";
@@ -125,26 +114,12 @@ export function PlanResultSummary({
   const baselineRotation = profile?.baseline_rotation;
   const efficiencyMetrics = [
     { kind: "trade" as const, label: "贸易产线", value: rotation?.daily.trade ?? currentRotation?.daily_trade_efficiency ?? currentRotation?.daily_trade, baseline: baselineRotation?.daily_trade_efficiency ?? baselineRotation?.daily_trade },
-    { kind: "manu" as const, label: "制造产线", value: rotation?.daily.manu ?? currentRotation?.daily_manufacture_efficiency ?? currentRotation?.daily_manu, baseline: baselineRotation?.daily_manufacture_efficiency ?? baselineRotation?.daily_manu },
+    { kind: "manu" as const, label: "制造产线", value: rotation?.daily.manufacture ?? currentRotation?.daily_manufacture_efficiency ?? currentRotation?.daily_manu, baseline: baselineRotation?.daily_manufacture_efficiency ?? baselineRotation?.daily_manu },
     { kind: "power" as const, label: "发电产线", value: rotation?.daily.power ?? currentRotation?.daily_power_efficiency ?? currentRotation?.daily_power, baseline: baselineRotation?.daily_power_efficiency ?? baselineRotation?.daily_power },
   ].filter((metric): metric is { kind: RotationMetricKind; label: string; value: number; baseline: number | undefined } => typeof metric.value === "number");
-  const production = rotation ? estimateDailyProduction({ layout, maa, rotation }) : null;
-  const productGroups = production ? [
-    {
-      id: "experience",
-      primary: { id: "experience", label: "经验", unit: "经验", icon: PRODUCT_ICON_URLS.experience, amount: production.experience },
-    },
-    {
-      id: "lmd",
-      primary: { id: "lmd-orders", label: "龙门币", unit: "龙门币", icon: PRODUCT_ICON_URLS.lmdOrders, amount: production.lmdOrders },
-      supporting: { id: "gold", label: "赤金", unit: "枚", icon: PRODUCT_ICON_URLS.gold, amount: production.gold },
-    },
-    {
-      id: "orundum",
-      primary: { id: "orundum", label: "合成玉", unit: "合成玉", icon: PRODUCT_ICON_URLS.orundum, amount: production.orundum },
-      supporting: { id: "shards", label: "源石碎片", unit: "枚", icon: PRODUCT_ICON_URLS.shards, amount: production.shards },
-    },
-  ] : [];
+  const solverDaily = rotation?.daily?.production ?? null;
+  const production = rotation && !solverDaily ? estimateDailyProduction({ layout, maa, rotation }) : null;
+  const productGroups = dailyProductionGroups(production, solverDaily);
   const adjustmentCount = countShiftPlacementAdjustments(comparison);
   const activeDetailSection = detailSection === "comparison" && comparison ? "comparison" : "efficiency";
   const openDetails = (section: DetailSection) => {
@@ -190,7 +165,7 @@ export function PlanResultSummary({
             <ChevronRight className="size-4 shrink-0 text-white/55 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </motion.button>
 
-          <div className="grid min-w-0 grid-cols-3 max-sm:grid-cols-2" aria-label="预计日产物" data-daily-production-summary>
+          <div className="grid min-w-0 grid-cols-3 max-sm:grid-cols-2" aria-label="预计日产物" data-daily-production-summary data-production-source={productGroups[0]?.source}>
             {productGroups.map((productGroup, index) => (
               <motion.button
                 key={productGroup.id}
@@ -269,7 +244,7 @@ export function PlanResultSummary({
             <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6" data-plan-details-section={activeDetailSection}>
               <TabsContent value="efficiency" className="m-0">
                 <motion.div initial={{ opacity: 0, x: shouldReduceMotion ? 0 : -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: shouldReduceMotion ? 0 : MOTION_DURATION.state, ease: MOTION_EASE_OUT }}>
-                  <EfficiencyDetails profile={profile} rotation={rotation} layout={layout} metrics={efficiencyMetrics} production={production} />
+                  <EfficiencyDetails profile={profile} rotation={rotation} layout={layout} metrics={efficiencyMetrics} productGroups={productGroups} />
                 </motion.div>
               </TabsContent>
               {comparison ? (
@@ -337,78 +312,10 @@ function ProductionDetailItem({ product, supporting = false }: { product: Produc
   );
 }
 
-function ProductionDetails({ production }: { production: DailyProductionEstimate | null }) {
-  if (!production) return null;
-  const bottleneck = production.orundum.bottleneck === "manufacture"
-    ? "源石碎片制造"
-    : production.orundum.bottleneck === "trade"
-      ? "合成玉订单"
-      : production.orundum.bottleneck === "balanced"
-        ? "两段持平"
-        : production.orundum.bottleneck === "none"
-          ? "暂无搓玉产线"
-          : "产出数据不足";
-  const productGroups: Array<{
-    id: string;
-    primary: ProductionDetailProduct;
-    supporting?: ProductionDetailProduct;
-  }> = [
-    {
-      id: "experience",
-      primary: {
-        id: "experience",
-        label: "经验",
-        unit: "经验",
-        icon: PRODUCT_ICON_URLS.experience,
-        amount: production.experience,
-        rows: [["自然制造", production.experience.natural, "经验"], ["无人机制造", production.experience.drones, "经验"]],
-      },
-    },
-    {
-      id: "lmd",
-      primary: {
-        id: "lmd-orders",
-        label: "龙门币",
-        unit: "龙门币",
-        icon: PRODUCT_ICON_URLS.lmdOrders,
-        amount: production.lmdOrders,
-        rows: [["自然订单", production.lmdOrders.natural, "龙门币"], ["无人机订单", production.lmdOrders.droneTrade, "龙门币"]],
-      },
-      supporting: {
-        id: "gold",
-        label: "赤金",
-        unit: "枚",
-        icon: PRODUCT_ICON_URLS.gold,
-        amount: production.gold,
-        rows: [["自然制造", production.gold.natural, "枚"], ["无人机制造", production.gold.drones, "枚"]],
-        relation: "订单原料",
-      },
-    },
-    {
-      id: "orundum",
-      primary: {
-        id: "orundum",
-        label: "合成玉",
-        unit: "合成玉",
-        icon: PRODUCT_ICON_URLS.orundum,
-        amount: production.orundum,
-        rows: [["碎片阶段可供", production.orundum.manufactureCapacity, "合成玉"], ["订单阶段可交付", production.orundum.tradeCapacity, "合成玉"]],
-        note: `限制环节：${bottleneck}`,
-      },
-      supporting: {
-        id: "shards",
-        label: "源石碎片",
-        unit: "枚",
-        icon: PRODUCT_ICON_URLS.shards,
-        amount: production.shards,
-        rows: [["自然制造", production.shards.natural, "枚"], ["无人机制造", production.shards.drones, "枚"]],
-        relation: "制造环节",
-      },
-    },
-  ];
-
+function ProductionDetails({ productGroups }: { productGroups: DailyProductionGroup[] }) {
+  if (!productGroups.length) return null;
   return (
-    <section aria-label="预计日产物详情" data-production-details>
+    <section aria-label="预计日产物详情" data-production-details data-production-source={productGroups[0].source}>
       <h3 className="text-sm font-semibold">预计日产物</h3>
       <div className="mt-2 divide-y divide-border/70 border-y border-border/70">
         {productGroups.map((productGroup) => (
@@ -422,13 +329,13 @@ function ProductionDetails({ production }: { production: DailyProductionEstimate
   );
 }
 
-function EfficiencyDetails({ profile, rotation, layout, metrics, production }: { profile?: UserProfile; rotation?: RotationJson; layout: BaseBlueprint; metrics: Array<{ kind: RotationMetricKind; label: string; value: number; baseline: number | undefined }>; production: DailyProductionEstimate | null }) {
+function EfficiencyDetails({ profile, rotation, layout, metrics, productGroups }: { profile?: UserProfile; rotation?: RotationJson; layout: BaseBlueprint; metrics: Array<{ kind: RotationMetricKind; label: string; value: number; baseline: number | undefined }>; productGroups: DailyProductionGroup[] }) {
   const shouldReduceMotion = useReducedMotion();
   const summary = profile?.summary;
   const domains = profile?.domains ?? [];
   return (
     <section className="pt-4" aria-label="产出与提升详情" data-efficiency-details>
-      <ProductionDetails production={production} />
+      <ProductionDetails productGroups={productGroups} />
       <div className="mt-5 border-t border-border/70 pt-4">
         <h3 className="text-sm font-semibold">产线提升空间</h3>
       </div>

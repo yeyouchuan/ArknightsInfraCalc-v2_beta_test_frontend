@@ -248,3 +248,33 @@ export const planCacheReference = appSchema.table("plan_cache_reference", {
   index("plan_cache_reference_user_idx").on(table.userId),
   index("plan_cache_reference_diagnostic_idx").on(table.diagnosticId),
 ]);
+
+/** 前端埋点事件（性能/行为/错误），30 天 TTL 明细落库；字段与事件名白名单在路由层校验。 */
+export const telemetryEvent = appSchema.table("telemetry_event", {
+  id: text("id").primaryKey(),
+  /** 浏览器会话标识（前端生成，游客也有）。 */
+  sessionId: text("session_id").notNull(),
+  /** 登录网站用户；游客为 null。 */
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  /** 森空岛来源账号的 HMAC（服务端从会话取，可空）。 */
+  dataOwnerTag: text("data_owner_tag"),
+  /** performance | interaction | navigation | error */
+  type: text("type").notNull(),
+  /** 事件名（白名单枚举）。 */
+  name: text("name").notNull(),
+  durationMs: integer("duration_ms"),
+  value: integer("value"),
+  /** 当前页面路由。 */
+  page: text("page"),
+  /** 附加字段（白名单键）。 */
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  index("telemetry_event_created_at_idx").on(table.createdAt),
+  index("telemetry_event_expires_at_idx").on(table.expiresAt),
+  index("telemetry_event_type_created_at_idx").on(table.type, table.createdAt),
+  index("telemetry_event_name_created_at_idx").on(table.name, table.createdAt),
+  index("telemetry_event_user_created_at_idx").on(table.userId, table.createdAt),
+  index("telemetry_event_owner_created_at_idx").on(table.dataOwnerTag, table.createdAt),
+]);

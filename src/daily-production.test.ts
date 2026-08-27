@@ -58,7 +58,7 @@ function fixture({
       weighted_manu: 0,
       weighted_power: 0,
     })),
-    daily: { trade: null, manu: null, power: null },
+    daily: { trade: null, manufacture: null, power: null },
   };
   return { layout, maa, rotation };
 }
@@ -195,4 +195,24 @@ test("requires complete power data only for the drone-targeted product", () => {
   const result = estimateDailyProduction(input);
   assert.equal(result.experience.unavailableReason, "missing-drone-data");
   assert.equal(result.lmdOrders.value !== null, true);
+});
+
+test("normalizes 36-hour rotation cycles back to daily production", () => {
+  const lines: RotationRoomLine[] = [
+    { room_id: "trade_1", final_efficiency: 1 },
+    { room_id: "manu_1", final_efficiency: 1 },
+    { room_id: "power_1", final_efficiency: 1 },
+    { room_id: "power_2", final_efficiency: 1 },
+  ];
+  const input = fixture({
+    tradeLevels: [3],
+    tradeProducts: ["LMD"],
+    factoryProducts: ["Gold"],
+    durations: [12, 12, 12],
+    lines: [lines, lines, lines],
+  });
+  const result = estimateDailyProduction(input);
+  // 36h 周期（3×12h）折算 24h 每日产量：满效率下应等于基础每日量（10265 / 20），而不是 1.5 倍。
+  assert.ok(Math.abs(result.lmdOrders.value! - 10_265) < 1e-6);
+  assert.ok(Math.abs(result.gold.value! - 20) < 1e-6);
 });

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { LegalDocument } from "@/components/legal/LegalDocument";
 import { isSklandFeatureEnabled } from "@/deployment";
 import { legalIdentity } from "@/legal";
-import { LEGAL_EFFECTIVE_DATE } from "@/legal-policy";
+import { PRIVACY_EFFECTIVE_DATE } from "@/legal-policy";
 
 export const metadata: Metadata = {
   title: "隐私政策 · 可露希尔基建终端",
@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   const identity = legalIdentity();
   const sklandEnabled = isSklandFeatureEnabled();
   return (
-    <LegalDocument eyebrow="可露希尔基建终端" title="隐私政策" effectiveDate={LEGAL_EFFECTIVE_DATE}>
+    <LegalDocument eyebrow="可露希尔基建终端" title="隐私政策" effectiveDate={PRIVACY_EFFECTIVE_DATE}>
       <section>
         <h2>网站账号与邮件</h2>
         <ul>
@@ -27,6 +27,17 @@ export default function PrivacyPage() {
           <li>云端工作区版本最多保留 <span className="font-number">10</span> 份且不超过 <span className="font-number">30</span> 天；普通排班最多保留 <span className="font-number">5</span> 条并滚动保留 <span className="font-number">30</span> 天，另可固定最多 <span className="font-number">5</span> 条长期保存。</li>
           <li>你可以撤销同步同意或删除云端数据；这会删除工作区、Box 密文、排班历史和相关缓存引用。浏览器仍可按你的选择保留清理后的本地副本。</li>
           {sklandEnabled ? <li>森空岛 UID、昵称、Box、凭据和完整状态快照始终不会写入业务数据库；只额外保存不可逆的绑定标识和授权时间。</li> : null}
+        </ul>
+      </section>
+      <section>
+        <h2>体验分析与设备信息</h2>
+        <ul>
+          <li>访问本站时，第一方体验分析会自动记录页面访问、排班请求与渲染、Web Vitals、长任务以及前端错误等白名单事件；当前不提供单独关闭开关，也不接入第三方分析 SDK。</li>
+          <li>浏览器会在 localStorage 保存一个随机生成的稳定分析会话标识，用于关联同一浏览器后续产生的事件；使用页面中的“清除本地数据”会删除该标识，之后访问时会重新生成。</li>
+          <li>每条记录可以包含服务端接收时间、页面路由、精确毫秒耗时或整数指标，以及设备类型、操作系统、浏览器类别、屏幕尺寸、像素比、内存、处理器核心数和网络类型等白名单环境字段；不会保存完整 User-Agent、请求正文、MAA Box 或登录凭证。</li>
+          <li>登录网站账号时，事件会关联网站用户 ID；当前浏览器同时存在有效森空岛账号时，还会关联由上游账号标识生成的不可逆 HMAC。不会写入森空岛 UID、昵称、Box、完整状态或令牌。</li>
+          <li>明细事件设置为自服务端接收起 <span className="font-number">30</span> 天到期，过期数据会在后续写入和服务端维护时删除。注销网站账号会级联删除关联该账号的事件；未关联账号的浏览器事件保留至到期。</li>
+          <li>接口会使用网络地址进行同源校验和限流，但应用事件表不保存网络地址。分析请求和错误日志继续只记录最小诊断字段，不记录事件正文。</li>
         </ul>
       </section>
       {sklandEnabled ? <>
