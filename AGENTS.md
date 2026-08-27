@@ -69,6 +69,7 @@
 | `src/server/public-plan.ts` | 内部求解结果到公共排班 DTO 的白名单映射 |
 | `src/server/infra.ts` | CLI 查找、长驻 serve 客户端、运行记录、反馈和 CLI release 存储 |
 | `src/server/business-records.ts`、`src/server/workspace.ts`、`src/server/plan-cache.ts` | 业务摘要、账号云端工作区和共享排班缓存；不得复制求解逻辑 |
+| `src/lib/telemetry.ts`、`src/server/telemetry.ts`、`src/app/api/telemetry/route.ts` | 第一方明细埋点队列、严格白名单、账号关联和 30 天清理 |
 | `src/server/skland/*` | 森空岛会话加密、Cookie、扫码、同步、角色切换与数据归一化 |
 | `src/internal-field-safety.ts` | 递归剔除内部字段 |
 | `scripts/extract-room-emblems.mjs` | 从现有 WebP 确定性提取透明高清设施徽记 |
@@ -110,6 +111,7 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - `GET`、`PUT /api/workspace`
 - `GET /api/account/saved-plans`
 - `PATCH`、`DELETE /api/account/saved-plans/[id]`
+- `POST /api/telemetry`
 
 旧 `/api/plans`、`/api/plans/[id]` 与 `DELETE /api/workspace` 仅作为带 `Deprecation` 响应头的兼容入口；新客户端不得继续调用。
 
@@ -126,6 +128,7 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - 新增或修改错误码时，同时更新 `AppErrorCode`、`ERROR_DEFINITIONS`、HTTP 映射和契约测试。日志只记录 requestId、code、route、status、durationMs 等最小诊断信息，不打印请求正文或凭据。
 - 所有公开写请求必须保留同源校验、请求体大小限制和适当限流。只有在明确的本地测试中关闭限流；不要用重复请求压测线上实例。
 - 反馈必须要求用户同意，并保持最小化：公开响应只有 `feedbackId` 和 `savedAt`，不要把文件路径、Box、debug bundle 或内部诊断内容回传给浏览器。
+- 第一方体验埋点自动启用并使用 localStorage 中的稳定随机分析会话 ID；登录时可以关联 Better Auth user ID，存在有效森空岛账号时可以关联不可逆 HMAC。只允许隐私政策列明的事件、页面、精确性能整数和设备类别字段，30 天到期并在写入及业务维护时清理；禁止保存 IP、完整 User-Agent、请求正文、Box、森空岛明文身份、状态或凭据。清除本地数据必须删除分析 ID，注销网站账号必须级联删除账号关联事件。
 - 森空岛只提供二维码授权流程，不添加账号密码、短信验证码代填或绕过官方授权的登录方式。
 - `APP_DEPLOYMENT_ENV=production`时森空岛必须失败关闭，只有显式设置`SKLAND_FEATURE_ENABLED=1`才能从页面、客户端请求、健康检查字段和公开 API 访问面启用；未设置、空值或其他值均不得开启。development/local 默认保留森空岛能力，并可显式设置`0`关闭。
 - Production browser artifacts must match the resolved Skland switch: disabled builds must not contain Skland UI copy, `/api/skland` URLs, or the `skland://` app scheme, while explicitly enabled builds must retain all three boundaries. Run `npm run test:production-client` with the same deployment variables used for `npm run build` after changing client boundaries.
@@ -133,7 +136,7 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - `SKLAND_SESSION_SECRET` 必须至少 32 字节且长期稳定。森空岛会话使用 AES-256-GCM 封装在 HttpOnly Cookie 中；凭据不得进入 localStorage、CLI 运行记录、反馈包、console 或公开响应。
 - 非 localhost 的森空岛请求默认要求 HTTPS。`SKLAND_ALLOW_INSECURE_HTTP=1` 仅允许临时、可信的本地或内网测试，绝不能作为生产默认值。
 - 森空岛凭证从扫码成功起固定 7 天到期，刷新 token、读取会话和切换角色都不得续期；用户同意当前条款与隐私政策并登录后，状态中心默认返回完整状态白名单，排班链路仍只使用最小排班字段。
-- PostgreSQL 的 `app` schema 可保存最小运行/反馈摘要、当前政策同意、白名单工作区、公开排班历史和 HMAC 缓存。只有当前政策已同意且云同步开启时，MAA Box 才能以应用层信封密文入库；森空岛 UID、昵称、Box、凭据和完整状态始终禁止入库。退出对应森空岛账号、删除全部森空岛数据和注销网站账号必须清除相应绑定；撤销云同步或删除账号还必须删除工作区、密文、历史与缓存引用。
+- PostgreSQL 的 `app` schema 可保存最小运行/反馈摘要、当前政策同意、白名单工作区、公开排班历史、HMAC 缓存和已披露的 30 天第一方埋点明细。只有当前政策已同意且云同步开启时，MAA Box 才能以应用层信封密文入库；森空岛 UID、昵称、Box、凭据和完整状态始终禁止入库。退出对应森空岛账号、删除全部森空岛数据和注销网站账号必须清除相应绑定；撤销云同步或删除账号还必须删除工作区、密文、历史与缓存引用。
 - 浏览器 v5 持久化可以保存布局、Box、来源标记和经过清理的最近排班，但必须继续剔除 debug、路径、stdout、stderr、请求/响应内部字段和森空岛凭据。
 
 ## 环境变量

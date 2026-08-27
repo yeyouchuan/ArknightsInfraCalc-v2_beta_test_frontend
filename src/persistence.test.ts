@@ -14,6 +14,7 @@ import {
   SESSION_KEY_V5,
   SESSION_TTL_MS,
 } from "./persistence.ts";
+import { TELEMETRY_SESSION_STORAGE_KEY } from "./telemetry-contract.ts";
 
 class MemoryStorage {
   values = new Map<string, string>();
@@ -432,7 +433,7 @@ test("old v4 results migrate a missing rotation profile from the saved setting",
 
 test("clear removes all session generations and product preferences", () => {
   const storage = new MemoryStorage();
-  [SESSION_KEY_V2, SESSION_KEY_V3, SESSION_KEY_V4, SESSION_KEY_V5, "onboarding"].forEach((key) => storage.setItem(key, "1"));
+  [SESSION_KEY_V2, SESSION_KEY_V3, SESSION_KEY_V4, SESSION_KEY_V5, TELEMETRY_SESSION_STORAGE_KEY, "onboarding"].forEach((key) => storage.setItem(key, "1"));
   clearLocalProductData(storage, ["onboarding"]);
   assert.equal(storage.values.size, 0);
 });

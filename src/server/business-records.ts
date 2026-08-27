@@ -16,6 +16,7 @@ import {
   planRun,
   policyConsent,
   savedPlan,
+  telemetryEvent,
   userWorkspace,
   workspaceRevision,
 } from "./db/schema";
@@ -308,5 +309,6 @@ export async function deleteExpiredBusinessRecords(now = new Date()): Promise<vo
       lt(savedPlan.expiresAt, now),
     ));
     await tx.delete(operboxSnapshot).where(lt(operboxSnapshot.expiresAt, now));
+    await tx.delete(telemetryEvent).where(lt(telemetryEvent.expiresAt, now));
   });
 }

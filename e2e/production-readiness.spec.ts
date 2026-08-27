@@ -1173,6 +1173,7 @@ async function mockApis(
     sklandSummaryDelayMs?: number;
     sklandSessionFailure?: boolean;
     plannerReady?: boolean;
+    telemetryBatches?: Array<Array<Record<string, unknown>>>;
   } = {}
 ) {
   await page.route("**/api/health", (route) => route.fulfill({
@@ -1327,6 +1328,17 @@ async function mockApis(
       requestId,
     }),
   }));
+  await page.route("**/api/telemetry", async (route) => {
+    const body = route.request().postDataJSON() as { events?: Array<Record<string, unknown>> };
+    const events = Array.isArray(body.events) ? body.events : [];
+    options.telemetryBatches?.push(events);
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "X-Request-Id": requestId },
+      body: JSON.stringify({ success: true, data: { accepted: events.length }, requestId }),
+    });
+  });
 }
 
 async function openSklandOverview(page: Page) {
@@ -1560,7 +1572,7 @@ for (const viewport of [
       return fulfill(route, {
         current: consentCurrent,
         termsVersion: "2026-08-21-cloud-workspace",
-        privacyVersion: "2026-08-21-cloud-workspace",
+        privacyVersion: "2026-08-27-detailed-telemetry",
         acceptedAt: consentCurrent ? timestamp : null,
         revokedAt: null,
         cloudSyncEnabled: true,
@@ -4371,7 +4383,9 @@ test("publishes the site terms and privacy policy with upstream policy links", a
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoStable(page, "/privacy");
   await expect(page.getByRole("heading", { name: "隐私政策", level: 1 })).toBeVisible();
-  await expect(page.getByText("版本与生效日期：2026-08-21")).toBeVisible();
+  await expect(page.getByText("版本与生效日期：2026-08-27")).toBeVisible();
+  await expect(page.getByText(/第一方体验分析会自动记录/)).toBeVisible();
+  await expect(page.getByText(/30 天到期/)).toBeVisible();
   await expect(page.getByText("可露希尔基建终端项目维护者", { exact: false })).toBeVisible();
   await expect(page.getByRole("link", { name: "森空岛使用许可及服务协议" })).toHaveAttribute(
     "href",
@@ -4388,6 +4402,26 @@ test("publishes the site terms and privacy policy with upstream policy links", a
   await expect(page.getByText(/非官方、非商业工具/)).toBeVisible();
 });
 
+test("automatic first-party telemetry sends only the disclosed browser whitelist", async ({ page }) => {
+  const telemetryBatches: Array<Array<Record<string, unknown>>> = [];
+  await mockApis(page, { telemetryBatches });
+  await page.goto("/");
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("arknights-infra-telemetry-session"))).not.toBeNull();
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  await expect.poll(() => telemetryBatches.flat().length).toBeGreaterThan(0);
+
+  const events = telemetryBatches.flat();
+  const allowedKeys = new Set(["sessionId", "type", "name", "durationMs", "value", "page", "meta"]);
+  for (const event of events) {
+    expect(Object.keys(event).every((key) => allowedKeys.has(key))).toBe(true);
+    expect(event).not.toHaveProperty("createdAt");
+    expect(event).not.toHaveProperty("userId");
+    expect(event).not.toHaveProperty("dataOwnerTag");
+  }
+  expect(events.some((event) => event.name === "device_info")).toBe(true);
+  expect(new Set(events.map((event) => event.sessionId)).size).toBe(1);
+});
+
 test("Skland login centers the QR on every viewport and starts after explicit consent", async ({ page }) => {
   await mockApis(page, { sklandConfigured: true });
   let qrStartRequests = 0;
@@ -4398,7 +4432,7 @@ test("Skland login centers the QR on every viewport and starts after explicit co
         termsAccepted: true,
         privacyAccepted: true,
         termsVersion: "2026-08-21-cloud-workspace",
-        privacyVersion: "2026-08-21-cloud-workspace",
+        privacyVersion: "2026-08-27-detailed-telemetry",
       },
     });
     return route.fulfill({
@@ -5377,6 +5411,8 @@ test("settings clears local product data without logging out of Skland", async (
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("arknights-infra-telemetry-session"))).not.toBeNull();
+  const telemetrySessionBeforeClear = await page.evaluate(() => window.localStorage.getItem("arknights-infra-telemetry-session"));
 
   await expect(page.locator("[data-plan-board]")).toHaveAttribute("data-plan-revision", diagnosticId);
   await page.locator("[data-calculator-more-tools]").getByText("更多工具", { exact: true }).click();
@@ -5399,8 +5435,10 @@ test("settings clears local product data without logging out of Skland", async (
     v3: window.localStorage.getItem("arknights-infra-calc-beta-session-v3"),
     v4: window.localStorage.getItem("arknights-infra-calc-session-v4"),
     v5: window.localStorage.getItem("arknights-infra-calc-session-v5"),
+    telemetry: window.localStorage.getItem("arknights-infra-telemetry-session"),
     onboarding: window.localStorage.getItem("arknights-infra-calc-beta-onboarding-v1"),
   }));
-  expect(stored).toEqual({ v2: null, v3: null, v4: null, v5: null, onboarding: null });
+  expect({ ...stored, telemetry: undefined }).toEqual({ v2: null, v3: null, v4: null, v5: null, telemetry: undefined, onboarding: null });
+  expect(stored.telemetry).not.toBe(telemetrySessionBeforeClear);
   expect(logoutRequests).toBe(0);
 });
