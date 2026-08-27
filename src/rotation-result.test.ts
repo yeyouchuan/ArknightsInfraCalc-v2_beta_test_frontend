@@ -7,7 +7,12 @@ test("plan.compute rotation keeps the worker profile and daily summary while whi
   const rotation = normalizeRotationResult({
     source: {
       profile: "fiammetta_8_8_4_4",
-      daily: { trade: 5.288, manufacture: 9.175, power: 3.552 },
+      daily: {
+        trade: 5.288,
+        manufacture: 9.175,
+        power: 3.552,
+        production: { lmd: 34_254.5, pure_gold: 52_999, battle_records: 22_400, originium_shards: 48, orundum: 360 },
+      },
       future_internal: "must not pass",
     },
     shifts: [{
@@ -37,7 +42,12 @@ test("plan.compute rotation keeps the worker profile and daily summary while whi
   });
 
   assert.equal(rotation.profile, "fiammetta_8_8_4_4");
-  assert.deepEqual(rotation.daily, { trade: 5.288, manu: 9.175, power: 3.552 });
+  assert.deepEqual(rotation.daily, {
+    trade: 5.288,
+    manufacture: 9.175,
+    power: 3.552,
+    production: { lmd: 34_254.5, pure_gold: 52_999, battle_records: 22_400, originium_shards: 48, orundum: 360 },
+  });
   assert.deepEqual(rotation.shifts[0], {
     index: 3,
     duration_hours: 4,
@@ -85,7 +95,7 @@ test("legacy rotation falls back through result and profile fields", () => {
   });
 
   assert.equal(rotation.profile, "main_backup_12_12");
-  assert.deepEqual(rotation.daily, { trade: 4.2, manu: 8.4, power: 3.1 });
+  assert.deepEqual(rotation.daily, { trade: 4.2, manufacture: 8.4, power: 3.1 });
   assert.equal(rotation.shifts[0].duration_hours, 12);
   assert.equal(rotation.shifts[1].duration_hours, 12);
   assert.deepEqual(rotation.shifts[0].scores.room_lines[0], {
@@ -135,5 +145,19 @@ test("missing summaries use the profile snapshot and requested profile", () => {
   });
 
   assert.equal(rotation.profile, "abyssal_7_5_7_5");
-  assert.deepEqual(rotation.daily, { trade: 3, manu: 6, power: 2 });
+  assert.deepEqual(rotation.daily, { trade: 3, manufacture: 6, power: 2 });
+});
+
+test("partial, negative, or non-finite solver production is omitted instead of becoming zero", () => {
+  for (const production of [
+    { lmd: 1, pure_gold: 2, battle_records: 3, originium_shards: 4 },
+    { lmd: -1, pure_gold: 2, battle_records: 3, originium_shards: 4, orundum: 5 },
+    { lmd: 1, pure_gold: 2, battle_records: Number.NaN, originium_shards: 4, orundum: 5 },
+  ]) {
+    const rotation = normalizeRotationResult({
+      source: { daily: { trade: 1, manufacture: 2, power: 3, production } },
+      fallbackProfile: "abc_12_6_6",
+    });
+    assert.equal(rotation.daily.production, undefined);
+  }
 });

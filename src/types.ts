@@ -140,6 +140,15 @@ export interface TrainingRoomSchedule {
 
 export interface RoomEfficiency {
   final_efficiency?: number;
+  /** serve 新输出：纸面总计（订单倍率前）。 */
+  total_efficiency?: number;
+  /** serve 新输出：贸易订单倍率（非贸易房为 1.0）。 */
+  order_multiplier?: number;
+  base_efficiency?: number;
+  equivalent_efficiency?: number;
+  global_efficiency?: number;
+  /** 贸易等效效率（含订单机制倍率效果，用于展示"等效 × 倍率"标注）。 */
+  trade_equivalent_efficiency?: number;
   trade_score?: number;
   trade_pct?: number;
   trade_skill_pct?: number;
@@ -181,8 +190,15 @@ export interface RotationJson {
   shifts: RotationShift[];
   daily: {
     trade: number | null;
-    manu: number | null;
+    manufacture: number | null;
     power: number | null;
+    production?: {
+      lmd: number;
+      pure_gold: number;
+      battle_records: number;
+      originium_shards: number;
+      orundum: number;
+    };
   };
 }
 

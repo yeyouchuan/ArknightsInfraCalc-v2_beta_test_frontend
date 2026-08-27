@@ -131,8 +131,8 @@ function CompactRoomCard({
           <span className="infra-room-value font-semibold tabular-nums text-[var(--room-accent)]" data-room-primary-efficiency>
             <AnimatedNumber value={efficiency.primaryValue} trend={shiftDirection} />
           </span>
-          {efficiency.details.map((detail) => (
-            <span key={detail.label} className={`font-number ${detail.kind === "cross-station" ? "text-[#C8F75A]" : ""}`}>
+          {efficiency.details.map((detail, index) => (
+            <span key={`${detail.label ?? ""}-${index}`} className={`font-number ${detail.kind === "cross-station" ? "text-[#C8F75A]" : ""}`}>
               {efficiency.formula ? <>{detail.operator ? `${detail.operator} ` : ""}<AnimatedText value={detail.value} trend={shiftDirection} /> {detail.label}</> : <>/ {detail.label} <AnimatedText value={detail.value} trend={shiftDirection} /></>}
             </span>
           ))}

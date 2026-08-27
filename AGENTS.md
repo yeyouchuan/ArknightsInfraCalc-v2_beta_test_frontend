@@ -125,6 +125,7 @@ UI 控件优先组合 `src/components/ui/*` 中的现有 primitive。不要另�
 - 生产 `plan` 数据只允许公开 `profile`、`maa`、`rotation`、可选的白名单 `trainingRoom`、`trainingAdvice`、`durationMs`、`diagnosticId`；健康检查不得公开 CLI 路径、PID、候选文件、仓库路径、存储路径或原始 serve 错误。
 - `command`、stdout、stderr 和 debug bundle 只有在服务端 `BETA_DEBUG_TOOLS_ENABLED=1` 且直接请求 `/api/plan?beta=1` 时才能进入 `data.debug`；产品页面不得发送该参数或展示调试字段。
 - 新增或修改公共 DTO 时，同时更新 `src/types.ts`、白名单 mapper、客户端调用和 `src/server/public-plan.test.ts` / `src/server/api-contract.test.ts`。
+- 新公共排班结果使用 `rotation.daily.manufacture`，并只在五项均为非负有限数时保留可选的 `rotation.daily.production`。协议适配与旧本地会话迁移可以读取 `daily.manu`，但不得在新公共响应或新持久化结果中继续输出该别名；日产量摘要和详情必须消费同一个规范化结果。
 - 新增或修改错误码时，同时更新 `AppErrorCode`、`ERROR_DEFINITIONS`、HTTP 映射和契约测试。日志只记录 requestId、code、route、status、durationMs 等最小诊断信息，不打印请求正文或凭据。
 - 所有公开写请求必须保留同源校验、请求体大小限制和适当限流。只有在明确的本地测试中关闭限流；不要用重复请求压测线上实例。
 - 反馈必须要求用户同意，并保持最小化：公开响应只有 `feedbackId` 和 `savedAt`，不要把文件路径、Box、debug bundle 或内部诊断内容回传给浏览器。

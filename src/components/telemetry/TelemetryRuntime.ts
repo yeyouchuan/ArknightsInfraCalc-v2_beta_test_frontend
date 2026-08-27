@@ -11,12 +11,6 @@ let clsValue = 0;
 function reportPage(final: boolean): void {
   const current = activePage;
   if (!current) return;
-  trackTelemetry({
-    type: "interaction",
-    name: "page_view",
-    page: current.page,
-    durationMs: Math.max(0, Date.now() - current.at),
-  });
   if (clsValue > 0) {
     trackTelemetry({
       type: "performance",
@@ -26,6 +20,12 @@ function reportPage(final: boolean): void {
     });
     clsValue = 0;
   }
+  trackTelemetry({
+    type: "interaction",
+    name: "page_view",
+    page: current.page,
+    durationMs: Math.max(0, Date.now() - current.at),
+  }, final);
   if (final) activePage = null;
 }
 
@@ -82,8 +82,11 @@ export function startTelemetryRuntime(pathname: string): () => void {
   const onVisibilityChange = () => {
     if (document.visibilityState === "hidden") reportPage(true);
   };
+  const onPageHide = () => reportPage(true);
+  window.addEventListener("pagehide", onPageHide);
   document.addEventListener("visibilitychange", onVisibilityChange);
   return () => {
+    window.removeEventListener("pagehide", onPageHide);
     document.removeEventListener("visibilitychange", onVisibilityChange);
     observers.forEach((observer) => observer.disconnect());
     reportPage(true);

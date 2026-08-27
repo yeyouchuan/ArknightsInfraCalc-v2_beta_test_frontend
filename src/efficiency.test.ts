@@ -21,6 +21,48 @@ test("normalizes backend total efficiency to the shared final_efficiency field",
   }).final_efficiency, 2.5);
 });
 
+test("trade formula uses base + equivalent + global and marks the equivalent multiplier", () => {
+  const result = presentRoomEfficiency("trading", {
+    base_efficiency: 1.03,
+    equivalent_efficiency: 0.72,
+    global_efficiency: 0.17,
+    trade_equivalent_efficiency: 1.78,
+  });
+  assert.equal(result?.primaryValue, "192%");
+  assert.deepEqual(result?.details, [
+    { label: "", value: "103%", operator: "=" },
+    { label: "技能效率", value: "72%", operator: "+" },
+    { label: "跨设施", value: "17%", operator: "+", kind: "cross-station" },
+    { label: "", value: "等效 178% 技能效率" },
+  ]);
+});
+
+test("manufacture formula uses base + equivalent + global without a multiplier", () => {
+  const result = presentRoomEfficiency("manufacture", {
+    base_efficiency: 1.02,
+    equivalent_efficiency: 1.3,
+    global_efficiency: 0.06,
+  });
+  assert.equal(result?.primaryValue, "238%");
+  assert.deepEqual(result?.details, [
+    { label: "", value: "102%", operator: "=" },
+    { label: "技能效率", value: "130%", operator: "+" },
+    { label: "跨设施", value: "6%", operator: "+", kind: "cross-station" },
+  ]);
+});
+
+test("manufacture formula still uses new fields when global is absent (zero skipped)", () => {
+  const result = presentRoomEfficiency("manufacture", {
+    base_efficiency: 1.02,
+    equivalent_efficiency: 1.3,
+  });
+  assert.equal(result?.primaryValue, "232%");
+  assert.deepEqual(result?.details, [
+    { label: "", value: "102%", operator: "=" },
+    { label: "技能效率", value: "130%", operator: "+" },
+  ]);
+});
+
 test("manufacture formula puts the final result before proven additive terms", () => {
   const result = presentRoomEfficiency("manufacture", {
     manu_score: 236,
@@ -29,7 +71,7 @@ test("manufacture formula puts the final result before proven additive terms", (
   });
 
   assert.equal(result?.primaryValue, "236%");
-  assert.equal(result?.primaryLabel, "");
+  assert.equal(result?.primaryLabel, undefined);
   assert.deepEqual(result?.details, [
     { label: "", value: "100%", operator: "=" },
     { label: "纯技能", value: "130%", operator: "+" },

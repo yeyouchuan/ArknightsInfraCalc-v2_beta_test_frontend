@@ -200,7 +200,7 @@ fixtures/operbox_full_e2.json
 - [网站账号与 PostgreSQL 上线手册](./docs/AUTHENTICATION_DATABASE.md)：认证生命周期、管理员权限、数据库迁移、备份与 production/development 验收。
 - [PostgreSQL 部署资产](./deploy/postgres/README.md)：双环境容器、最小权限角色和加密备份模板。
 - [业务数据存储与分阶段启用手册](./docs/BUSINESS_DATA_STORAGE.md)：`app` schema、保留策略、加密、回填、备份与功能开关顺序。
-- [预计日产物计算逻辑](./docs/计算逻辑.md)：经验、龙门币、赤金、源石碎片、合成玉和历史排班上下文的计算口径。
+- [预计日产物计算逻辑](./docs/计算逻辑.md)：求解器 `daily.production`、旧结果兼容估算、经验、龙门币、赤金、源石碎片、合成玉和历史排班上下文的展示口径。
 - [森空岛数据能力矩阵](./docs/SKLAND_DATA_CAPABILITIES.md)：账号状态白名单、排班最小字段与禁止持久化的数据。
 - [开发与发布维护准则](./docs/DEVELOPMENT_RELEASE_GUARDRAILS.md)：Windows/Linux 差异、求解器身份、helper 契约和双分支发布。
 - [上线产品化报告](./docs/FRONTEND_PRODUCTION_READINESS_REPORT.md)：改造基线、错误码、数据流、验证结果和 DevTools 排查方法。
