@@ -1338,8 +1338,8 @@ async function mockApis(
     }),
   }));
   await page.route("**/api/telemetry", async (route) => {
-    const body = route.request().postDataJSON() as { events?: Array<Record<string, unknown>> };
-    const events = Array.isArray(body.events) ? body.events : [];
+    const body = route.request().postDataJSON() as { events?: Array<Record<string, unknown>> } | null;
+    const events = Array.isArray(body?.events) ? body.events : [];
     options.telemetryBatches?.push(events);
     return route.fulfill({
       status: 200,
@@ -1354,6 +1354,25 @@ async function openSklandOverview(page: Page) {
   await page.getByRole("button", { name: "森空岛状态中心", exact: true }).click();
   await expect(page.locator("[data-skland-page]")).toBeVisible();
   await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
+}
+
+async function navigateToPrimaryPage(
+  page: Page,
+  destination: { name: string; href: string; root: string },
+  mobile: boolean,
+) {
+  if (mobile) {
+    await page.locator("[data-app-topbar]").getByRole("button", { name: "Toggle Sidebar" }).click();
+    await expect(page.getByRole("dialog", { name: "Sidebar" })).toBeVisible();
+  }
+  await page.getByRole("button", { name: destination.name, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`${destination.href.replace("/", "\\/")}$`));
+  await expect(page.locator(destination.root)).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator('[data-navigation-pending]')).toHaveCount(0);
+  if (mobile) {
+    await expect(page.getByRole("dialog", { name: "Sidebar" })).toHaveCount(0);
+    await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
+  }
 }
 
 async function seedPreferences(page: Page) {
@@ -1710,6 +1729,7 @@ for (const viewport of [
     await seedV4Session(page, planData, { boxSource: "maa" });
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await expect(page.locator('[data-workbench-hydrated="true"]')).toBeVisible();
 
     const dialog = page.getByRole("dialog", { name: "启用账号云端工作区" });
     await expect(dialog).toBeVisible();
@@ -1763,8 +1783,11 @@ for (const viewport of [
     await expect(dialog).toHaveCount(0);
     await expect.poll(() => workspaceWrites).toBe(1);
 
-    if (viewport.width < 768) await page.getByRole("button", { name: "Toggle Sidebar" }).click();
-    await page.getByRole("button", { name: "账号管理", exact: true }).click();
+    await navigateToPrimaryPage(page, {
+      name: "账号管理",
+      href: "/account",
+      root: "[data-account-management]",
+    }, viewport.width < 768);
     const cloudPanel = page.locator("[data-cloud-data-panel]");
     await expect(cloudPanel).toBeVisible();
     await expect(cloudPanel).toContainText("已同步 · 最近同步");
@@ -1806,8 +1829,11 @@ for (const viewport of [
     await cloudPanel.getByRole("button", { name: "恢复排班：333 · 本地 MAA" }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("[data-plan-result-summary]")).toContainText("333 基建方案");
-    if (viewport.width < 768) await page.getByRole("button", { name: "Toggle Sidebar" }).click();
-    await page.getByRole("button", { name: "账号管理", exact: true }).click();
+    await navigateToPrimaryPage(page, {
+      name: "账号管理",
+      href: "/account",
+      root: "[data-account-management]",
+    }, viewport.width < 768);
     const restoredCloudPanel = page.locator("[data-cloud-data-panel]");
     await expect(restoredCloudPanel).toBeVisible();
     await restoredCloudPanel.getByRole("button", { name: "删除排班：333 · 本地 MAA" }).click();
@@ -2576,12 +2602,16 @@ test("ignores root attributes injected by browser extensions during hydration", 
   await mockApis(page);
   await seedPreferences(page);
   await page.route("**/", async (route) => {
-    const response = await route.fetch();
+    const response = await fetch(route.request().url(), { headers: route.request().headers() });
     const body = (await response.text()).replace(
       /<html([^>]*)>/,
       '<html$1 data-fabric-scheme="dark">'
     );
-    await route.fulfill({ response, body });
+    await route.fulfill({
+      status: response.status,
+      contentType: response.headers.get("content-type") ?? "text/html; charset=utf-8",
+      body,
+    });
   });
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
@@ -3678,6 +3708,8 @@ test("the initial onboarding is full-screen while other primary pages keep one c
   ]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await expect(page.locator('[data-workbench-hydrated="true"]')).toBeVisible();
+    await expect(page.locator('[data-navigation-pending]')).toHaveCount(0);
     const calculatorTop = (await page.locator('[data-primary-page="calculator"]').boundingBox())?.y ?? -1;
     const regularPageTops: number[] = [];
 
@@ -3687,13 +3719,13 @@ test("the initial onboarding is full-screen while other primary pages keep one c
       { name: "森空岛状态中心", pageKey: "skland", root: "[data-skland-page]" },
       { name: "账号管理", pageKey: "account", root: "[data-account-management]" },
     ]) {
-      if (viewport.width < 768) {
-        await page.locator("[data-app-topbar]").getByRole("button", { name: "Toggle Sidebar" }).click();
-      }
-      await page.getByRole("button", { name: destination.name, exact: true }).click();
+      const href = destination.pageKey === "skill-query" ? "/skills" : `/${destination.pageKey}`;
+      await navigateToPrimaryPage(page, {
+        name: destination.name,
+        href,
+        root: destination.root,
+      }, viewport.width < 768);
       await page.evaluate(() => window.scrollTo(0, 0));
-      const pageRoot = page.locator(destination.root);
-      await expect(pageRoot).toBeVisible();
       await waitForOwnAnimations(page.locator(`[data-primary-page="${destination.pageKey}"]`));
       const pageTop = (await page.locator(`[data-primary-page="${destination.pageKey}"]`).boundingBox())?.y ?? -1;
       regularPageTops.push(pageTop);
@@ -3717,11 +3749,14 @@ test("Skland and account centers share header geometry and account actions use t
   ]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await expect(page.locator('[data-workbench-hydrated="true"]')).toBeVisible();
+    await expect(page.locator('[data-navigation-pending]')).toHaveCount(0);
 
-    if (viewport.width < 768) {
-      await page.locator("[data-app-topbar]").getByRole("button", { name: "Toggle Sidebar" }).click();
-    }
-    await page.getByRole("button", { name: "森空岛状态中心", exact: true }).click();
+    await navigateToPrimaryPage(page, {
+      name: "森空岛状态中心",
+      href: "/skland",
+      root: "[data-skland-page]",
+    }, viewport.width < 768);
     const sklandRoot = page.locator("[data-skland-page]");
     await waitForOwnAnimations(page.locator('[data-primary-page="skland"]'));
     const sklandHeader = sklandRoot.locator(":scope > header");
@@ -3737,10 +3772,11 @@ test("Skland and account centers share header geometry and account actions use t
       sklandLogout.boundingBox(),
     ]);
 
-    if (viewport.width < 768) {
-      await page.locator("[data-app-topbar]").getByRole("button", { name: "Toggle Sidebar" }).click();
-    }
-    await page.getByRole("button", { name: "账号管理", exact: true }).click();
+    await navigateToPrimaryPage(page, {
+      name: "账号管理",
+      href: "/account",
+      root: "[data-account-management]",
+    }, viewport.width < 768);
     const accountRoot = page.locator("[data-account-management]");
     await waitForOwnAnimations(page.locator('[data-primary-page="account"]'));
     const accountHeader = accountRoot.locator("header").first();
@@ -4420,6 +4456,12 @@ test("publishes the site terms and privacy policy with upstream policy links", a
 
 test("automatic first-party telemetry sends only the disclosed browser whitelist", async ({ page }) => {
   const telemetryBatches: Array<Array<Record<string, unknown>>> = [];
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "sendBeacon", {
+      configurable: true,
+      value: () => false,
+    });
+  });
   await mockApis(page, { telemetryBatches });
   await page.goto("/");
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem("arknights-infra-telemetry-session"))).not.toBeNull();
@@ -4445,6 +4487,20 @@ test("automatic first-party telemetry sends only the disclosed browser whitelist
     expect.objectContaining({ name: "page_view", page: "/training" }),
   ]));
   expect(new Set(events.map((event) => event.sessionId)).size).toBe(1);
+});
+
+test("telemetry mock accepts a bodyless browser delivery", async ({ page }) => {
+  const telemetryBatches: Array<Array<Record<string, unknown>>> = [];
+  await mockApis(page, { telemetryBatches });
+  await page.goto("/");
+
+  const responseStatus = await page.evaluate(async () => {
+    const response = await fetch("/api/telemetry", { method: "POST" });
+    return response.status;
+  });
+
+  expect(responseStatus).toBe(200);
+  expect(telemetryBatches).toContainEqual([]);
 });
 
 test("Skland login centers the QR on every viewport and starts after explicit consent", async ({ page }) => {

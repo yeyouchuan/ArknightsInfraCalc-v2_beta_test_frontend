@@ -330,7 +330,7 @@ RESEND_API_KEY=<development Resend API key>
 AUTH_EMAIL_FROM=可露希尔基建终端 <noreply@yeyouchuan.me>
 ```
 
-同时保留 development 已有的 `APP_DEPLOYMENT_ENV=development`、`BETA_PUBLIC_ORIGIN`、`SKLAND_PUBLIC_ORIGIN`、`SKLAND_SESSION_SECRET` 等配置。当前 development 的浏览器 Origin 是 `https://instance-pi2ohhfj.tail2dca9.ts.net`，`BETTER_AUTH_URL`、`BETA_PUBLIC_ORIGIN` 和 `SKLAND_PUBLIC_ORIGIN` 都必须与它一致，并保持 `SKLAND_ALLOW_INSECURE_HTTP=0`。SSH 隧道只用于数据库运维，不改变网站 Origin。以后更换 dev 域名时，将三个 Origin 一起改为浏览器实际访问的 HTTPS Origin；不要填写内部 Next 或 nginx 端口，也绝不能复用 production 的公网 Origin。
+同时保留 development 已有的 `APP_DEPLOYMENT_ENV=development`、`BETA_PUBLIC_ORIGIN`、`SKLAND_PUBLIC_ORIGIN`、`SKLAND_SESSION_SECRET` 等配置。当前 development 的浏览器 Origin 是 `https://instance-pi2ohhfj.tail2dca9.ts.net`；`BETTER_AUTH_URL`、`BETA_PUBLIC_ORIGIN` 和 `SKLAND_PUBLIC_ORIGIN` 必须与它一致，GitHub development Environment 的 `DEPLOY_PUBLIC_HEALTH_URL` 必须使用同一 Origin 的 `/api/health`，并保持 `SKLAND_ALLOW_INSECURE_HTTP=0`。Funnel 的 443 端口必须只把根路径转发到 `127.0.0.1:4274`；不得保留把 `/_next`、`/api`、`/checks` 或 `/quality` 转发到其他服务的路径级覆盖，否则 HTML、静态资源和 API 会来自不同应用。SSH 隧道只用于数据库运维，不改变网站 Origin。以后更换 dev 域名时，将四项配置一起改为浏览器实际访问的 HTTPS Origin；不要填写内部 Next 或 nginx 端口，也绝不能复用 production 的公网 Origin。
 
 `BETTER_AUTH_SECRET` 可以用 `openssl rand -hex 32` 生成。它与 `SKLAND_SESSION_SECRET` 必须不同；两者都要长期稳定，轮换会使现有会话失效。
 
