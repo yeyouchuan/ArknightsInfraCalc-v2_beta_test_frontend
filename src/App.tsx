@@ -1448,6 +1448,18 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
     ? displayError(inputErrorCode, inputError)
     : apiError ?? storageNotice;
   const activity = usePlanActivity({ loading, result, error: statusError });
+  useEffect(() => {
+    if (page !== "calculator" || !result?.maa) return;
+    let cancelled = false;
+    let cancelPreload: (() => void) | undefined;
+    void loadClientFeature("schedulePortraitPreload").then((module) => {
+      if (!cancelled) cancelPreload = module.scheduleNextShiftPortraitPreload(result.maa, activeShift);
+    });
+    return () => {
+      cancelled = true;
+      cancelPreload?.();
+    };
+  }, [activeShift, page, result?.maa]);
   const visiblePlanRevision = scheduleResult?.diagnosticId;
   const animatePlanEntrance = Boolean(
     page === "calculator"

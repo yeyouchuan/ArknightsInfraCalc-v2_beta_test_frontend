@@ -817,6 +817,25 @@ const scheduleVisualPlanData = {
   },
 };
 
+const adjacentPortraitOperators = ["阿米娅", "凯尔希", "贝洛内"] as const;
+const adjacentPortraitPlanData = {
+  ...scheduleVisualPlanData,
+  maa: {
+    ...scheduleVisualPlanData.maa,
+    plans: scheduleVisualPlanData.maa.plans.map((plan, index) => ({
+      ...plan,
+      rooms: {
+        trading: [{
+          product: "LMD",
+          operators: [adjacentPortraitOperators[index] ?? adjacentPortraitOperators[0]],
+          sort: true,
+          autofill: false,
+        }],
+      },
+    })),
+  },
+};
+
 const lazyPortraitPlanData = {
   ...scheduleVisualPlanData,
   maa: {
@@ -2213,6 +2232,39 @@ test("serves versioned WebP portraits with immutable caching only when versioned
   const unversioned = await request.get(amiyaPortrait.split("?")[0]);
   expect(unversioned.ok()).toBe(true);
   expect(unversioned.headers()["cache-control"]).toBe("public, max-age=0");
+});
+
+test("prefetches only the adjacent shift portrait during browser idle time", async ({ page }) => {
+  await mockApis(page);
+  await seedV4Session(page, adjacentPortraitPlanData);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "connection", {
+      configurable: true,
+      value: { effectiveType: "4g", saveData: false },
+    });
+    window.requestIdleCallback = (callback) => window.setTimeout(() => callback({
+      didTimeout: false,
+      timeRemaining: () => 50,
+    }), 0);
+    window.cancelIdleCallback = (handle) => window.clearTimeout(handle);
+  });
+
+  const requestedPortraits: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "image" && request.url().includes("/images/operator-portraits/")) {
+      requestedPortraits.push(request.url());
+    }
+  });
+  await page.goto("/");
+  await expect(page.locator("[data-plan-board]")).toHaveAttribute("data-plan-revision", diagnosticId);
+
+  await expect.poll(() => requestedPortraits.some((url) => url.includes("/003_kalts.webp?"))).toBe(true);
+  expect(requestedPortraits.some((url) => url.includes("/4037_demetr.webp?"))).toBe(false);
+
+  const shiftTabs = page.locator('[data-shift-tabs] [role="tab"]');
+  await shiftTabs.nth(1).click();
+  await expect(shiftTabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect.poll(() => requestedPortraits.some((url) => url.includes("/4037_demetr.webp?"))).toBe(true);
 });
 
 test("defers a portrait far below the mobile viewport until it approaches view", async ({ page, browserName }) => {

@@ -5,8 +5,9 @@ export function loadClientFeature(key: "planResultSummary"): Promise<typeof impo
 export function loadClientFeature(key: "operatorPortraits"): Promise<typeof import("@/operatorPortraits")>;
 export function loadClientFeature(key: "compactScheduleView"): Promise<typeof import("@/components/CompactScheduleView")>;
 export function loadClientFeature(key: "operatorSkillTooltip"): Promise<typeof import("@/components/OperatorSkillTooltip")>;
+export function loadClientFeature(key: "schedulePortraitPreload"): Promise<typeof import("@/schedule-portrait-preload")>;
 export function loadClientFeature(
-  key: "websiteAccountDialog" | "setupDialog" | "sharedComponents" | "planResultSummary" | "operatorPortraits" | "compactScheduleView" | "operatorSkillTooltip",
+  key: "websiteAccountDialog" | "setupDialog" | "sharedComponents" | "planResultSummary" | "operatorPortraits" | "compactScheduleView" | "operatorSkillTooltip" | "schedulePortraitPreload",
 ): Promise<unknown> {
   switch (key) {
     case "websiteAccountDialog":
@@ -23,5 +24,7 @@ export function loadClientFeature(
       return import("@/components/CompactScheduleView");
     case "operatorSkillTooltip":
       return import("@/components/OperatorSkillTooltip");
+    case "schedulePortraitPreload":
+      return import("@/schedule-portrait-preload");
   }
 }
