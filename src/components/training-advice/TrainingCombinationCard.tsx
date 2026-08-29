@@ -27,6 +27,12 @@ const STATE_CLASSES: Record<string, string> = {
 function MemberRow({ member }: { member: TrainingAdviceMember }) {
   const isReady = member.progress === "ready";
   const isMissing = member.progress === "missing";
+  // 就绪：浅灰背景；需培养（需精2 等）：琥珀色边框与状态字同色；缺失保持原样。
+  const cardClass = isReady
+    ? "border-white/10 bg-white/10"
+    : isMissing
+      ? "border-white/10 bg-black/18"
+      : "border-amber-300/70 bg-black/18";
   const statusClass = isReady
     ? "text-emerald-300"
     : isMissing
@@ -46,7 +52,7 @@ function MemberRow({ member }: { member: TrainingAdviceMember }) {
       ? "border-white/20 bg-white/10 text-white"
       : "border-white/10 bg-white/5 text-white/65";
   return (
-    <div className="flex min-w-0 items-center gap-1.5 border border-white/10 bg-black/18 px-2 py-1">
+    <div className={cn("flex min-w-0 items-center gap-1.5 border px-2 py-1", cardClass)}>
       <span className="size-8 shrink-0 overflow-hidden border border-white/10 bg-[#272A2B]">
         <img src={operatorPortraitFor(member.operator)} alt="" className="size-full object-cover" loading="lazy" />
       </span>

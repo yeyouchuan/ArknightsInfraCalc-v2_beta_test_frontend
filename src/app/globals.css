@@ -683,10 +683,27 @@
 }
 
 .infra-room-control {
+  border-color: rgb(255 255 255 / 0.2);
+  background-color: rgb(60 60 60 / 0.7);
+  padding-inline: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: #ffffff;
   transition:
     border-color 160ms var(--infra-ease-out),
     background-color 160ms var(--infra-ease-out),
     box-shadow 160ms var(--infra-ease-out);
+}
+
+.infra-room-control:hover {
+  background-color: #4b4b4b;
+  color: #ffffff;
+}
+
+@media (min-width: 640px) {
+  .infra-room-control {
+    padding-inline: 0.5rem;
+  }
 }
 
 .infra-room-control[aria-pressed="true"],
@@ -694,6 +711,34 @@
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--room-accent) 24%, transparent),
     0 0 7px color-mix(in srgb, var(--room-accent) 32%, transparent);
+}
+
+.product-toggle-trade[aria-pressed="true"],
+.product-toggle-trade[data-state="on"] {
+  border-color: #22bbff;
+  background-color: #22bbff;
+  color: #313131;
+}
+
+.product-toggle-factory[aria-pressed="true"],
+.product-toggle-factory[data-state="on"] {
+  border-color: #ffd800;
+  background-color: #ffd800;
+  color: #313131;
+}
+
+.product-toggle-originium[aria-pressed="true"],
+.product-toggle-originium[data-state="on"] {
+  border-color: #d84a4a;
+  background-color: #8f1e26;
+  color: #ffffff;
+}
+
+.product-toggle-battle-record[aria-pressed="true"],
+.product-toggle-battle-record[data-state="on"] {
+  border-color: #4db9ff;
+  background-color: #1f7dce;
+  color: #ffffff;
 }
 
 .infra-preset-surface::before {

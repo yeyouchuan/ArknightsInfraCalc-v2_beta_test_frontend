@@ -72,6 +72,7 @@ import { closestShift, compareShifts } from "./skland";
 import { emptySklandBindingSummary } from "./skland-binding-state";
 import { createSklandRestoreGuard } from "./skland-restore-guard";
 import { setupConfigurationFingerprint } from "./setup-configuration";
+import { formatSolverDiagnostic } from "./solver-diagnostic";
 import {
   BaseBlueprint,
   BoxSource,
@@ -1065,9 +1066,9 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
 
   function productChangeLabel(change: ProductChange) {
     if (change.type === "factory") {
-      return FACTORY_RECIPE_OPTIONS.find((option) => option.recipe === change.recipe)?.label;
+      return FACTORY_RECIPE_OPTIONS.find((option) => option.value === change.recipe)?.label;
     }
-    return TRADE_ORDER_OPTIONS.find((option) => option.order === change.order)?.label;
+    return TRADE_ORDER_OPTIONS.find((option) => option.value === change.order)?.label;
   }
 
   function showResultClearNotice(label: string | undefined) {
@@ -1595,7 +1596,7 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
           activity={activity}
           onRetry={() => void handleRetry()}
           onCopyDiagnostic={() => {
-            if (activity?.error) void copyText(`${activity.error.code}${activity.error.requestId ? ` · ${activity.error.requestId}` : ""}`);
+            if (activity?.error) void copyText(formatSolverDiagnostic(activity.error));
           }}
         />
 
@@ -1616,6 +1617,7 @@ function WorkbenchApp({ children }: { children: ReactNode }) {
         <span>非官方、小范围测试中的排班辅助工具</span>
         <Link prefetch={false} className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/terms">本站服务条款</Link>
         <Link prefetch={false} className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/privacy">本站隐私政策</Link>
+        <a className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/about" data-about-link>关于我们</a>
         <a
           href="https://www.rainyun.com/riic_"
           target="_blank"

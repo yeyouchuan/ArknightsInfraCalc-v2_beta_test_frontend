@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { normalizeProductForLevel } from "./factory-recipes.ts";
 import { validateLayoutJson } from "./layout-validation.ts";
 
 function validLayout() {
@@ -61,4 +62,38 @@ test("342 preset keeps the intended power-safe room levels", () => {
   assert.equal(levels.trade_2, 2);
   assert.equal(levels.dorm_1, 2);
   assert.deepEqual(validateLayoutJson(layout), []);
+});
+
+test("rejects originium shard production in level-one and level-two factories", () => {
+  for (const level of [1, 2]) {
+    const layout = validLayout();
+    layout.rooms[2].level = level;
+    layout.rooms[2].product = { factory: { recipe: "originium" } };
+    assert.ok(validateLayoutJson(layout).some((message) => message.includes("仅 3 级制造站可生产源石碎片")));
+  }
+});
+
+test("allows originium shard production only in level-three factories", () => {
+  const layout = validLayout();
+  layout.rooms[2].product = { factory: { recipe: "originium" } };
+  assert.deepEqual(validateLayoutJson(layout), []);
+  assert.equal(normalizeProductForLevel(2, "originium"), "gold");
+  assert.equal(normalizeProductForLevel(3, "originium"), "originium");
+});
+
+test("rejects originium orders in level-one and level-two trading posts", () => {
+  for (const level of [1, 2]) {
+    const layout = validLayout();
+    layout.rooms[1].level = level;
+    layout.rooms[1].product = { trade: { order: "originium" } };
+    assert.ok(validateLayoutJson(layout).some((message) => message.includes("仅 3 级贸易站可使用开采协力")));
+  }
+});
+
+test("allows mining cooperation only in level-three trading posts", () => {
+  const layout = validLayout();
+  layout.rooms[1].product = { trade: { order: "originium" } };
+  assert.deepEqual(validateLayoutJson(layout), []);
+  assert.equal(normalizeProductForLevel(2, "originium"), "gold");
+  assert.equal(normalizeProductForLevel(3, "originium"), "originium");
 });

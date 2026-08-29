@@ -142,6 +142,7 @@ export function ProductToggleGroup<T extends string>({
   surface = "default",
   layout = "compact",
   ariaLabel,
+  disabledValue,
 }: {
   value: T;
   options: Option<T>[];
@@ -151,6 +152,7 @@ export function ProductToggleGroup<T extends string>({
   surface?: "default" | "room";
   layout?: "compact" | "fill";
   ariaLabel: string;
+  disabledValue?: T;
 }) {
   const roomProductControls = surface === "room" && (tone === "trade" || tone === "factory");
   const compactRoomProductControls = roomProductControls && layout === "compact";
@@ -179,6 +181,7 @@ export function ProductToggleGroup<T extends string>({
       )}
     >
       {options.map((option) => {
+        const disabled = option.value === disabledValue;
         const isOriginiumTrade = tone === "trade" && option.value === "originium";
         const isOriginiumRecipe = tone === "factory" && option.value === "originium";
         const isBattleRecordRecipe = tone === "factory" && option.value === "battle_record";
@@ -187,25 +190,20 @@ export function ProductToggleGroup<T extends string>({
           <ToggleGroupItem
             key={option.value}
             value={option.value}
+            disabled={disabled}
             size="sm"
             variant="outline"
             className={cn(
               "min-w-0 px-2 text-xs",
-              surface === "room" && "infra-room-control border-white/20 bg-[#3C3C3C]/70 px-1.5 text-xs text-white hover:bg-[#4B4B4B] hover:text-white sm:px-2",
+              surface === "room" && "infra-room-control",
               surface === "default" && "min-h-10",
               compactRoomProductControls && "max-w-[90px] max-sm:max-w-[70px]",
               compactRoomProductControls && tone === "factory" && "w-full",
               fillRoomProductControls && "w-full",
-              tone === "trade" &&
-                "aria-pressed:border-[#22BBFF] aria-pressed:bg-[#22BBFF] aria-pressed:text-[#313131] data-[state=on]:border-[#22BBFF] data-[state=on]:bg-[#22BBFF] data-[state=on]:text-[#313131]",
-              isOriginiumTrade &&
-                "aria-pressed:border-[#D84A4A] aria-pressed:bg-[#8F1E26] aria-pressed:text-white data-[state=on]:border-[#D84A4A] data-[state=on]:bg-[#8F1E26] data-[state=on]:text-white",
-              tone === "factory" &&
-                "aria-pressed:border-[#FFD800] aria-pressed:bg-[#FFD800] aria-pressed:text-[#313131] data-[state=on]:border-[#FFD800] data-[state=on]:bg-[#FFD800] data-[state=on]:text-[#313131]",
-              isOriginiumRecipe &&
-                "aria-pressed:border-[#D84A4A] aria-pressed:bg-[#8F1E26] aria-pressed:text-white data-[state=on]:border-[#D84A4A] data-[state=on]:bg-[#8F1E26] data-[state=on]:text-white",
-              isBattleRecordRecipe &&
-                "aria-pressed:border-[#4DB9FF] aria-pressed:bg-[#1F7DCE] aria-pressed:text-white data-[state=on]:border-[#4DB9FF] data-[state=on]:bg-[#1F7DCE] data-[state=on]:text-white"
+              tone === "trade" && "product-toggle-trade",
+              tone === "factory" && "product-toggle-factory",
+              (isOriginiumTrade || isOriginiumRecipe) && "product-toggle-originium",
+              isBattleRecordRecipe && "product-toggle-battle-record"
             )}
           >
             {option.label}
@@ -508,6 +506,14 @@ export function LayoutEditor({
               const isFactory = room.kind === "factory";
               const activeOrder = isTrade ? tradeOrderFor(room) : null;
               const activeRecipe = isFactory ? factoryRecipeFor(room) : null;
+              const activeProduct = activeOrder ?? activeRecipe;
+              const hasRestrictedProduct = room.level < 3;
+              const restrictionHint = isTrade ? "开采协力仅限 3 级贸易站" : "源石碎片仅限 3 级制造站";
+              const availableProductOptions: Option<TradeOrder | FactoryRecipe>[] = isTrade
+                ? TRADE_ORDER_OPTIONS
+                : isFactory
+                  ? FACTORY_RECIPE_OPTIONS
+                  : [];
               const product = productLabel(room);
               const levelMax = maxRoomLevel(room.kind);
               const visualGroup = roomVisualGroupForKind(room.kind);
@@ -541,35 +547,22 @@ export function LayoutEditor({
                     />
                   </div>
 
-                  {isTrade && activeOrder ? (
+                  {activeProduct ? (
                     <div className="col-span-2 sm:col-span-1">
-                      <ProductToggleGroup
-                        ariaLabel={`${room.id} 订单`}
-                        value={activeOrder}
-                        options={TRADE_ORDER_OPTIONS.map((option) => ({
-                          value: option.order,
-                          label: option.label,
-                        }))}
-                        columns={2}
-                        tone="trade"
+                      <ProductToggleGroup<TradeOrder | FactoryRecipe>
+                        ariaLabel={`${room.id} ${isTrade ? "订单" : "配方"}${hasRestrictedProduct ? `，${restrictionHint}` : ""}`}
+                        value={activeProduct}
+                        options={availableProductOptions}
+                        columns={isTrade ? 2 : 3}
+                        tone={isTrade ? "trade" : "factory"}
                         layout="fill"
-                        onChange={(order) => onTradeOrderChange(room.id, order)}
+                        disabledValue={hasRestrictedProduct ? "originium" : undefined}
+                        onChange={(nextProduct) => {
+                          if (isTrade) onTradeOrderChange(room.id, nextProduct as TradeOrder);
+                          else onFactoryRecipeChange(room.id, nextProduct as FactoryRecipe);
+                        }}
                       />
-                    </div>
-                  ) : isFactory && activeRecipe ? (
-                    <div className="col-span-2 sm:col-span-1">
-                      <ProductToggleGroup
-                        ariaLabel={`${room.id} 配方`}
-                        value={activeRecipe}
-                        options={FACTORY_RECIPE_OPTIONS.map((option) => ({
-                          value: option.recipe,
-                          label: option.label,
-                        }))}
-                        columns={3}
-                        tone="factory"
-                        layout="fill"
-                        onChange={(recipe) => onFactoryRecipeChange(room.id, recipe)}
-                      />
+                      {hasRestrictedProduct ? <p className="mt-1.5 text-xs text-muted-foreground">{restrictionHint}。</p> : null}
                     </div>
                   ) : null}
                 </div>
@@ -1036,40 +1029,22 @@ export function RoomProductControls({
   const isFactory = layoutRoom?.kind === "factory";
   const activeOrder = isTrade ? tradeOrderFor(layoutRoom) : null;
   const activeRecipe = isFactory ? factoryRecipeFor(layoutRoom) : null;
+  const activeProduct = activeOrder ?? activeRecipe;
 
-  if (isTrade && activeOrder) {
+  if (activeProduct) {
     return (
-      <div className="w-full max-sm:w-fit">
-        <ProductToggleGroup
-          ariaLabel={`${row.title} 订单`}
-          value={activeOrder}
-          options={TRADE_ORDER_OPTIONS.map((option) => ({
-            value: option.order,
-            label: option.label,
-          }))}
-          columns={2}
-          tone="trade"
+      <div className={cn("w-full", isTrade ? "max-sm:w-fit" : "max-w-[220px]")}>
+        <ProductToggleGroup<TradeOrder | FactoryRecipe>
+          ariaLabel={`${row.title} ${isTrade ? "订单" : "配方"}`}
+          value={activeProduct}
+          options={isTrade ? TRADE_ORDER_OPTIONS : FACTORY_RECIPE_OPTIONS}
+          columns={isTrade ? 2 : 4}
+          tone={isTrade ? "trade" : "factory"}
           surface="room"
-          onChange={(order) => onTradeOrderChange(row.roomId, order)}
-        />
-      </div>
-    );
-  }
-
-  if (isFactory && activeRecipe) {
-    return (
-      <div className="w-full max-w-[220px]">
-        <ProductToggleGroup
-          ariaLabel={`${row.title} 配方`}
-          value={activeRecipe}
-          options={FACTORY_RECIPE_OPTIONS.map((option) => ({
-            value: option.recipe,
-            label: option.label,
-          }))}
-          columns={4}
-          tone="factory"
-          surface="room"
-          onChange={(recipe) => onFactoryRecipeChange(row.roomId, recipe)}
+          onChange={(nextProduct) => {
+            if (isTrade) onTradeOrderChange(row.roomId, nextProduct as TradeOrder);
+            else onFactoryRecipeChange(row.roomId, nextProduct as FactoryRecipe);
+          }}
         />
       </div>
     );

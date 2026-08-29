@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { MOTION_DURATION, MOTION_EASE_OUT } from "@/motion";
 import type { DisplayError, PublicPlanData } from "@/types";
+import { solverDiagnosticFor } from "@/solver-diagnostic";
 
 export type ActivityPhase = "running" | "success" | "error";
 
@@ -78,6 +79,7 @@ export function LiveActivity({ activity, onRetry, onCopyDiagnostic }: LiveActivi
     : activity?.phase === "success"
       ? "排班已生成"
       : activity?.error?.message ?? "排班生成失败";
+  const diagnostic = activity?.error ? solverDiagnosticFor(activity.error) : null;
 
   return (
     <AnimatePresence initial={false}>
@@ -114,6 +116,7 @@ export function LiveActivity({ activity, onRetry, onCopyDiagnostic }: LiveActivi
               <span className={cn("mt-0.5 block text-xs", activity.phase === "error" ? "text-red-800/70" : "text-[#313131]/58")}>
                 {activity.phase === "running" ? "正在调用排班服务，请稍候。" : activity.phase === "success" ? "三班结果已更新，可以查看或导出。" : `${activity.error?.code ?? "AIC-PLAN"}${activity.error?.requestId ? ` · ${activity.error.requestId}` : ""}`}
               </span>
+              {diagnostic ? <span className="mt-1 block text-xs text-red-900">{diagnostic.suggestion}</span> : null}
             </div>
             {activity.phase === "error" ? (
               <span className="flex shrink-0 items-center gap-1">

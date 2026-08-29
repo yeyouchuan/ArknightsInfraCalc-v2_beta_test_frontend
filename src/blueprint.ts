@@ -4,7 +4,7 @@ import layout252 from "./layouts/252.json";
 import layout333 from "./layouts/333.json";
 import layout342 from "./layouts/342.json";
 import { BaseBlueprint, BlueprintRoom, PresetDef, RoomKind, TradeProduct } from "./types";
-import { factoryRecipeFromMaaProduct, type FactoryRecipe } from "./factory-recipes";
+import { factoryRecipeFromMaaProduct, normalizeProductForLevel, type FactoryRecipe } from "./factory-recipes";
 
 export { factoryRecipeFromMaaProduct };
 export type { FactoryRecipe } from "./factory-recipes";
@@ -18,15 +18,15 @@ export const PRESETS: PresetDef[] = [
   { label: "342", trading: 3, manufacture: 4, power: 2, layout: layout342 as BaseBlueprint },
 ];
 
-export const FACTORY_RECIPE_OPTIONS: { recipe: FactoryRecipe; label: string }[] = [
-  { recipe: "gold", label: "贵金属" },
-  { recipe: "battle_record", label: "作战记录" },
-  { recipe: "originium", label: "源石碎片" },
+export const FACTORY_RECIPE_OPTIONS: { value: FactoryRecipe; label: string }[] = [
+  { value: "gold", label: "贵金属" },
+  { value: "battle_record", label: "作战记录" },
+  { value: "originium", label: "源石碎片" },
 ];
 
-export const TRADE_ORDER_OPTIONS: { order: TradeOrder; label: string }[] = [
-  { order: "gold", label: "龙门商法" },
-  { order: "originium", label: "开采协力" },
+export const TRADE_ORDER_OPTIONS: { value: TradeOrder; label: string }[] = [
+  { value: "gold", label: "龙门商法" },
+  { value: "originium", label: "开采协力" },
 ];
 
 export function buildBlueprint(preset: PresetDef): BaseBlueprint {
@@ -46,6 +46,7 @@ export function updateFactoryRecipe(layout: BaseBlueprint, roomId: string, recip
     scenario: structuredClone(layout.scenario),
     rooms: layout.rooms.map((room) => {
       if (room.id !== roomId || room.kind !== "factory") return structuredClone(room);
+      if (normalizeProductForLevel(room.level, recipe) !== recipe) return structuredClone(room);
       return {
         ...structuredClone(room),
         product: { factory: { recipe } },
@@ -60,6 +61,7 @@ export function updateTradeOrder(layout: BaseBlueprint, roomId: string, order: T
     scenario: structuredClone(layout.scenario),
     rooms: layout.rooms.map((room) => {
       if (room.id !== roomId || room.kind !== "trade_post") return structuredClone(room);
+      if (normalizeProductForLevel(room.level, order) !== order) return structuredClone(room);
       return {
         ...structuredClone(room),
         product: { trade: { order } },
@@ -79,7 +81,16 @@ export function updateRoomLevel(layout: BaseBlueprint, roomId: string, level: nu
   return {
     ...layout,
     scenario: structuredClone(layout.scenario),
-    rooms: layout.rooms.map((room) => (room.id === roomId ? { ...structuredClone(room), level: nextLevel } : structuredClone(room))),
+    rooms: layout.rooms.map((room) => {
+      if (room.id !== roomId) return structuredClone(room);
+      const nextRoom = { ...structuredClone(room), level: nextLevel };
+      if (nextRoom.kind === "factory") {
+        nextRoom.product = { factory: { recipe: normalizeProductForLevel(nextLevel, factoryRecipeFor(nextRoom)) } };
+      } else if (nextRoom.kind === "trade_post") {
+        nextRoom.product = { trade: { order: normalizeProductForLevel(nextLevel, tradeOrderFor(nextRoom)) } };
+      }
+      return nextRoom;
+    }),
   };
 }
 
@@ -98,12 +109,12 @@ export function productLabel(room: BlueprintRoom): string | undefined {
 
   if ("factory" in room.product) {
     const recipe = room.product.factory.recipe;
-    return FACTORY_RECIPE_OPTIONS.find((option) => option.recipe === recipe)?.label;
+    return FACTORY_RECIPE_OPTIONS.find((option) => option.value === recipe)?.label;
   }
 
   if ("trade" in room.product) {
     const order = room.product.trade.order;
-    return TRADE_ORDER_OPTIONS.find((option) => option.order === order)?.label;
+    return TRADE_ORDER_OPTIONS.find((option) => option.value === order)?.label;
   }
 
   return undefined;

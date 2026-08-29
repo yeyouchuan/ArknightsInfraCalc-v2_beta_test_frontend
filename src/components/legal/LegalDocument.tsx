@@ -37,6 +37,9 @@ export function LegalDocument({
         <Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/privacy">
           本站隐私政策
         </Link>
+        <Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground" href="/about">
+          关于我们
+        </Link>
       </footer>
     </main>
   );
