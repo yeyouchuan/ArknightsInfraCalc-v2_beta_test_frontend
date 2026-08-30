@@ -7,8 +7,9 @@ import { gzipSync } from "node:zlib";
 // The calculator keeps its always-visible board in the initial graph. Secondary workbench
 // views have independent route chunks and may carry their own datasets without joining `/`.
 const MAX_SKLAND_DISABLED_ROUTE_INITIAL_JS_BYTES = 1_130_000;
-const MAX_SKLAND_ENABLED_ROUTE_INITIAL_JS_BYTES = 1_150_000;
-const MAX_SECONDARY_ROUTE_INITIAL_JS_BYTES = 1_525_000;
+// The language switch itself is part of the shell; translation catalogs stay in an on-demand chunk.
+const MAX_SKLAND_ENABLED_ROUTE_INITIAL_JS_BYTES = 1_160_000;
+const MAX_SECONDARY_ROUTE_INITIAL_JS_BYTES = 1_540_000;
 const MAX_SKLAND_ROUTE_INITIAL_JS_BYTES = 1_590_000;
 const MAX_SKLAND_DISABLED_DOCUMENT_INITIAL_JS_BYTES = 1_240_000;
 const MAX_SKLAND_ENABLED_DOCUMENT_INITIAL_JS_BYTES = 1_270_000;
